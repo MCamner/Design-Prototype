@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client Readiness</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #484f58; border-radius: 3px; }
+    select { appearance: none; cursor: pointer; }
+    button { font-family: inherit; }
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fadein { animation: fadein 0.2s ease; }
+    @keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+    @media print {
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .no-print { display: none !important; }
+      #print-header { display: block !important; }
+      body { background: white !important; color: black !important; font-size: 11pt; }
+      .sticky-header { position: static !important; }
+      .panel-box-content { display: block !important; }
+    }
+    #print-header { display: none; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "showEvidence": true,
+  "autoRefresh": false
+}/*EDITMODE-END*/;
+
+// ── Colours ──────────────────────────────────────────────────────────────────
+const DARK  = { bg:'#0d1117', surface:'#161b22', surface2:'#1c2128', surface3:'#21262d', border:'#30363d', text:'#e6edf3', muted:'#7d8590', faint:'#484f58', green:'#3fb950', red:'#f85149', amber:'#d29922', blue:'#58a6ff' };
+const LIGHT = { bg:'#f6f8fa', surface:'#ffffff',  surface2:'#f6f8fa', surface3:'#eaeef2', border:'#d0d7de', text:'#1f2328', muted:'#57606a', faint:'#8c959f', green:'#1a7f37', red:'#cf222e', amber:'#9a6700', blue:'#0969da' };
+
+// ── Embedded profiles ────────────────────────────────────────────────────────
+const PROFILES = {
+  'igel-os12-citrix': {
+    profile:'igel-os12-citrix', label:'IGEL OS 12 + Citrix',
+    checks:[
+      { id:'CERT-ROOT-001',    title:'Root CA must be present',                  severity:'critical', category:'security',    source:'certificates.installed', operator:'contains',         expected:['Company Root CA'],                                required_capability:'certificates.installed', remediation:'Install approved root certificate bundle via UMS' },
+      { id:'CERT-ROOT-DETAIL', title:'Root CA must exist in certificate details', severity:'critical', category:'security',    source:'certificates.details',   operator:'cert_name_exists', expected:'Company Root CA',                                  required_capability:'certificates.details',   remediation:'Verify root CA is present in the expected trust store' },
+      { id:'CERT-EXP-001',     title:'Root CA must not expire soon',             severity:'high',     category:'security',    source:'certificates.details',   operator:'cert_expiry_days', match:'Company Root CA', warn_days:60, fail_days:0,          required_capability:'certificates.details',   remediation:'Renew or replace certificate before expiry' },
+      { id:'CTX-001',          title:'Citrix Workspace must be installed',       severity:'high',     category:'application', source:'citrix.installed',       operator:'equals',           expected:true,                                               required_capability:'citrix.installed',       remediation:'Install Citrix Workspace for the target platform' },
+      { id:'CTX-002',          title:'Citrix Workspace must meet minimum version',severity:'medium',  category:'application', source:'citrix.version',         operator:'min_version',      expected:'23.11.0',                                          required_capability:'citrix.version',         remediation:'Upgrade Citrix Workspace to approved baseline' },
+    ],
+  },
+  'elux7-citrix': {
+    profile:'elux7-citrix', label:'eLux 7 + Citrix',
+    checks:[
+      { id:'CERT-ROOT-001', title:'Root CA must be present',            severity:'critical', category:'security',    source:'certificates.installed', operator:'contains', expected:['Company Root CA'], required_capability:'certificates.installed', remediation:'Install approved root certificate bundle' },
+      { id:'CTX-001',       title:'Citrix Workspace must be installed', severity:'high',     category:'application', source:'citrix.installed',       operator:'equals',   expected:true,               required_capability:'citrix.installed',       remediation:'Install Citrix Workspace for eLux' },
+    ],
+  },
+  'macos-citrix': {
+    profile:'macos-citrix', label:'macOS + Citrix',
+    checks:[
+      { id:'CTX-001', title:'Citrix Workspace must be installed',      severity:'high',   category:'application', source:'citrix.installed', operator:'equals',       expected:true,      required_capability:'citrix.installed', remediation:'Install Citrix Workspace for macOS' },
+      { id:'CTX-002', title:'Citrix Workspace must meet minimum version',severity:'medium',category:'application', source:'citrix.version',   operator:'min_version',  expected:'23.11.0', required_capability:'citrix.version',   remediation:'Upgrade Citrix Workspace to approved version' },
+    ],
+  },
+  'kiosk': {
+    profile:'kiosk', label:'Kiosk Mode',
+    checks:[
+      { id:'NET-001', title:'Client must be online', severity:'critical', category:'network', source:'network.online', operator:'equals', expected:true, remediation:'Check network connection and client uplink' },
+    ],
+  },
+};
+
+// ── Inlined evaluator ────────────────────────────────────────────────────────
+const Eval = (() => {
+  function getByPath(obj, path) {
+    if (!obj||!path) return undefined;
+    return path.split('.').reduce((a,k)=>a&&Object.prototype.hasOwnProperty.call(a,k)?a[k]:undefined, obj);
+  }
+  function normalizeArray(v) { return Array.isArray(v)?v:v==null?[]:[v]; }
+  function compareContains(actual, expected) {
+    const a = normalizeArray(actual).map(String), e = normalizeArray(expected).map(String);
+    const missing = e.filter(x=>!a.includes(x));
+    return { ok:missing.length===0, actual:a, expected:e, detail: missing.length===0?'All expected values found':'Missing: '+missing.join(', ') };
+  }
+  function compareEquals(actual, expected) {
+    const ok = String(actual)===String(expected);
+    return { ok, actual, expected, detail: ok?'Actual value matches expected':`Expected "${expected}" but got "${actual}"` };
+  }
+  function compareMinVersion(actual, expected) {
+    const a=String(actual||'').split('.').map(Number), e=String(expected||'').split('.').map(Number);
+    const len=Math.max(a.length,e.length);
+    for (let i=0;i<len;i++) {
+      const av=a[i]||0, ev=e[i]||0;
+      if (av>ev) return { ok:true,  actual, expected, detail:`Version ${actual} satisfies minimum ${expected}` };
+      if (av<ev) return { ok:false, actual, expected, detail:`Version ${actual} is below minimum ${expected}` };
+    }
+    return { ok:true, actual, expected, detail:`Version ${actual} satisfies minimum ${expected}` };
+  }
+  function compareCertNameExists(actual, expected) {
+    const certs = Array.isArray(actual)?actual:[];
+    const wanted = String(expected||'').toLowerCase();
+    const match = certs.find(c=>String(c?.name||'').toLowerCase().includes(wanted));
+    return { ok:Boolean(match), actual:match||null, expected, detail: match?`Found certificate: ${match.name}` : `Certificate not found: ${expected}` };
+  }
+  function compareCertExpiry(actual, rule) {
+    const certs = Array.isArray(actual)?actual:[];
+    const name = String(rule.match||'').toLowerCase();
+    const cert = certs.find(c=>String(c?.name||'').toLowerCase().includes(name));
+    if (!cert) return { ok:false, status:'FAIL', detail:`Certificate not found: ${rule.match}` };
+    const expiry = cert.not_after ? new Date(cert.not_after) : null;
+    if (!expiry||isNaN(expiry)) return { ok:false, status:'FAIL', detail:'Invalid or missing expiry date' };
+    const diffDays = Math.floor((expiry-Date.now())/(1000*60*60*24));
+    const fail = rule.fail_days||0, warn = rule.warn_days||30;
+    if (diffDays<fail) return { ok:false, status:'FAIL', detail:`Expired ${Math.abs(diffDays)} days ago` };
+    if (diffDays<=warn) return { ok:true, status:'WARN', detail:`Expires in ${diffDays} days` };
+    return { ok:true, status:'PASS', detail:`Valid (${diffDays} days remaining)` };
+  }
+  function evaluateRule(rule, data) {
+    const caps = getByPath(data,'meta.capabilities');
+    if (rule.required_capability && (!Array.isArray(caps)||!caps.includes(rule.required_capability))) {
+      return { id:rule.id, title:rule.title, category:rule.category||'general', severity:rule.severity||'medium',
+        status:'UNSUPPORTED', expected:rule.expected||rule.match||null, actual:null,
+        evidence:`Missing capability: ${rule.required_capability}`, remediation:rule.remediation||'' };
+    }
+    const src = getByPath(data, rule.source);
+    let cmp;
+    if (rule.operator==='contains')         cmp = compareContains(src, rule.expected);
+    else if (rule.operator==='equals')      cmp = compareEquals(src, rule.expected);
+    else if (rule.operator==='min_version') cmp = compareMinVersion(src, rule.expected);
+    else if (rule.operator==='cert_name_exists') cmp = compareCertNameExists(src, rule.expected);
+    else if (rule.operator==='cert_expiry_days') cmp = compareCertExpiry(src, rule);
+    else cmp = { ok:false, actual:src, expected:rule.expected, detail:`Unsupported operator: ${rule.operator}` };
+    return { id:rule.id, title:rule.title, category:rule.category||'general', severity:rule.severity||'medium',
+      status:cmp.status||(cmp.ok?'PASS':'FAIL'), expected:cmp.expected, actual:cmp.actual,
+      evidence:cmp.detail, remediation:rule.remediation||'' };
+  }
+  function evaluateProfile(profile, data) {
+    const results = (profile.checks||[]).map(r=>evaluateRule(r,data));
+    return {
+      results,
+      summary:{
+        total:results.length,
+        passed:results.filter(r=>r.status==='PASS').length,
+        failed:results.filter(r=>r.status==='FAIL').length,
+        warnings:results.filter(r=>r.status==='WARN').length,
+        unsupported:results.filter(r=>r.status==='UNSUPPORTED').length,
+      }
+    };
+  }
+  return { evaluateProfile };
+})();
+
+// ── Rich sample data (fallback) ───────────────────────────────────────────────
+const SAMPLE_DATA = {
+  meta: {
+    agent_version:'2.3.0', baseline_version:'2026.04.17', profile:'igel-os12-citrix',
+    platform:'Linux', platform_release:'5.15.0-igel41-amd64', machine:'x86_64',
+    hostname:'IGEL-CLIENT-01',
+    capabilities:['certificates.details','certificates.installed','citrix.installed','citrix.version','meta.baseline_version','meta.profile','network.hostname','network.local_ips','network.online'],
+  },
+  network: { online:true, hostname:'IGEL-CLIENT-01', local_ips:['10.10.4.87','fe80::a4b2:c3d4:e5f6:1234'] },
+  certificates: {
+    installed:['Company Root CA','Company Issuing CA','DigiCert Global Root CA','GlobalSign Root CA','ISRG Root X1','Microsoft RSA Root Certificate Authority 2017'],
+    details:[
+      { thumbprint:'A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2', store:'company', name:'Company Root CA',     subject:'CN=Company Root CA, O=Acme Corp, C=SE',     not_after:'2026-06-15T00:00:00Z' },
+      { thumbprint:'B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3', store:'company', name:'Company Issuing CA',  subject:'CN=Company Issuing CA, O=Acme Corp, C=SE',  not_after:'2027-12-31T00:00:00Z' },
+      { thumbprint:'C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4', store:'system',  name:'DigiCert Global Root CA', subject:'CN=DigiCert Global Root CA, O=DigiCert Inc', not_after:'2031-11-10T00:00:00Z' },
+    ],
+  },
+  citrix:   { installed:true, version:'24.1.0' },
+  processes:{ running:['citrix-wfica','citrix-AuthManagerDaemon','pcscd'], missing:['opensc-pkcs11'] },
+  smartcard:{ pcscd_running:true, readers:['Identiv uTrust 3700 F Smart Card Reader 0'], opensc_readers:[], usb_devices:['0x04e6:0x5790 Identiv uTrust 3700 F'] },
+};
+
+// ── Data loading ─────────────────────────────────────────────────────────────
+async function fetchWithTimeout(url, ms, opts={}) {
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, { ...opts, signal:ctrl.signal });
+    clearTimeout(t);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch(e) { clearTimeout(t); throw e; }
+}
+
+async function loadClientData() {
+  const sources = [
+    { key:'live-helper', url:'http://127.0.0.1:38765/status', ms:2500, opts:{ cache:'no-store' } },
+    { key:'saved-live',  url:'live-client-data.json',         ms:1500, opts:{ cache:'no-store' } },
+  ];
+  for (const s of sources) {
+    try { return { source:s.key, data:await fetchWithTimeout(s.url, s.ms, s.opts) }; } catch(e) {}
+  }
+  return { source:'sample-data', data:SAMPLE_DATA };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function relTime(iso) {
+  const d = Math.floor((Date.now()-new Date(iso))/60000);
+  if (d<1) return 'just now'; if (d<60) return `${d}m ago`;
+  if (d<1440) return `${Math.floor(d/60)}h ago`; return `${Math.floor(d/1440)}d ago`;
+}
+function getOverall(results) {
+  if (results.some(r=>r.status==='FAIL'&&r.severity==='critical')) return 'CRITICAL';
+  if (results.some(r=>r.status==='FAIL')) return 'FAIL';
+  if (results.some(r=>r.status==='WARN')) return 'WARN';
+  return 'READY';
+}
+function groupByCategory(results) {
+  const order = ['security','application','network','general'];
+  const map = {};
+  for (const r of results) { const k=r.category||'general'; (map[k]||(map[k]=[])).push(r); }
+  return [...order.filter(k=>map[k]),...Object.keys(map).filter(k=>!order.includes(k))].map(k=>[k,map[k]]);
+}
+function certDaysLeft(notAfter) {
+  if (!notAfter) return null;
+  return Math.floor((new Date(notAfter)-Date.now())/(1000*60*60*24));
+}
+
+// ── Atoms ────────────────────────────────────────────────────────────────────
+function Badge({ label, color, small, C }) {
+  return <span style={{ padding:small?'1px 5px':'2px 8px', borderRadius:4, fontSize:small?10:11, fontWeight:700, fontFamily:'monospace', letterSpacing:'0.06em', background:`${color}22`, color, border:`1px solid ${color}55` }}>{label}</span>;
+}
+function SevPip({ sev, C }) {
+  const col = sev==='critical'?C.red:sev==='high'?'#e3b341':sev==='medium'?C.amber:C.faint;
+  return <span style={{ padding:'1px 5px', borderRadius:3, fontSize:10, fontWeight:700, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:'0.08em', background:`${col}20`, color:col, border:`1px solid ${col}40` }}>{sev}</span>;
+}
+function StatusBadge({ status, C }) {
+  const col = status==='PASS'?C.green:status==='FAIL'?C.red:status==='WARN'?C.amber:C.faint;
+  return <Badge label={status} color={col} C={C}/>;
+}
+function ScoreCard({ label, value, color, C }) {
+  return (
+    <div style={{ background:C.surface2, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 16px', flex:1, minWidth:80 }}>
+      <div style={{ fontSize:22, fontWeight:700, fontFamily:'monospace', color:color||C.text, lineHeight:1 }}>{value}</div>
+      <div style={{ fontSize:10, color:C.muted, marginTop:5, textTransform:'uppercase', letterSpacing:'0.07em' }}>{label}</div>
+    </div>
+  );
+}
+function PanelBox({ title, children, defaultOpen=true, C }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ border:`1px solid ${C.border}`, borderRadius:8, overflow:'hidden' }}>
+      <div onClick={()=>setOpen(o=>!o)} style={{ padding:'8px 14px', background:C.surface2, borderBottom:open?`1px solid ${C.border}`:'none', display:'flex', justifyContent:'space-between', cursor:'pointer', userSelect:'none' }}>
+        <span style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.12em' }}>{title}</span>
+        <span style={{ fontSize:11, color:C.faint }}>{open?'▲':'▼'}</span>
+      </div>
+      {open && <div style={{ background:C.surface }}>{children}</div>}
+    </div>
+  );
+}
+
+// ── Check row ────────────────────────────────────────────────────────────────
+function CheckRow({ r, showEv, C }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <tr onClick={()=>r.remediation&&setOpen(o=>!o)} style={{ cursor:r.remediation?'pointer':'default', borderBottom:`1px solid ${C.border}` }}
+        onMouseEnter={e=>e.currentTarget.style.background=C.surface2}
+        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+        <td style={{ padding:'8px 12px', fontFamily:'monospace', fontSize:11, color:C.muted, whiteSpace:'nowrap', width:152 }}>{r.id}</td>
+        <td style={{ padding:'8px 12px', fontSize:13, color:C.text }}>{r.title}</td>
+        <td style={{ padding:'8px 12px', whiteSpace:'nowrap' }}><SevPip sev={r.severity} C={C}/></td>
+        <td style={{ padding:'8px 12px', whiteSpace:'nowrap' }}><StatusBadge status={r.status} C={C}/></td>
+        {showEv && <td style={{ padding:'8px 12px', fontSize:11, color:C.muted, fontFamily:'monospace', maxWidth:240 }}>{r.evidence}</td>}
+        <td style={{ padding:'8px 12px', width:20, color:C.faint, fontSize:11, textAlign:'right' }}>{r.remediation?(open?'▲':'▼'):''}</td>
+      </tr>
+      {open && r.remediation && (
+        <tr style={{ background:`${C.amber}08`, borderBottom:`1px solid ${C.border}` }}>
+          <td colSpan={showEv?6:5} style={{ padding:'8px 12px 10px 28px' }}>
+            <div style={{ fontSize:12, color:C.amber, display:'flex', gap:6 }}>
+              <span>⚡</span><span>{r.remediation}</span>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function ChecksSection({ results, showEv, C }) {
+  const groups = groupByCategory(results);
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      {groups.map(([cat,rows])=>(
+        <div key={cat} style={{ border:`1px solid ${C.border}`, borderRadius:8, overflow:'hidden' }}>
+          <div style={{ padding:'7px 12px', background:C.surface2, borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.12em' }}>{cat}</span>
+            <span style={{ fontSize:10, color:C.faint, background:C.surface3, border:`1px solid ${C.border}`, borderRadius:8, padding:'0 5px', fontFamily:'monospace' }}>{rows.length}</span>
+          </div>
+          <table style={{ width:'100%', borderCollapse:'collapse', background:C.surface }}>
+            <tbody>{rows.map(r=><CheckRow key={r.id} r={r} showEv={showEv} C={C}/>)}</tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Panels ───────────────────────────────────────────────────────────────────
+function NetworkPanel({ data, C }) {
+  const net = data?.network || {};
+  const rows = [
+    ['Hostname', net.hostname||data?.meta?.hostname||'—'],
+    ['Online',   net.online===true?'Yes':net.online===false?'No':'—'],
+    ['IP addresses', (net.local_ips||[]).join(', ')||'—'],
+  ];
+  return (
+    <div style={{ padding:'10px 14px' }}>
+      {rows.map(([k,v])=>(
+        <div key={k} style={{ display:'flex', gap:12, padding:'4px 0', borderBottom:`1px solid ${C.border}` }}>
+          <span style={{ fontSize:12, color:C.muted, minWidth:110 }}>{k}</span>
+          <span style={{ fontSize:12, fontFamily:'monospace', color:net.online===true&&k==='Online'?C.green:net.online===false&&k==='Online'?C.red:C.text }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProcessesPanel({ data, C }) {
+  const proc = data?.processes;
+  if (!proc) return <div style={{ padding:14, color:C.muted, fontSize:12, fontStyle:'italic' }}>No process data (requires helper)</div>;
+  return (
+    <div style={{ padding:'10px 14px', display:'flex', gap:32, flexWrap:'wrap' }}>
+      <div>
+        <div style={{ fontSize:10, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Running</div>
+        {proc.running?.length===0 ? <span style={{ fontSize:12, color:C.muted, fontStyle:'italic' }}>None</span>
+          : proc.running?.map(p=>(
+            <div key={p} style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+              <span style={{ color:C.green, fontSize:9 }}>●</span>
+              <span style={{ fontSize:12, fontFamily:'monospace', color:C.text }}>{p}</span>
+            </div>
+          ))}
+      </div>
+      {proc.missing?.length>0 && (
+        <div>
+          <div style={{ fontSize:10, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Not detected</div>
+          {proc.missing.map(p=>(
+            <div key={p} style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+              <span style={{ color:C.faint, fontSize:9 }}>○</span>
+              <span style={{ fontSize:12, fontFamily:'monospace', color:C.muted }}>{p}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SmartcardPanel({ data, C }) {
+  const sc = data?.smartcard;
+  if (!sc) return <div style={{ padding:14, color:C.muted, fontSize:12, fontStyle:'italic' }}>No smartcard data (requires helper)</div>;
+  const col = sc.pcscd_running?C.green:C.red;
+  return (
+    <div style={{ padding:'10px 14px' }}>
+      <div style={{ display:'flex', gap:12, padding:'4px 0', borderBottom:`1px solid ${C.border}` }}>
+        <span style={{ fontSize:12, color:C.muted, minWidth:110 }}>pcscd</span>
+        <span style={{ fontSize:12, fontFamily:'monospace', fontWeight:600, color:col }}>{sc.pcscd_running?'Running':'Not running'}</span>
+      </div>
+      <div style={{ display:'flex', gap:12, padding:'4px 0', borderBottom:`1px solid ${C.border}` }}>
+        <span style={{ fontSize:12, color:C.muted, minWidth:110 }}>Readers</span>
+        <span style={{ fontSize:12, fontFamily:'monospace', color:C.text }}>{sc.readers?.length?sc.readers.join(', '):'None detected'}</span>
+      </div>
+      <div style={{ display:'flex', gap:12, padding:'4px 0' }}>
+        <span style={{ fontSize:12, color:C.muted, minWidth:110 }}>USB devices</span>
+        <span style={{ fontSize:12, fontFamily:'monospace', color:C.text }}>{sc.usb_devices?.length?sc.usb_devices.join(', '):'None detected'}</span>
+      </div>
+    </div>
+  );
+}
+
+function CertificatesPanel({ data, C }) {
+  const installed = data?.certificates?.installed || [];
+  const details   = data?.certificates?.details   || [];
+  const [showAll, setShowAll] = useState(false);
+
+  if (installed.length===0 && details.length===0) {
+    return <div style={{ padding:14, color:C.muted, fontSize:12, fontStyle:'italic' }}>No certificate data (requires helper)</div>;
+  }
+
+  const knownNames = new Set(details.map(d=>d.name));
+  const installedOnly = installed.filter(n=>!knownNames.has(n));
+  const display = showAll ? installedOnly : installedOnly.slice(0,5);
+
+  return (
+    <div style={{ padding:'10px 14px' }}>
+      {/* Certs with details (expiry etc) */}
+      {details.length>0 && (
+        <div style={{ marginBottom:12 }}>
+          <div style={{ fontSize:10, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Tracked certificates</div>
+          {details.map(d=>{
+            const days = certDaysLeft(d.not_after);
+            const col  = days===null?C.muted : days<0?C.red : days<=60?C.amber : C.green;
+            const label= days===null?'—' : days<0?`Expired ${Math.abs(days)}d ago` : days<=60?`${days} days left`:`${days} days left`;
+            return (
+              <div key={d.thumbprint} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 0', borderBottom:`1px solid ${C.border}` }}>
+                <div>
+                  <div style={{ fontSize:13, color:C.text, fontWeight:500 }}>{d.name}</div>
+                  <div style={{ fontSize:10, color:C.muted, fontFamily:'monospace', marginTop:2 }}>{d.thumbprint}</div>
+                  <div style={{ fontSize:10, color:C.faint, marginTop:1 }}>{d.store} store</div>
+                </div>
+                <span style={{ fontSize:11, fontWeight:600, color:col, fontFamily:'monospace', whiteSpace:'nowrap', marginLeft:12 }}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Installed-only list */}
+      {installedOnly.length>0 && (
+        <div>
+          <div style={{ fontSize:10, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>
+            Installed ({installed.length} total)
+          </div>
+          {display.map(name=>(
+            <div key={name} style={{ fontSize:12, fontFamily:'monospace', color:C.muted, padding:'2px 0' }}>{name}</div>
+          ))}
+          {installedOnly.length>5 && (
+            <button onClick={()=>setShowAll(o=>!o)}
+              style={{ marginTop:8, fontSize:11, color:C.blue, background:'none', border:'none', cursor:'pointer', padding:0 }}>
+              {showAll?`Show less ▲`:`Show ${installedOnly.length-5} more ▼`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Capability gap warning ───────────────────────────────────────────────────
+function CapabilityGapWarning({ results, data, C }) {
+  const unsupported = results.filter(r=>r.status==='UNSUPPORTED');
+  if (unsupported.length===0) return null;
+  const caps = data?.meta?.capabilities||[];
+  const missing = [...new Set(unsupported.map(r=>r.evidence.replace('Missing capability: ','')))];
+  return (
+    <div style={{ padding:'10px 14px', background:`${C.amber}0c`, borderBottom:`1px solid ${C.amber}33` }}>
+      <div style={{ fontSize:12, color:C.amber, fontWeight:600, marginBottom:4 }}>
+        {unsupported.length} check{unsupported.length>1?'s':''} unsupported — helper lacks required capabilities
+      </div>
+      <div style={{ fontSize:11, color:C.muted }}>Missing: {missing.map(m=><code key={m} style={{ background:`${C.amber}18`, padding:'0 4px', borderRadius:3, marginRight:4, fontSize:10 }}>{m}</code>)}</div>
+      <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>Run <code style={{ background:C.surface3, padding:'0 4px', borderRadius:3 }}>python3 helper/client_readiness_agent.py</code> to enable full validation.</div>
+    </div>
+  );
+}
+
+// ── Source indicator ─────────────────────────────────────────────────────────
+function SourceBadge({ source, C }) {
+  const cfg = {
+    'live-helper': { col:C.green,  label:'live helper' },
+    'saved-live':  { col:C.amber,  label:'saved data'  },
+    'sample-data': { col:C.faint,  label:'sample data' },
+  }[source]||{ col:C.faint, label:source };
+  return (
+    <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:11 }}>
+      <span style={{ width:6, height:6, borderRadius:'50%', background:cfg.col, display:'inline-block', boxShadow:`0 0 4px ${cfg.col}` }}/>
+      <span style={{ color:C.muted }}>{cfg.label}</span>
+    </span>
+  );
+}
+
+// ── Export ───────────────────────────────────────────────────────────────────
+function copyReportToClipboard({ hostname, profile, source, overall, summary, results, data, onDone }) {
+  const ts = new Date().toLocaleString('sv-SE');
+  const statusColor = overall==='READY'?'#1a7f37':overall==='WARN'?'#9a6700':'#cf222e';
+  const sevCol = s => s==='critical'?'#cf222e':s==='high'?'#9a6700':s==='medium'?'#6e40c9':'#57606a';
+  const stCol  = s => s==='PASS'?'#1a7f37':s==='FAIL'?'#cf222e':s==='WARN'?'#9a6700':'#57606a';
+
+  const checkRows = results.map(r=>`
+    <tr>
+      <td style="padding:6px 10px;border:1px solid #d0d7de;font-family:monospace;font-size:11px;color:#57606a;white-space:nowrap">${r.id}</td>
+      <td style="padding:6px 10px;border:1px solid #d0d7de;font-size:12px">${r.title}</td>
+      <td style="padding:6px 10px;border:1px solid #d0d7de;font-size:11px;font-weight:700;color:${sevCol(r.severity)};text-transform:uppercase">${r.severity}</td>
+      <td style="padding:6px 10px;border:1px solid #d0d7de;font-size:11px;font-weight:700;color:${stCol(r.status)}">${r.status}</td>
+      <td style="padding:6px 10px;border:1px solid #d0d7de;font-size:11px;color:#57606a;font-family:monospace">${r.evidence||''}</td>
+      <td style="padding:6px 10px;border:1px solid #d0d7de;font-size:11px;color:#57606a">${r.remediation||''}</td>
+    </tr>`).join('');
+
+  const net = data?.network || {};
+  const proc = data?.processes;
+
+  const html = `
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;max-width:800px;color:#1f2328">
+  <table width="100%" cellpadding="0" cellspacing="0" style="border-bottom:2px solid #d0d7de;margin-bottom:16px;padding-bottom:12px">
+    <tr>
+      <td>
+        <div style="font-size:18px;font-weight:700;margin-bottom:4px">Client Readiness Report</div>
+        <div style="font-size:12px;color:#57606a">${ts} · ${source}</div>
+      </td>
+      <td align="right">
+        <span style="padding:4px 12px;border-radius:4px;font-size:13px;font-weight:700;font-family:monospace;background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}55">${overall}</span>
+      </td>
+    </tr>
+  </table>
+
+  <table cellpadding="0" cellspacing="0" style="margin-bottom:16px">
+    <tr>
+      <td style="padding-right:24px;font-size:12px;color:#57606a">Hostname</td>
+      <td style="font-size:12px;font-weight:600;font-family:monospace">${hostname}</td>
+    </tr>
+    <tr>
+      <td style="padding-right:24px;font-size:12px;color:#57606a">Profile</td>
+      <td style="font-size:12px">${profile.label}</td>
+    </tr>
+    <tr>
+      <td style="padding-right:24px;font-size:12px;color:#57606a">Platform</td>
+      <td style="font-size:12px;font-family:monospace">${data?.meta?.platform||'—'} ${data?.meta?.platform_release||''}</td>
+    </tr>
+    <tr>
+      <td style="padding-right:24px;font-size:12px;color:#57606a">Agent</td>
+      <td style="font-size:12px;font-family:monospace">v${data?.meta?.agent_version||'—'}</td>
+    </tr>
+    ${net.ip ? `<tr><td style="padding-right:24px;font-size:12px;color:#57606a">IP</td><td style="font-size:12px;font-family:monospace">${net.ip||net.local_ips?.join(', ')||'—'}</td></tr>` : ''}
+  </table>
+
+  <table cellpadding="0" cellspacing="0" style="margin-bottom:20px">
+    <tr>
+      ${[['Checks',summary.total,'#1f2328'],['Pass',summary.passed,'#1a7f37'],['Fail',summary.failed,'#cf222e'],['Warn',summary.warnings,'#9a6700'],['Unsupported',summary.unsupported,'#57606a']].map(([l,v,c])=>`
+      <td style="padding:8px 16px;border:1px solid #d0d7de;border-radius:6px;text-align:center;margin-right:8px;background:#f6f8fa">
+        <div style="font-size:20px;font-weight:700;font-family:monospace;color:${v>0?c:'#8c959f'}">${v}</div>
+        <div style="font-size:10px;color:#57606a;text-transform:uppercase;letter-spacing:0.06em">${l}</div>
+      </td><td width="8"></td>`).join('')}
+    </tr>
+  </table>
+
+  <div style="font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Checks — ${profile.label}</div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:20px">
+    <thead>
+      <tr style="background:#f6f8fa">
+        <th style="padding:6px 10px;border:1px solid #d0d7de;text-align:left;font-size:11px;font-weight:700;color:#57606a">ID</th>
+        <th style="padding:6px 10px;border:1px solid #d0d7de;text-align:left;font-size:11px;font-weight:700;color:#57606a">Check</th>
+        <th style="padding:6px 10px;border:1px solid #d0d7de;text-align:left;font-size:11px;font-weight:700;color:#57606a">Severity</th>
+        <th style="padding:6px 10px;border:1px solid #d0d7de;text-align:left;font-size:11px;font-weight:700;color:#57606a">Status</th>
+        <th style="padding:6px 10px;border:1px solid #d0d7de;text-align:left;font-size:11px;font-weight:700;color:#57606a">Evidence</th>
+        <th style="padding:6px 10px;border:1px solid #d0d7de;text-align:left;font-size:11px;font-weight:700;color:#57606a">Remediation</th>
+      </tr>
+    </thead>
+    <tbody>${checkRows}</tbody>
+  </table>
+
+  ${proc ? `
+  <div style="font-size:10px;font-weight:700;color:#57606a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Processes</div>
+  <table cellpadding="0" cellspacing="0" style="margin-bottom:20px">
+    ${proc.running?.length>0?`<tr><td style="font-size:12px;color:#57606a;padding-right:16px">Running</td><td style="font-size:12px;font-family:monospace">${proc.running.join(', ')}</td></tr>`:''}
+    ${proc.missing?.length>0?`<tr><td style="font-size:12px;color:#57606a;padding-right:16px">Not detected</td><td style="font-size:12px;font-family:monospace;color:#8c959f">${proc.missing.join(', ')}</td></tr>`:''}
+  </table>` : ''}
+
+  <div style="font-size:10px;color:#8c959f;border-top:1px solid #d0d7de;padding-top:8px;margin-top:8px">
+    Generated by Client Readiness Dashboard · ${ts}
+  </div>
+</div>`;
+
+  const plain = [
+    `CLIENT READINESS REPORT`,
+    `${'─'.repeat(40)}`,
+    `Hostname:  ${hostname}`,
+    `Profile:   ${profile.label}`,
+    `Status:    ${overall}`,
+    `Source:    ${source}`,
+    `Date:      ${ts}`,
+    ``,
+    `SUMMARY`,
+    `Checks: ${summary.total}  Pass: ${summary.passed}  Fail: ${summary.failed}  Warn: ${summary.warnings}  Unsupported: ${summary.unsupported}`,
+    ``,
+    `CHECKS`,
+    ...results.map(r=>`[${r.status}] ${r.id} — ${r.title}${r.evidence?'\n         '+r.evidence:''}${r.remediation?'\n       ⚡ '+r.remediation:''}`),
+    ``,
+    `${'─'.repeat(40)}`,
+    `Generated by Client Readiness Dashboard · ${ts}`,
+  ].join('\n');
+
+  // Most reliable method: select rendered HTML in a hidden contenteditable element
+  // Works in locked/older browsers (IGEL, eLux) where Clipboard API is blocked
+  function copyViaExecCommand() {
+    const div = document.createElement('div');
+    div.contentEditable = 'true';
+    div.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';
+    div.innerHTML = html;
+    document.body.appendChild(div);
+    try {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(div);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      const ok = document.execCommand('copy');
+      sel.removeAllRanges();
+      document.body.removeChild(div);
+      if (ok) { onDone(); return true; }
+    } catch(e) {
+      try { document.body.removeChild(div); } catch(_) {}
+    }
+    return false;
+  }
+
+  // Try modern API first, fall back to execCommand, then plain text
+  if (navigator.clipboard && window.ClipboardItem) {
+    try {
+      const blob  = new Blob([html],  { type:'text/html' });
+      const blobP = new Blob([plain], { type:'text/plain' });
+      navigator.clipboard.write([new ClipboardItem({ 'text/html':blob, 'text/plain':blobP })])
+        .then(onDone)
+        .catch(()=>{ if (!copyViaExecCommand()) navigator.clipboard.writeText(plain).then(onDone).catch(()=>copyViaExecCommand()); });
+      return;
+    } catch(e) {}
+  }
+  if (!copyViaExecCommand()) {
+    // Last resort: plain text via textarea
+    const ta = document.createElement('textarea');
+    ta.value = plain;
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); onDone(); } catch(e) {}
+    document.body.removeChild(ta);
+  }
+}
+
+function exportJSON({ hostname, profile, source, overall, summary, results, data }) {
+  const report = {
+    report_version: '1.0',
+    exported_at: new Date().toISOString(),
+    hostname,
+    profile_id: profile.profile,
+    profile_label: profile.label,
+    data_source: source,
+    overall_status: overall,
+    summary,
+    results: results.map(r=>({ id:r.id, title:r.title, category:r.category, severity:r.severity, status:r.status, evidence:r.evidence, remediation:r.remediation })),
+    agent_meta: data?.meta || null,
+    network: data?.network || null,
+  };
+  const blob = new Blob([JSON.stringify(report, null, 2)], { type:'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const ts   = new Date().toISOString().slice(0,16).replace('T','-').replace(':','');
+  a.href     = url;
+  a.download = `readiness-${hostname}-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ExportButton({ hostname, profile, source, overall, summary, results, data, C }) {
+  const [open,   setOpen]   = useState(false);
+  const [copied, setCopied] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(()=>{
+    if (!open) return;
+    const h=(e)=>{ if(ref.current&&!ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown',h);
+    return ()=>document.removeEventListener('mousedown',h);
+  },[open]);
+
+  const btnStyle = { background:C.surface2, border:`1px solid ${C.border}`, borderRadius:6, padding:'5px 12px', fontSize:12, color:copied?C.green:C.text, cursor:'pointer', display:'flex', alignItems:'center', gap:6, transition:'color 0.2s' };
+  const itemStyle = { display:'block', width:'100%', padding:'10px 14px', background:'none', border:'none', textAlign:'left', fontSize:12, color:C.text, cursor:'pointer', borderBottom:`1px solid ${C.border}` };
+  const lastItem  = { ...itemStyle, borderBottom:'none' };
+
+  const exportProps = { hostname, profile, source, overall, summary, results, data };
+
+  return (
+    <div ref={ref} style={{ position:'relative' }} className="no-print">
+      <button onClick={()=>setOpen(o=>!o)} style={btnStyle}>
+        {copied ? '✓ Copied!' : `↓ Export ${open?'▲':'▼'}`}
+      </button>
+      {open && (
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, boxShadow:'0 8px 20px rgba(0,0,0,0.25)', width:210, zIndex:200, overflow:'hidden' }}>
+          <button
+            onClick={()=>{
+              copyReportToClipboard({ ...exportProps, onDone:()=>{ setCopied(true); setOpen(false); setTimeout(()=>setCopied(false), 2500); } });
+            }}
+            style={itemStyle}
+            onMouseEnter={e=>e.currentTarget.style.background=C.surface2}
+            onMouseLeave={e=>e.currentTarget.style.background='none'}
+          >
+            <div style={{ fontWeight:600 }}>📋 Copy report</div>
+            <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>Paste into Outlook or Gmail</div>
+          </button>
+          <button
+            onClick={()=>{ exportJSON(exportProps); setOpen(false); }}
+            style={itemStyle}
+            onMouseEnter={e=>e.currentTarget.style.background=C.surface2}
+            onMouseLeave={e=>e.currentTarget.style.background='none'}
+          >
+            <div style={{ fontWeight:600 }}>↓ Export JSON</div>
+            <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>Full report as .json file</div>
+          </button>
+          <button
+            onClick={()=>{ setOpen(false); setTimeout(()=>window.print(),100); }}
+            style={lastItem}
+            onMouseEnter={e=>e.currentTarget.style.background=C.surface2}
+            onMouseLeave={e=>e.currentTarget.style.background='none'}
+          >
+            <div style={{ fontWeight:600 }}>🖨 Print / Save PDF</div>
+            <div style={{ fontSize:10, color:C.muted, marginTop:2 }}>Browser print → Save as PDF</div>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Tweaks ───────────────────────────────────────────────────────────────────
+function TweaksPanel({ tweaks, onChange, visible, C }) {
+  if (!visible) return null;
+  const S = { label:{ fontSize:11, color:C.muted, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:4 }, row:{ marginBottom:14 } };
+  return (
+    <div style={{ position:'fixed', bottom:20, right:20, zIndex:9999, background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:'14px 16px', width:210, boxShadow:'0 8px 24px rgba(0,0,0,0.5)' }}>
+      <div style={{ fontSize:12, fontWeight:700, color:C.text, marginBottom:12 }}>Tweaks</div>
+      <div style={S.row}>
+        <div style={S.label}>Theme</div>
+        <select value={tweaks.theme} onChange={e=>onChange({...tweaks,theme:e.target.value})}
+          style={{ background:C.surface2, color:C.text, border:`1px solid ${C.border}`, borderRadius:4, padding:'4px 8px', fontSize:12, width:'100%' }}>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+      <div style={S.row}>
+        <div style={S.label}>Evidence column</div>
+        <label style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer' }}>
+          <input type="checkbox" checked={tweaks.showEvidence} onChange={e=>onChange({...tweaks,showEvidence:e.target.checked})} style={{ accentColor:C.blue }}/>
+          <span style={{ fontSize:12, color:C.text }}>Show evidence</span>
+        </label>
+      </div>
+      <div style={S.row}>
+        <div style={S.label}>Auto-refresh</div>
+        <label style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer' }}>
+          <input type="checkbox" checked={tweaks.autoRefresh} onChange={e=>onChange({...tweaks,autoRefresh:e.target.checked})} style={{ accentColor:C.blue }}/>
+          <span style={{ fontSize:12, color:C.text }}>Every 30s</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [payload,   setPayload]   = useState(null);   // { source, data }
+  const [loading,   setLoading]   = useState(true);
+  const [profileId, setProfileId] = useState(()=>localStorage.getItem('cr_profile')||'igel-os12-citrix');
+  const [tweaks,    setTweaks]    = useState(()=>{ try { const s=localStorage.getItem('cr_tweaks'); if(s) return {...TWEAK_DEFAULTS,...JSON.parse(s)}; }catch(e){} return {...TWEAK_DEFAULTS}; });
+  const [tweaksVis, setTweaksVis] = useState(false);
+  const [refreshAt, setRefreshAt] = useState(null);
+  const intervalRef = useRef(null);
+
+  const C = tweaks.theme==='light' ? LIGHT : DARK;
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const p = await loadClientData();
+    // if helper reports its own profile and we haven't manually picked, follow it
+    const helperProfile = p.data?.meta?.profile;
+    if (helperProfile && PROFILES[helperProfile] && !localStorage.getItem('cr_profile_manual')) {
+      setProfileId(helperProfile);
+    }
+    setPayload(p);
+    setRefreshAt(new Date());
+    setLoading(false);
+  }, []);
+
+  useEffect(()=>{ refresh(); }, [refresh]);
+
+  // auto-refresh
+  useEffect(()=>{
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (tweaks.autoRefresh) intervalRef.current = setInterval(refresh, 30000);
+    return ()=>{ if(intervalRef.current) clearInterval(intervalRef.current); };
+  }, [tweaks.autoRefresh, refresh]);
+
+  const handleProfile = (id) => {
+    setProfileId(id);
+    localStorage.setItem('cr_profile', id);
+    localStorage.setItem('cr_profile_manual', '1');
+  };
+
+  const handleTweaks = (next) => {
+    setTweaks(next);
+    localStorage.setItem('cr_tweaks', JSON.stringify(next));
+    window.parent.postMessage({ type:'__edit_mode_set_keys', edits:next }, '*');
+  };
+
+  useEffect(()=>{
+    const h=(e)=>{
+      if(e.data?.type==='__activate_edit_mode')   setTweaksVis(true);
+      if(e.data?.type==='__deactivate_edit_mode') setTweaksVis(false);
+    };
+    window.addEventListener('message',h);
+    window.parent.postMessage({type:'__edit_mode_available'},'*');
+    return ()=>window.removeEventListener('message',h);
+  },[]);
+
+  const profile = PROFILES[profileId] || PROFILES['igel-os12-citrix'];
+  const data    = payload?.data || SAMPLE_DATA;
+  const source  = payload?.source || 'sample-data';
+
+  const { results, summary } = useMemo(()=>Eval.evaluateProfile(profile, data), [profile, data]);
+  const overall    = getOverall(results);
+  const overallCol = overall==='READY'?C.green:overall==='WARN'?C.amber:C.red;
+  const hostname   = data?.meta?.hostname || data?.network?.hostname || '—';
+
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif" }}>
+
+      {/* ── Header ── */}
+      <div className="no-print" style={{ position:'sticky', top:0, zIndex:100, background:C.surface, borderBottom:`1px solid ${C.border}`, padding:'0 24px' }}>
+        <div style={{ height:52, display:'flex', alignItems:'center', gap:16, maxWidth:1100, margin:'0 auto' }}>
+          {/* Title */}
+          <div style={{ fontSize:13, fontWeight:700, color:C.text, whiteSpace:'nowrap' }}>Client Readiness</div>
+          <div style={{ width:1, height:20, background:C.border }}/>
+
+          {/* Hostname + status */}
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:14, fontWeight:600, fontFamily:'monospace', color:C.text }}>{hostname}</span>
+            <Badge label={overall} color={overallCol} C={C}/>
+          </div>
+
+          <div style={{ flex:1 }}/>
+
+          {/* Source */}
+          <SourceBadge source={source} C={C}/>
+
+          {/* Profile selector */}
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <span style={{ fontSize:11, color:C.muted }}>Profile</span>
+            <select value={profileId} onChange={e=>handleProfile(e.target.value)}
+              style={{ background:C.surface2, color:C.text, border:`1px solid ${C.border}`, borderRadius:6, padding:'4px 8px', fontSize:12 }}>
+              {Object.entries(PROFILES).map(([id,p])=><option key={id} value={id}>{p.label}</option>)}
+            </select>
+          </div>
+
+          {/* Export */}
+          <ExportButton hostname={hostname} profile={profile} source={source} overall={overall} summary={summary} results={results} data={data} C={C}/>
+
+          {/* Refresh */}
+          <button onClick={refresh} disabled={loading}
+            style={{ background:C.surface2, border:`1px solid ${C.border}`, borderRadius:6, padding:'5px 12px', fontSize:12, color:C.text, cursor:loading?'wait':'pointer', display:'flex', alignItems:'center', gap:6 }}>
+            <span className={loading?'spin':''} style={{ fontSize:12 }}>↻</span>
+            {refreshAt && !loading ? relTime(refreshAt) : 'Refresh'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Print header (hidden on screen) ── */}
+      <div id="print-header" style={{ padding:'16px 24px 12px', borderBottom:'1px solid #ccc', marginBottom:16 }}>
+        <div style={{ fontSize:18, fontWeight:700, marginBottom:4 }}>Client Readiness Report</div>
+        <div style={{ fontSize:12, color:'#555', display:'flex', gap:24 }}>
+          <span>Hostname: <strong>{hostname}</strong></span>
+          <span>Profile: <strong>{profile.label}</strong></span>
+          <span>Status: <strong>{overall}</strong></span>
+          <span>Source: <strong>{source}</strong></span>
+          <span>Exported: <strong>{new Date().toLocaleString()}</strong></span>
+        </div>
+      </div>
+
+      {/* ── Main ── */}
+      <div style={{ maxWidth:1100, margin:'0 auto', padding:'24px 24px 48px' }}>
+
+        {loading && !payload ? (
+          <div style={{ padding:'80px 0', textAlign:'center', color:C.muted, fontSize:13 }}>
+            <span className="spin" style={{ fontSize:20, display:'block', marginBottom:12 }}>↻</span>
+            Connecting to helper agent…
+          </div>
+        ) : (
+          <div className="fadein">
+
+            {/* Scorecards */}
+            <div style={{ display:'flex', gap:10, marginBottom:24, flexWrap:'wrap' }}>
+              <ScoreCard label="Checks"      value={summary.total}       C={C}/>
+              <ScoreCard label="Pass"        value={summary.passed}      color={summary.passed>0?C.green:C.muted}       C={C}/>
+              <ScoreCard label="Fail"        value={summary.failed}      color={summary.failed>0?C.red:C.muted}         C={C}/>
+              <ScoreCard label="Warn"        value={summary.warnings}    color={summary.warnings>0?C.amber:C.muted}     C={C}/>
+              <ScoreCard label="Unsupported" value={summary.unsupported} color={summary.unsupported>0?C.faint:C.muted}  C={C}/>
+            </div>
+
+            {/* Capability gap banner */}
+            {summary.unsupported>0 && (
+              <div style={{ border:`1px solid ${C.border}`, borderRadius:8, overflow:'hidden', marginBottom:20 }}>
+                <CapabilityGapWarning results={results} data={data} C={C}/>
+              </div>
+            )}
+
+            {/* Checks */}
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:10 }}>Checks — {profile.label}</div>
+              <ChecksSection results={results} showEv={tweaks.showEvidence} C={C}/>
+            </div>
+
+            {/* Info panels: 2-col row */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+              <PanelBox title="Network"   C={C}><NetworkPanel   data={data} C={C}/></PanelBox>
+              <PanelBox title="Smartcard" C={C}><SmartcardPanel data={data} C={C}/></PanelBox>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
+              <PanelBox title="Processes" C={C}><ProcessesPanel data={data} C={C}/></PanelBox>
+              <PanelBox title={`Certificates (${(data?.certificates?.installed||[]).length} installed)`} C={C} defaultOpen={true}>
+                <CertificatesPanel data={data} C={C}/>
+              </PanelBox>
+            </div>
+
+            {/* Agent meta */}
+            <PanelBox title="Agent metadata" defaultOpen={false} C={C}>
+              <div style={{ padding:'10px 14px', display:'flex', flexWrap:'wrap', gap:'6px 24px' }}>
+                {[
+                  ['Agent version',    data?.meta?.agent_version],
+                  ['Baseline version', data?.meta?.baseline_version],
+                  ['Platform',         data?.meta?.platform],
+                  ['Release',          data?.meta?.platform_release],
+                  ['Machine',          data?.meta?.machine],
+                  ['Profile (helper)', data?.meta?.profile],
+                  ['Data source',      source],
+                ].filter(([,v])=>v).map(([k,v])=>(
+                  <div key={k}>
+                    <span style={{ fontSize:11, color:C.muted }}>{k}: </span>
+                    <span style={{ fontSize:11, fontFamily:'monospace', color:C.text }}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              {data?.meta?.capabilities?.length>0 && (
+                <div style={{ padding:'0 14px 10px', borderTop:`1px solid ${C.border}`, paddingTop:8 }}>
+                  <div style={{ fontSize:10, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>Capabilities</div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+                    {data.meta.capabilities.map(cap=>(
+                      <span key={cap} style={{ fontSize:10, fontFamily:'monospace', background:C.surface2, border:`1px solid ${C.border}`, borderRadius:4, padding:'1px 6px', color:C.muted }}>{cap}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </PanelBox>
+
+          </div>
+        )}
+      </div>
+
+      <TweaksPanel tweaks={tweaks} onChange={handleTweaks} visible={tweaksVis} C={C}/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
