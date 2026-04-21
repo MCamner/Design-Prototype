@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fleet Command Center</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #484f58; border-radius: 3px; }
+    button, select { font-family: inherit; }
+    select { appearance: none; cursor: pointer; }
+
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes fadein  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes slidein { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:translateX(0); } }
+    @keyframes pulse   { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+    @keyframes glow    { 0%,100% { box-shadow: 0 0 4px currentColor; } 50% { box-shadow: 0 0 12px currentColor; } }
+    @keyframes ping    { 0% { transform:scale(1); opacity:1; } 100% { transform:scale(2.2); opacity:0; } }
+    @keyframes ticker  { from { transform:translateY(0); } to { transform:translateY(-100%); } }
+    @keyframes scanline { 0% { top:-5%; } 100% { top:105%; } }
+    @keyframes appear  { from { opacity:0; transform:scale(0.96); } to { opacity:1; transform:scale(1); } }
+
+    .spin    { animation: spin 1s linear infinite; display:inline-block; }
+    .fadein  { animation: fadein 0.25s ease; }
+    .slidein { animation: slidein 0.2s ease; }
+    .pulse   { animation: pulse 2s ease-in-out infinite; }
+
+    .pip-live::after {
+      content:'';
+      position:absolute; inset:0;
+      border-radius:50%;
+      animation: ping 1.4s ease-out infinite;
+      background: currentColor;
+      opacity:0.5;
+    }
+
+    .card-hover { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .card-hover:hover { transform: translateY(-2px); }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo, useRef, memo } = React;
+
+// ── Palette ──────────────────────────────────────────────────────────────────
+const C = {
+  bg:      '#090d13',
+  surface: '#0d1117',
+  s2:      '#161b22',
+  s3:      '#1c2128',
+  s4:      '#21262d',
+  border:  '#30363d',
+  text:    '#e6edf3',
+  muted:   '#7d8590',
+  faint:   '#484f58',
+  green:   '#3fb950',
+  red:     '#f85149',
+  amber:   '#d29922',
+  blue:    '#58a6ff',
+  purple:  '#bc8cff',
+  cyan:    '#39d353',
+  orange:  '#f0883e',
+};
+
+// ── Site / profile definitions ───────────────────────────────────────────────
+const PROFILES = ['igel-os12-citrix','elux7-citrix','macos-citrix','kiosk'];
+const PROFILE_LABELS = {
+  'igel-os12-citrix': 'IGEL OS 12 + Citrix',
+  'elux7-citrix':     'eLux 7 + Citrix',
+  'macos-citrix':     'macOS + Citrix',
+  'kiosk':            'Kiosk',
+};
+
+// ── Check profiles (mirrors Client Readiness Dashboard) ──────────────────────
+const PROFILE_CHECKS = {
+  'igel-os12-citrix': { profile:'igel-os12-citrix', checks:[
+    { id:'CERT-ROOT-001', title:'Root CA must be present',                  severity:'critical', category:'security',    source:'certificates.installed', operator:'contains',         expected:['Company Root CA'],   required_capability:'certificates.installed', remediation:'Install approved root certificate bundle via UMS' },
+    { id:'CERT-ROOT-DETAIL',title:'Root CA must exist in certificate details',severity:'critical',category:'security',   source:'certificates.details',   operator:'cert_name_exists', expected:'Company Root CA',    required_capability:'certificates.details',   remediation:'Verify root CA is present in the expected trust store' },
+    { id:'CERT-EXP-001',  title:'Root CA must not expire soon',             severity:'high',     category:'security',    source:'certificates.details',   operator:'cert_expiry_days', match:'Company Root CA', warn_days:60, fail_days:0, required_capability:'certificates.details', remediation:'Renew or replace certificate before expiry' },
+    { id:'CTX-001',       title:'Citrix Workspace must be installed',       severity:'high',     category:'application', source:'citrix.installed',       operator:'equals',           expected:true,                 required_capability:'citrix.installed',       remediation:'Install Citrix Workspace for the target platform' },
+    { id:'CTX-002',       title:'Citrix Workspace must meet minimum version',severity:'medium',  category:'application', source:'citrix.version',         operator:'min_version',      expected:'23.11.0',            required_capability:'citrix.version',         remediation:'Upgrade Citrix Workspace to approved baseline' },
+  ]},
+  'elux7-citrix': { profile:'elux7-citrix', checks:[
+    { id:'CERT-ROOT-001', title:'Root CA must be present',            severity:'critical', category:'security',    source:'certificates.installed', operator:'contains', expected:['Company Root CA'], required_capability:'certificates.installed', remediation:'Install approved root certificate bundle' },
+    { id:'CTX-001',       title:'Citrix Workspace must be installed', severity:'high',     category:'application', source:'citrix.installed',       operator:'equals',   expected:true,               required_capability:'citrix.installed',       remediation:'Install Citrix Workspace for eLux' },
+  ]},
+  'macos-citrix': { profile:'macos-citrix', checks:[
+    { id:'CTX-001', title:'Citrix Workspace must be installed',       severity:'high',   category:'application', source:'citrix.installed', operator:'equals',      expected:true,      required_capability:'citrix.installed', remediation:'Install Citrix Workspace for macOS' },
+    { id:'CTX-002', title:'Citrix Workspace must meet minimum version',severity:'medium',category:'application', source:'citrix.version',   operator:'min_version', expected:'23.11.0', required_capability:'citrix.version',   remediation:'Upgrade Citrix Workspace to approved version' },
+  ]},
+  'kiosk': { profile:'kiosk', checks:[
+    { id:'NET-001', title:'Client must be online', severity:'critical', category:'network', source:'network.online', operator:'equals', expected:true, remediation:'Check network connection and client uplink' },
+  ]},
+};
+
+// ── Eval engine ──────────────────────────────────────────────────────────────
+const Eval = (() => {
+  function getByPath(obj, path) {
+    if (!obj||!path) return undefined;
+    return path.split('.').reduce((a,k)=>a&&Object.prototype.hasOwnProperty.call(a,k)?a[k]:undefined, obj);
+  }
+  function normalizeArray(v) { return Array.isArray(v)?v:v==null?[]:[v]; }
+  function compareContains(actual, expected) {
+    const a=normalizeArray(actual).map(String), e=normalizeArray(expected).map(String);
+    const missing=e.filter(x=>!a.includes(x));
+    return { ok:missing.length===0, detail:missing.length===0?'All expected values found':'Missing: '+missing.join(', ') };
+  }
+  function compareEquals(actual, expected) {
+    const ok=String(actual)===String(expected);
+    return { ok, detail:ok?'Actual value matches expected':`Expected "${expected}" but got "${actual}"` };
+  }
+  function compareMinVersion(actual, expected) {
+    const a=String(actual||'').split('.').map(Number), e=String(expected||'').split('.').map(Number);
+    const len=Math.max(a.length,e.length);
+    for (let i=0;i<len;i++) {
+      const av=a[i]||0, ev=e[i]||0;
+      if (av>ev) return { ok:true,  detail:`Version ${actual} satisfies minimum ${expected}` };
+      if (av<ev) return { ok:false, detail:`Version ${actual} is below minimum ${expected}` };
+    }
+    return { ok:true, detail:`Version ${actual} satisfies minimum ${expected}` };
+  }
+  function compareCertNameExists(actual, expected) {
+    const certs=Array.isArray(actual)?actual:[];
+    const wanted=String(expected||'').toLowerCase();
+    const match=certs.find(c=>String(c?.name||'').toLowerCase().includes(wanted));
+    return { ok:Boolean(match), detail:match?`Found certificate: ${match.name}`:`Certificate not found: ${expected}` };
+  }
+  function compareCertExpiry(actual, rule) {
+    const certs=Array.isArray(actual)?actual:[];
+    const name=String(rule.match||'').toLowerCase();
+    const cert=certs.find(c=>String(c?.name||'').toLowerCase().includes(name));
+    if (!cert) return { ok:false, status:'FAIL', detail:`Certificate not found: ${rule.match}` };
+    const expiry=cert.not_after?new Date(cert.not_after):null;
+    if (!expiry||isNaN(expiry)) return { ok:false, status:'FAIL', detail:'Invalid or missing expiry date' };
+    const diffDays=Math.floor((expiry-Date.now())/(1000*60*60*24));
+    const fail=rule.fail_days||0, warn=rule.warn_days||30;
+    if (diffDays<fail) return { ok:false, status:'FAIL', detail:`Expired ${Math.abs(diffDays)} days ago` };
+    if (diffDays<=warn) return { ok:true,  status:'WARN', detail:`Expires in ${diffDays} days` };
+    return { ok:true, status:'PASS', detail:`Valid (${diffDays} days remaining)` };
+  }
+  function evaluateRule(rule, data) {
+    const caps=getByPath(data,'meta.capabilities');
+    if (rule.required_capability&&(!Array.isArray(caps)||!caps.includes(rule.required_capability))) {
+      return { id:rule.id, title:rule.title, category:rule.category||'general', severity:rule.severity||'medium',
+        status:'UNSUPPORTED', evidence:`Missing capability: ${rule.required_capability}`, remediation:rule.remediation||'' };
+    }
+    const src=getByPath(data, rule.source);
+    let cmp;
+    if (rule.operator==='contains')          cmp=compareContains(src, rule.expected);
+    else if (rule.operator==='equals')       cmp=compareEquals(src, rule.expected);
+    else if (rule.operator==='min_version')  cmp=compareMinVersion(src, rule.expected);
+    else if (rule.operator==='cert_name_exists') cmp=compareCertNameExists(src, rule.expected);
+    else if (rule.operator==='cert_expiry_days') cmp=compareCertExpiry(src, rule);
+    else cmp={ ok:false, detail:`Unsupported operator: ${rule.operator}` };
+    return { id:rule.id, title:rule.title, category:rule.category||'general', severity:rule.severity||'medium',
+      status:cmp.status||(cmp.ok?'PASS':'FAIL'), evidence:cmp.detail, remediation:rule.remediation||'' };
+  }
+  function evaluateProfile(profileDef, data) {
+    const results=(profileDef.checks||[]).map(r=>evaluateRule(r,data));
+    return { results };
+  }
+  return { evaluateProfile };
+})();
+
+const STATUS_CONFIG = {
+  READY:    { color: C.green,  label: 'READY',    icon: '●' },
+  WARN:     { color: C.amber,  label: 'WARN',     icon: '◐' },
+  FAIL:     { color: C.red,    label: 'FAIL',     icon: '✕' },
+  CRITICAL: { color: C.red,    label: 'CRITICAL', icon: '!' },
+  OFFLINE:  { color: C.faint,  label: 'OFFLINE',  icon: '○' },
+};
+
+// ── Fake fleet generator ─────────────────────────────────────────────────────
+function makeHostname(profile, idx) {
+  if (profile === 'igel-os12-citrix') return `IGEL-${String(idx).padStart(3,'0')}`;
+  if (profile === 'elux7-citrix')     return `ELUX-${String(idx).padStart(3,'0')}`;
+  if (profile === 'macos-citrix')     return `MAC-${String(idx).padStart(3,'0')}`;
+  return `KIOSK-${String(idx).padStart(3,'0')}`;
+}
+
+function makeChecks(profile, overallBias) {
+  const checkDefs = {
+    'igel-os12-citrix': [
+      { id:'CERT-ROOT-001', title:'Root CA present',       sev:'critical', cat:'security'    },
+      { id:'CERT-EXP-001',  title:'Root CA not expiring',  sev:'high',     cat:'security'    },
+      { id:'CTX-001',       title:'Citrix installed',      sev:'high',     cat:'application' },
+      { id:'CTX-002',       title:'Citrix min version',    sev:'medium',   cat:'application' },
+      { id:'NET-001',       title:'Network reachable',     sev:'critical', cat:'network'     },
+    ],
+    'elux7-citrix': [
+      { id:'CERT-ROOT-001', title:'Root CA present',       sev:'critical', cat:'security'    },
+      { id:'CTX-001',       title:'Citrix installed',      sev:'high',     cat:'application' },
+      { id:'NET-001',       title:'Network reachable',     sev:'critical', cat:'network'     },
+    ],
+    'macos-citrix': [
+      { id:'CTX-001',       title:'Citrix installed',      sev:'high',     cat:'application' },
+      { id:'CTX-002',       title:'Citrix min version',    sev:'medium',   cat:'application' },
+      { id:'NET-001',       title:'Network reachable',     sev:'critical', cat:'network'     },
+    ],
+    'kiosk': [
+      { id:'NET-001',       title:'Client online',         sev:'critical', cat:'network'     },
+      { id:'DISP-001',      title:'Display active',        sev:'high',     cat:'hardware'    },
+    ],
+  };
+  const defs = checkDefs[profile] || checkDefs['kiosk'];
+  return defs.map(d => {
+    let status;
+    const r = Math.random();
+    if (overallBias === 'READY') {
+      status = r < 0.85 ? 'PASS' : r < 0.93 ? 'WARN' : 'FAIL';
+    } else if (overallBias === 'WARN') {
+      status = r < 0.5 ? 'PASS' : r < 0.8 ? 'WARN' : 'FAIL';
+    } else if (overallBias === 'FAIL') {
+      status = r < 0.3 ? 'PASS' : r < 0.5 ? 'WARN' : 'FAIL';
+    } else {
+      status = r < 0.7 ? 'PASS' : r < 0.85 ? 'WARN' : 'FAIL';
+    }
+    const evidences = {
+      'PASS': ['All expected values found', 'Check passed', 'Version satisfies minimum', 'Reachable'],
+      'WARN': ['Expires in 42 days', 'Version slightly behind', 'High latency detected'],
+      'FAIL': ['Certificate not found', 'Version below minimum 23.11.0', 'Host unreachable', 'Service not running'],
+    };
+    const ev = evidences[status];
+    return { ...d, status, evidence: ev[Math.floor(Math.random() * ev.length)] };
+  });
+}
+
+function deriveOverall(checks) {
+  if (checks.some(c => c.status === 'FAIL' && c.sev === 'critical')) return 'CRITICAL';
+  if (checks.some(c => c.status === 'FAIL')) return 'FAIL';
+  if (checks.some(c => c.status === 'WARN')) return 'WARN';
+  return 'READY';
+}
+
+function genClient(idx) {
+  const profile = PROFILES[Math.floor(Math.random() * PROFILES.length)];
+  const site    = SITES[Math.floor(Math.random() * SITES.length)];
+  const r = Math.random();
+  const bias = r < 0.60 ? 'READY' : r < 0.78 ? 'WARN' : r < 0.90 ? 'FAIL' : 'CRITICAL';
+  const offline = Math.random() < 0.06;
+  const checks  = offline ? [] : makeChecks(profile, bias);
+  const overall = offline ? 'OFFLINE' : deriveOverall(checks);
+  const seenMinsAgo = offline
+    ? Math.floor(Math.random() * 1440) + 30
+    : Math.floor(Math.random() * 25);
+  return {
+    id: `client-${idx}`,
+    hostname: makeHostname(profile, idx + 1),
+    profile,
+    site,
+    overall,
+    checks,
+    seenMinsAgo,
+    agentVersion: `2.${Math.floor(Math.random()*3)}.${Math.floor(Math.random()*5)}`,
+    ip: `10.${Math.floor(Math.random()*4)+10}.${Math.floor(Math.random()*254)+1}.${Math.floor(Math.random()*254)+1}`,
+  };
+}
+
+function generateFleet(n = 48) {
+  return Array.from({ length: n }, (_, i) => genClient(i));
+}
+
+// ── Collector integration ────────────────────────────────────────────────────
+function minutesSince(isoString) {
+  if (!isoString) return 9999;
+  return Math.max(0, Math.floor((Date.now() - new Date(isoString)) / 60000));
+}
+
+function collectorClientToFleetClient(c) {
+  if (c.status === 'offline') {
+    return {
+      id: c.ip, hostname: c.hostname, profile: c.profile || 'unknown',
+      site: c.site || 'Unknown', overall: 'OFFLINE', checks: [],
+      seenMinsAgo: minutesSince(c.last_seen), agentVersion: '—', ip: c.ip,
+    };
+  }
+  const data      = c.data || {};
+  const profileId = data.meta?.profile || c.profile || 'igel-os12-citrix';
+  const profileDef = PROFILE_CHECKS[profileId] || PROFILE_CHECKS['igel-os12-citrix'];
+  const { results } = Eval.evaluateProfile(profileDef, data);
+  const checks = results.map(r => ({
+    id: r.id, title: r.title, sev: r.severity, cat: r.category,
+    status: r.status === 'UNSUPPORTED' ? 'WARN' : r.status,
+    evidence: r.evidence, remediation: r.remediation,
+  }));
+  const overall = deriveOverall(checks);
+  return {
+    id: c.ip, hostname: c.hostname, profile: profileId,
+    site: c.site || data.meta?.site || 'Unknown',
+    overall, checks, seenMinsAgo: 0,
+    agentVersion: data.meta?.agent_version || '—', ip: c.ip,
+  };
+}
+
+async function loadFleetFromCollector() {
+  const urls = ['/fleet', 'http://127.0.0.1:38766/fleet'];
+  for (const url of urls) {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 3000);
+      const r = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
+      clearTimeout(timer);
+      if (!r.ok) continue;
+      const json = await r.json();
+      if (!Array.isArray(json.clients) || json.clients.length === 0) continue;
+      return json.clients.map(collectorClientToFleetClient);
+    } catch (e) { /* try next */ }
+  }
+  return null;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function relTime(mins) {
+  if (mins < 1)    return 'just now';
+  if (mins < 60)   return `${mins}m ago`;
+  if (mins < 1440) return `${Math.floor(mins/60)}h ago`;
+  return `${Math.floor(mins/1440)}d ago`;
+}
+
+function fleetScore(clients) {
+  const active = clients.filter(c => c.overall !== 'OFFLINE');
+  if (!active.length) return 0;
+  const ready = active.filter(c => c.overall === 'READY').length;
+  return Math.round((ready / active.length) * 100);
+}
+
+// ── Components ───────────────────────────────────────────────────────────────
+
+function Pip({ status, size = 10, live = false }) {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.OFFLINE;
+  return (
+    <span style={{ position:'relative', display:'inline-flex', alignItems:'center', justifyContent:'center', width:size, height:size, flexShrink:0 }}>
+      {live && status !== 'OFFLINE' && (
+        <span className="pip-live" style={{ position:'absolute', inset:0, borderRadius:'50%', color:cfg.color }}/>
+      )}
+      <span style={{ width:size, height:size, borderRadius:'50%', background:cfg.color, display:'block', flexShrink:0 }}/>
+    </span>
+  );
+}
+
+function ScoreMeter({ score }) {
+  const col = score >= 80 ? C.green : score >= 55 ? C.amber : C.red;
+  const circumference = 2 * Math.PI * 54;
+  const offset = circumference * (1 - score / 100);
+  return (
+    <div style={{ position:'relative', width:130, height:130, flexShrink:0 }}>
+      <svg width="130" height="130" style={{ transform:'rotate(-90deg)' }}>
+        <circle cx="65" cy="65" r="54" fill="none" stroke={C.s3} strokeWidth="9"/>
+        <circle cx="65" cy="65" r="54" fill="none" stroke={col} strokeWidth="9"
+          strokeDasharray={circumference} strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition:'stroke-dashoffset 0.8s ease, stroke 0.4s ease' }}/>
+      </svg>
+      <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ fontSize:30, fontWeight:800, fontFamily:'monospace', color:col, lineHeight:1, transition:'color 0.4s' }}>{score}</div>
+        <div style={{ fontSize:9, color:C.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginTop:2 }}>fleet score</div>
+      </div>
+    </div>
+  );
+}
+
+function StatBlock({ label, value, color, sub }) {
+  return (
+    <div style={{ textAlign:'center', minWidth:64 }}>
+      <div style={{ fontSize:28, fontWeight:800, fontFamily:'monospace', color: color || C.text, lineHeight:1, transition:'color 0.3s' }}>{value}</div>
+      <div style={{ fontSize:9, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:4 }}>{label}</div>
+      {sub != null && <div style={{ fontSize:10, color:C.faint, marginTop:2, fontFamily:'monospace' }}>{sub}</div>}
+    </div>
+  );
+}
+
+const ActivityEntry = memo(function ActivityEntry({ entry }) {
+  const cfg = STATUS_CONFIG[entry.status] || STATUS_CONFIG.OFFLINE;
+  return (
+    <div className="slidein" style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'7px 14px', borderBottom:`1px solid ${C.border}` }}>
+      <Pip status={entry.status} size={7}/>
+      <div style={{ flex:1, minWidth:0 }}>
+        <div style={{ fontSize:11, color:C.text, fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{entry.hostname}</div>
+        <div style={{ fontSize:10, color:C.muted, marginTop:1 }}>{entry.msg}</div>
+      </div>
+      <div style={{ fontSize:9, color:C.faint, whiteSpace:'nowrap', marginTop:1 }}>{entry.ts}</div>
+    </div>
+  );
+});
+
+function ActivityFeed({ entries }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = 0;
+  }, [entries.length]);
+
+  return (
+    <div style={{ height:'100%', display:'flex', flexDirection:'column' }}>
+      <div style={{ padding:'8px 14px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8 }}>
+        <span style={{ width:6, height:6, borderRadius:'50%', background:C.green, display:'inline-block' }} className="pulse"/>
+        <span style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Activity</span>
+      </div>
+      <div ref={ref} style={{ flex:1, overflowY:'auto' }}>
+        {entries.map(e => <ActivityEntry key={e.id} entry={e}/>)}
+        {entries.length === 0 && (
+          <div style={{ padding:20, color:C.faint, fontSize:11, textAlign:'center' }}>No activity yet</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const ClientCard = memo(function ClientCard({ client, selected, onClick }) {
+  const cfg  = STATUS_CONFIG[client.overall] || STATUS_CONFIG.OFFLINE;
+  const isOk = client.overall === 'READY';
+  const offline = client.overall === 'OFFLINE';
+
+  const passed = client.checks.filter(c => c.status === 'PASS').length;
+  const total  = client.checks.length;
+
+  return (
+    <div
+      className="card-hover"
+      onClick={onClick}
+      style={{
+        background: selected ? `${cfg.color}12` : C.s2,
+        border: `1px solid ${selected ? cfg.color : C.border}`,
+        borderRadius: 8,
+        padding: '10px 12px',
+        cursor: 'pointer',
+        position: 'relative',
+        overflow: 'hidden',
+        opacity: offline ? 0.55 : 1,
+        boxShadow: selected ? `0 0 0 1px ${cfg.color}44, 0 4px 16px ${cfg.color}22` : 'none',
+        transition: 'border-color 0.2s, background 0.2s, box-shadow 0.2s',
+      }}
+    >
+      {/* subtle gradient accent top */}
+      <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background: offline ? C.faint : cfg.color, opacity: 0.7, transition:'background 0.3s' }}/>
+
+      <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:6 }}>
+        <span style={{ position:'relative', display:'inline-flex' }}>
+          <Pip status={client.overall} size={8} live={!offline && (client.overall === 'FAIL' || client.overall === 'CRITICAL')}/>
+        </span>
+        <span style={{ fontSize:11, fontWeight:700, fontFamily:'monospace', color: C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{client.hostname}</span>
+        <span style={{ fontSize:9, fontWeight:700, color: cfg.color, fontFamily:'monospace', letterSpacing:'0.05em' }}>{cfg.label}</span>
+      </div>
+
+      <div style={{ fontSize:9, color:C.muted, marginBottom:6, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+        {PROFILE_LABELS[client.profile]}
+      </div>
+
+      {/* mini check bar */}
+      {!offline && total > 0 && (
+        <div style={{ display:'flex', gap:2, marginBottom:6 }}>
+          {client.checks.map(ch => {
+            const c = ch.status === 'PASS' ? C.green : ch.status === 'WARN' ? C.amber : C.red;
+            return <div key={ch.id} style={{ flex:1, height:3, borderRadius:2, background:c }}/>;
+          })}
+        </div>
+      )}
+
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span style={{ fontSize:9, color:C.faint }}>{client.site}</span>
+        <span style={{ fontSize:9, color: offline ? C.red : C.faint, fontFamily:'monospace' }}>
+          {relTime(client.seenMinsAgo)}
+        </span>
+      </div>
+    </div>
+  );
+});
+
+function ClientDetail({ client, onClose }) {
+  if (!client) return null;
+  const cfg     = STATUS_CONFIG[client.overall] || STATUS_CONFIG.OFFLINE;
+  const passed  = client.checks.filter(c => c.status === 'PASS').length;
+  const failed  = client.checks.filter(c => c.status === 'FAIL').length;
+  const warned  = client.checks.filter(c => c.status === 'WARN').length;
+
+  const sevCol  = s => s === 'critical' ? C.red : s === 'high' ? C.orange : s === 'medium' ? C.amber : C.faint;
+  const statCol = s => s === 'PASS' ? C.green : s === 'FAIL' ? C.red : s === 'WARN' ? C.amber : C.faint;
+
+  return (
+    <div className="slidein" style={{ height:'100%', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ padding:'12px 16px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:10, background:C.s2, flexShrink:0 }}>
+        <Pip status={client.overall} size={10} live={client.overall === 'FAIL' || client.overall === 'CRITICAL'}/>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color:C.text }}>{client.hostname}</div>
+          <div style={{ fontSize:10, color:C.muted, marginTop:1 }}>{client.ip} · {client.site}</div>
+        </div>
+        <span style={{ padding:'2px 8px', borderRadius:4, fontSize:11, fontWeight:700, fontFamily:'monospace', background:`${cfg.color}20`, color:cfg.color, border:`1px solid ${cfg.color}44` }}>{cfg.label}</span>
+        <button onClick={onClose} style={{ background:'none', border:'none', color:C.muted, cursor:'pointer', fontSize:16, lineHeight:1, padding:'2px 4px' }}>✕</button>
+      </div>
+
+      {/* Meta row */}
+      <div style={{ padding:'10px 16px', borderBottom:`1px solid ${C.border}`, display:'flex', gap:20, flexWrap:'wrap', background:C.s3, flexShrink:0 }}>
+        {[
+          ['Profile',  PROFILE_LABELS[client.profile]],
+          ['Agent',    `v${client.agentVersion}`],
+          ['Last seen', relTime(client.seenMinsAgo)],
+        ].map(([k,v]) => (
+          <div key={k}>
+            <div style={{ fontSize:9, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:2 }}>{k}</div>
+            <div style={{ fontSize:11, color:C.text, fontFamily:'monospace' }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Score mini row */}
+      {client.overall !== 'OFFLINE' && (
+        <div style={{ padding:'10px 16px', borderBottom:`1px solid ${C.border}`, display:'flex', gap:16, flexShrink:0 }}>
+          {[
+            ['Pass',  passed, C.green],
+            ['Fail',  failed, failed > 0 ? C.red : C.muted],
+            ['Warn',  warned, warned > 0 ? C.amber : C.muted],
+            ['Total', client.checks.length, C.text],
+          ].map(([l,v,col]) => (
+            <div key={l} style={{ textAlign:'center' }}>
+              <div style={{ fontSize:18, fontWeight:700, fontFamily:'monospace', color:col }}>{v}</div>
+              <div style={{ fontSize:9, color:C.muted, textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Checks */}
+      <div style={{ flex:1, overflowY:'auto' }}>
+        {client.overall === 'OFFLINE' ? (
+          <div style={{ padding:24, textAlign:'center', color:C.muted, fontSize:12 }}>
+            <div style={{ fontSize:28, marginBottom:8 }}>○</div>
+            Client offline — last seen {relTime(client.seenMinsAgo)}
+          </div>
+        ) : (
+          client.checks.map(ch => (
+            <div key={ch.id} style={{ padding:'10px 16px', borderBottom:`1px solid ${C.border}`, display:'flex', gap:10, alignItems:'flex-start' }}>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
+                  <span style={{ fontSize:10, fontFamily:'monospace', color:C.muted, flexShrink:0 }}>{ch.id}</span>
+                  <span style={{ fontSize:9, padding:'0 4px', borderRadius:3, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', background:`${sevCol(ch.sev)}18`, color:sevCol(ch.sev), fontFamily:'monospace' }}>{ch.sev}</span>
+                </div>
+                <div style={{ fontSize:12, color:C.text, marginBottom:2 }}>{ch.title}</div>
+                <div style={{ fontSize:10, color:C.muted, fontFamily:'monospace' }}>{ch.evidence}</div>
+              </div>
+              <span style={{ fontSize:10, fontWeight:700, fontFamily:'monospace', padding:'2px 7px', borderRadius:4, background:`${statCol(ch.status)}18`, color:statCol(ch.status), border:`1px solid ${statCol(ch.status)}33`, flexShrink:0, marginTop:2 }}>{ch.status}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ScanlineOverlay() {
+  return (
+    <div style={{ position:'fixed', inset:0, pointerEvents:'none', zIndex:9999, overflow:'hidden', opacity:0.04 }}>
+      <div style={{
+        position:'absolute', left:0, right:0, height:'3%',
+        background:'linear-gradient(transparent, rgba(58,212,255,0.6) 50%, transparent)',
+        animation:'scanline 6s linear infinite',
+      }}/>
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [fleet,        setFleet]       = useState([]);
+  const [dataSource,   setDataSource]  = useState('loading'); // 'loading'|'live'|'demo'
+  const [selected,     setSelected]    = useState(null);
+  const [filter,       setFilter]      = useState({ status:'all', profile:'all', site:'all', q:'' });
+  const [activity,     setActivity]    = useState([]);
+  const [viewMode,     setViewMode]    = useState('grid');
+  const [lastUpdated,  setLastUpdated] = useState(new Date());
+  const actIdRef      = useRef(0);
+  const dataSourceRef = useRef('loading');
+
+  // ── Load from collector or fall back to demo ──────────────────────────────
+  const loadFleet = useCallback(async () => {
+    const live = await loadFleetFromCollector();
+    if (live) {
+      setFleet(live);
+      setDataSource('live');
+      dataSourceRef.current = 'live';
+      setLastUpdated(new Date());
+      // push activity entries for changed clients
+      live.forEach(c => {
+        const ts = new Date().toLocaleTimeString('sv-SE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        actIdRef.current += 1;
+        setActivity(a => [{
+          id: actIdRef.current, hostname: c.hostname, status: c.overall,
+          msg: c.overall === 'OFFLINE' ? 'No heartbeat from agent' : `Profile: ${PROFILE_LABELS[c.profile] || c.profile}`,
+          ts,
+        }, ...a.slice(0, 79)]);
+      });
+    } else if (dataSourceRef.current !== 'demo') {
+      setFleet(generateFleet(48));
+      setDataSource('demo');
+      dataSourceRef.current = 'demo';
+    }
+  }, []);
+
+  useEffect(() => { loadFleet(); }, [loadFleet]);
+
+  // ── Live: refresh from collector every 30s ────────────────────────────────
+  useEffect(() => {
+    if (dataSource !== 'live') return;
+    const iv = setInterval(loadFleet, 30000);
+    return () => clearInterval(iv);
+  }, [dataSource, loadFleet]);
+
+  // ── Demo: simulated live updates (only in demo mode) ─────────────────────
+  useEffect(() => {
+    if (dataSource !== 'demo') return;
+    const msgs = {
+      READY:    ['All checks passed', 'Re-validated: READY', 'Cert renewed — now passing'],
+      WARN:     ['Certificate expiring soon', 'Version slightly behind', 'Latency elevated'],
+      FAIL:     ['Root CA missing', 'Citrix not installed', 'Network unreachable'],
+      CRITICAL: ['Critical cert failure', 'Network down + cert missing', 'Multiple critical failures'],
+      OFFLINE:  ['Lost contact', 'No heartbeat', 'Agent stopped responding'],
+    };
+
+    const tick = () => {
+      const chance = Math.random();
+      if (chance > 0.4) return;
+
+      setFleet(prev => {
+        const next   = [...prev];
+        const idx    = Math.floor(Math.random() * next.length);
+        const client = next[idx];
+
+        const statuses = ['READY','READY','READY','WARN','FAIL','CRITICAL','OFFLINE'];
+        const newStatus = statuses[Math.floor(Math.random() * statuses.length)];
+        if (newStatus === client.overall) return prev;
+
+        const newChecks = newStatus === 'OFFLINE' ? [] : makeChecks(client.profile, newStatus);
+        const actual    = newStatus === 'OFFLINE' ? 'OFFLINE' : deriveOverall(newChecks);
+
+        next[idx] = { ...client, overall: actual, checks: newChecks,
+          seenMinsAgo: actual === 'OFFLINE' ? client.seenMinsAgo + 1 : 0 };
+
+        const msgList = msgs[actual] || msgs.OFFLINE;
+        const msg = msgList[Math.floor(Math.random() * msgList.length)];
+        const ts  = new Date().toLocaleTimeString('sv-SE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        actIdRef.current += 1;
+        setActivity(a => [{ id:actIdRef.current, hostname:client.hostname, status:actual, msg, ts }, ...a.slice(0, 79)]);
+
+        return next;
+      });
+
+      setLastUpdated(new Date());
+    };
+
+    const iv = setInterval(tick, 1800);
+    return () => clearInterval(iv);
+  }, [dataSource]);
+
+  // ── Dynamic site list (from actual fleet data) ────────────────────────────
+  const allSites = useMemo(() => {
+    const s = new Set(fleet.map(c => c.site).filter(Boolean));
+    return [...s].sort();
+  }, [fleet]);
+
+  // ── Filtering ─────────────────────────────────────────────────────────────
+  const visible = useMemo(() => {
+    return fleet.filter(c => {
+      if (filter.status  !== 'all' && c.overall  !== filter.status)  return false;
+      if (filter.profile !== 'all' && c.profile  !== filter.profile) return false;
+      if (filter.site    !== 'all' && c.site     !== filter.site)    return false;
+      if (filter.q && !c.hostname.toLowerCase().includes(filter.q.toLowerCase())) return false;
+      return true;
+    });
+  }, [fleet, filter]);
+
+  // ── Derived stats ─────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const total    = fleet.length;
+    const ready    = fleet.filter(c => c.overall === 'READY').length;
+    const warn     = fleet.filter(c => c.overall === 'WARN').length;
+    const fail     = fleet.filter(c => c.overall === 'FAIL').length;
+    const critical = fleet.filter(c => c.overall === 'CRITICAL').length;
+    const offline  = fleet.filter(c => c.overall === 'OFFLINE').length;
+    const score    = fleetScore(fleet);
+    return { total, ready, warn, fail, critical, offline, score };
+  }, [fleet]);
+
+  const hasCritical = stats.critical > 0 || stats.fail > 0;
+
+  const selClient = selected ? fleet.find(c => c.id === selected) : null;
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  const selStyle = { background:C.s3, border:`1px solid ${C.border}`, borderRadius:6, padding:'4px 10px', fontSize:12, color:C.text, cursor:'pointer' };
+
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif", display:'flex', flexDirection:'column' }}>
+      <ScanlineOverlay/>
+
+      {/* ── Critical alert banner ────────────────────────────────────────── */}
+      {hasCritical && (
+        <div className="pulse" style={{ background:`${C.red}18`, borderBottom:`1px solid ${C.red}44`, padding:'6px 24px', display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ color:C.red, fontSize:12, fontWeight:700 }}>! ALERT</span>
+          <span style={{ color:C.red, fontSize:12 }}>
+            {stats.critical > 0 && `${stats.critical} client${stats.critical>1?'s':''} CRITICAL`}
+            {stats.critical > 0 && stats.fail > 0 && ' · '}
+            {stats.fail > 0 && `${stats.fail} client${stats.fail>1?'s':''} FAIL`}
+            {' — immediate action required'}
+          </span>
+          <div style={{ flex:1 }}/>
+          <span style={{ fontSize:10, color:`${C.red}99`, fontFamily:'monospace' }}>{lastUpdated.toLocaleTimeString('sv-SE')}</span>
+        </div>
+      )}
+
+      {/* ── Header ────────────────────────────────────────────────────────── */}
+      <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:'0 24px', flexShrink:0 }}>
+        <div style={{ height:56, display:'flex', alignItems:'center', gap:18, maxWidth:1400, margin:'0 auto' }}>
+          {/* Logo/title */}
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:28, height:28, borderRadius:6, background:`${C.blue}22`, border:`1px solid ${C.blue}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13 }}>⬡</div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text, lineHeight:1.1 }}>Fleet Command Center</div>
+              <div style={{ fontSize:9, color:C.muted, letterSpacing:'0.08em', textTransform:'uppercase' }}>Client Readiness · Live</div>
+            </div>
+          </div>
+
+          <div style={{ width:1, height:24, background:C.border }}/>
+
+          {/* Source indicator */}
+          {dataSource === 'live' && (
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <span style={{ width:6, height:6, borderRadius:'50%', background:C.green, display:'inline-block' }} className="pulse"/>
+              <span style={{ fontSize:11, color:C.muted }}>Live · collector</span>
+            </div>
+          )}
+          {dataSource === 'demo' && (
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <span style={{ width:6, height:6, borderRadius:'50%', background:C.amber, display:'inline-block' }} className="pulse"/>
+              <span style={{ fontSize:11, color:C.muted }}>Demo mode</span>
+            </div>
+          )}
+          {dataSource === 'loading' && (
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <span className="spin" style={{ fontSize:11, display:'inline-block' }}>↻</span>
+              <span style={{ fontSize:11, color:C.muted }}>Connecting…</span>
+            </div>
+          )}
+
+          <div style={{ flex:1 }}/>
+
+          {/* Search */}
+          <div style={{ position:'relative' }}>
+            <span style={{ position:'absolute', left:8, top:'50%', transform:'translateY(-50%)', color:C.faint, fontSize:12, pointerEvents:'none' }}>⌕</span>
+            <input
+              value={filter.q}
+              onChange={e => setFilter(f => ({...f, q: e.target.value}))}
+              placeholder="Search hostname…"
+              style={{ background:C.s2, border:`1px solid ${C.border}`, borderRadius:6, padding:'5px 10px 5px 26px', fontSize:12, color:C.text, width:170, outline:'none' }}
+            />
+          </div>
+
+          {/* Filters */}
+          <select value={filter.status} onChange={e => setFilter(f=>({...f,status:e.target.value}))} style={selStyle}>
+            <option value="all">All statuses</option>
+            {Object.keys(STATUS_CONFIG).map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select value={filter.profile} onChange={e => setFilter(f=>({...f,profile:e.target.value}))} style={selStyle}>
+            <option value="all">All profiles</option>
+            {PROFILES.map(p => <option key={p} value={p}>{PROFILE_LABELS[p]}</option>)}
+          </select>
+          <select value={filter.site} onChange={e => setFilter(f=>({...f,site:e.target.value}))} style={selStyle}>
+            <option value="all">All sites</option>
+            {allSites.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          {/* View toggle */}
+          <div style={{ display:'flex', border:`1px solid ${C.border}`, borderRadius:6, overflow:'hidden' }}>
+            {[['grid','⊞'],['list','≡']].map(([m,icon]) => (
+              <button key={m} onClick={() => setViewMode(m)} style={{ background: viewMode===m ? C.s3 : 'none', border:'none', padding:'5px 10px', color: viewMode===m ? C.text : C.muted, cursor:'pointer', fontSize:14 }}>{icon}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Body ──────────────────────────────────────────────────────────── */}
+      <div style={{ flex:1, display:'flex', overflow:'hidden', maxWidth:1400, width:'100%', margin:'0 auto', padding:'0' }}>
+
+        {/* ── Left: stats + grid ────────────────────────────────────────── */}
+        <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
+
+          {/* Stats bar */}
+          <div style={{ padding:'16px 20px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:24, flexWrap:'wrap' }}>
+              <ScoreMeter score={stats.score}/>
+              <div style={{ display:'flex', gap:20, flexWrap:'wrap', flex:1 }}>
+                <StatBlock label="Total"    value={stats.total}    color={C.text}/>
+                <StatBlock label="Ready"    value={stats.ready}    color={stats.ready > 0    ? C.green  : C.muted}/>
+                <StatBlock label="Warn"     value={stats.warn}     color={stats.warn > 0     ? C.amber  : C.muted}/>
+                <StatBlock label="Fail"     value={stats.fail}     color={stats.fail > 0     ? C.red    : C.muted}/>
+                <StatBlock label="Critical" value={stats.critical} color={stats.critical > 0 ? C.red    : C.muted}/>
+                <StatBlock label="Offline"  value={stats.offline}  color={stats.offline > 0  ? C.faint  : C.muted}/>
+              </div>
+
+              {/* Site breakdown */}
+              <div style={{ borderLeft:`1px solid ${C.border}`, paddingLeft:20 }}>
+                <div style={{ fontSize:9, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>By Site</div>
+                {allSites.map(site => {
+                  const count = fleet.filter(c => c.site === site).length;
+                  const readyCount = fleet.filter(c => c.site === site && c.overall === 'READY').length;
+                  const pct = count ? Math.round(readyCount / count * 100) : 0;
+                  const col = pct >= 80 ? C.green : pct >= 55 ? C.amber : C.red;
+                  return (
+                    <div key={site} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                      <div style={{ fontSize:10, color:C.muted, width:110, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{site}</div>
+                      <div style={{ width:70, height:4, background:C.s4, borderRadius:2, overflow:'hidden' }}>
+                        <div style={{ width:`${pct}%`, height:'100%', background:col, borderRadius:2, transition:'width 0.6s ease, background 0.3s' }}/>
+                      </div>
+                      <div style={{ fontSize:9, fontFamily:'monospace', color:col, width:28 }}>{pct}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Filter status line */}
+          <div style={{ padding:'8px 20px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+            <span style={{ fontSize:11, color:C.muted }}>Showing <span style={{ color:C.text, fontWeight:600 }}>{visible.length}</span> of {fleet.length} clients</span>
+            {(filter.status !== 'all' || filter.profile !== 'all' || filter.site !== 'all' || filter.q) && (
+              <button onClick={() => setFilter({ status:'all', profile:'all', site:'all', q:'' })}
+                style={{ fontSize:11, color:C.blue, background:'none', border:'none', cursor:'pointer', padding:'0 4px' }}>
+                Clear filters ✕
+              </button>
+            )}
+          </div>
+
+          {/* Client grid / list */}
+          <div style={{ flex:1, overflowY:'auto', padding:'14px 20px' }}>
+            {viewMode === 'grid' ? (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(168px, 1fr))', gap:10 }}>
+                {visible.map(c => (
+                  <ClientCard key={c.id} client={c} selected={selected === c.id} onClick={() => setSelected(s => s === c.id ? null : c.id)}/>
+                ))}
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:0, border:`1px solid ${C.border}`, borderRadius:8, overflow:'hidden' }}>
+                {/* list header */}
+                <div style={{ display:'grid', gridTemplateColumns:'28px 1fr 160px 110px 100px 80px', padding:'6px 12px', background:C.s3, borderBottom:`1px solid ${C.border}` }}>
+                  {['','Hostname','Profile','Site','Last seen','Status'].map((h,i) => (
+                    <div key={i} style={{ fontSize:9, fontWeight:700, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em' }}>{h}</div>
+                  ))}
+                </div>
+                {visible.map(c => {
+                  const cfg2 = STATUS_CONFIG[c.overall] || STATUS_CONFIG.OFFLINE;
+                  const isSel = selected === c.id;
+                  return (
+                    <div key={c.id} onClick={() => setSelected(s => s === c.id ? null : c.id)}
+                      style={{ display:'grid', gridTemplateColumns:'28px 1fr 160px 110px 100px 80px', padding:'8px 12px', borderBottom:`1px solid ${C.border}`, cursor:'pointer', background: isSel ? `${cfg2.color}10` : 'transparent', transition:'background 0.15s' }}
+                      onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = C.s2; }}
+                      onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = 'transparent'; }}>
+                      <div style={{ display:'flex', alignItems:'center' }}><Pip status={c.overall} size={7}/></div>
+                      <div style={{ fontSize:12, fontFamily:'monospace', color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.hostname}</div>
+                      <div style={{ fontSize:11, color:C.muted, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{PROFILE_LABELS[c.profile]}</div>
+                      <div style={{ fontSize:11, color:C.muted }}>{c.site}</div>
+                      <div style={{ fontSize:11, fontFamily:'monospace', color: c.overall==='OFFLINE' ? C.red : C.faint }}>{relTime(c.seenMinsAgo)}</div>
+                      <div style={{ fontSize:10, fontWeight:700, fontFamily:'monospace', color:cfg2.color }}>{cfg2.label}</div>
+                    </div>
+                  );
+                })}
+                {visible.length === 0 && (
+                  <div style={{ padding:24, color:C.muted, fontSize:12, textAlign:'center' }}>No clients match the current filters</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Right panel ────────────────────────────────────────────────── */}
+        <div style={{ width:340, flexShrink:0, borderLeft:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          {selClient ? (
+            <ClientDetail client={selClient} onClose={() => setSelected(null)}/>
+          ) : (
+            <ActivityFeed entries={activity}/>
+          )}
+        </div>
+
+      </div>
+
+      {/* ── Footer ────────────────────────────────────────────────────────── */}
+      <div style={{ borderTop:`1px solid ${C.border}`, padding:'5px 24px', display:'flex', alignItems:'center', gap:12, background:C.surface, flexShrink:0 }}>
+        <span style={{ fontSize:10, color:C.faint }}>Fleet Command Center</span>
+        <span style={{ fontSize:10, color:C.faint }}>·</span>
+        <span style={{ fontSize:10, color:C.faint, fontFamily:'monospace' }}>
+          {dataSource === 'live' ? `collector · ${fleet.length} clients` : dataSource === 'demo' ? `demo · ${fleet.length} clients` : 'connecting…'}
+        </span>
+        <div style={{ flex:1 }}/>
+        {dataSource === 'live' && (
+          <button onClick={loadFleet}
+            style={{ background:'none', border:`1px solid ${C.border}`, borderRadius:4, padding:'2px 8px', fontSize:10, color:C.muted, cursor:'pointer' }}>
+            ↻ Refresh
+          </button>
+        )}
+        <span style={{ fontSize:10, color:C.faint, fontFamily:'monospace' }}>
+          {lastUpdated.toLocaleTimeString('sv-SE')}
+        </span>
+        <span style={{ width:6, height:6, borderRadius:'50%', background: dataSource==='live' ? C.green : dataSource==='demo' ? C.amber : C.faint, display:'inline-block' }} className="pulse"/>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

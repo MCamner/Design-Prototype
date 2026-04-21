@@ -1,0 +1,7 @@
+[
+  { "ip": "10.10.4.87", "hostname": "IGEL-001", "site": "Stockholm HQ" },
+  { "ip": "10.10.4.88", "hostname": "IGEL-002", "site": "Stockholm HQ" },
+  { "ip": "10.10.4.89", "hostname": "IGEL-003", "site": "Göteborg Office" },
+  { "ip": "10.10.4.90", "hostname": "ELUX-001", "site": "Göteborg Office" },
+  { "ip": "10.10.4.91", "hostname": "MAC-001",  "site": "Remote" }
+]
