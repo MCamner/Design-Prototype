@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>macOS Enterprise</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #484f58; border-radius: 3px; }
+    button, select { font-family: inherit; }
+    select { appearance: none; cursor: pointer; }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+    @keyframes fadein  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.35} }
+    @keyframes slidein { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
+    .spin   { animation: spin 1s linear infinite; display:inline-block; }
+    .fadein { animation: fadein 0.3s ease; }
+    .pulse  { animation: pulse 2s ease-in-out infinite; }
+    @media print {
+      * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+      .no-print { display:none !important; }
+      #print-header { display:block !important; }
+      body { background:white !important; color:black !important; }
+      .sticky { position:static !important; }
+    }
+    #print-header { display:none; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo, useRef, memo } = React;
+
+// ── Palette ──────────────────────────────────────────────────────────────────
+const DARK  = { bg:'#090d13', surface:'#0d1117', s2:'#161b22', s3:'#1c2128', s4:'#21262d', border:'#30363d', text:'#e6edf3', muted:'#7d8590', faint:'#484f58', green:'#3fb950', red:'#f85149', amber:'#d29922', blue:'#58a6ff', purple:'#bc8cff', orange:'#f0883e' };
+const LIGHT = { bg:'#f6f8fa', surface:'#ffffff',  s2:'#f6f8fa', s3:'#eaeef2', s4:'#d0d7de', border:'#d0d7de', text:'#1f2328', muted:'#57606a', faint:'#8c959f', green:'#1a7f37', red:'#cf222e', amber:'#9a6700', blue:'#0969da', purple:'#8250df', orange:'#bc4c00' };
+
+// ── CIS Benchmark checks ──────────────────────────────────────────────────────
+const CHECKS = [
+  { id:'SEC-001', title:'FileVault disk encryption',         sev:'critical', path:'security.filevault.enabled',              op:'eq_true',  cis:'CIS 2.6.1', remediation:'Enable FileVault in System Settings → Privacy & Security' },
+  { id:'SEC-002', title:'System Integrity Protection (SIP)', sev:'critical', path:'security.sip.enabled',                   op:'eq_true',  cis:'CIS 5.1.1', remediation:'Do not disable SIP. Boot to Recovery and run: csrutil enable' },
+  { id:'SEC-003', title:'Gatekeeper enabled',                sev:'high',     path:'security.gatekeeper.enabled',             op:'eq_true',  cis:'CIS 2.5.2', remediation:'Run: sudo spctl --master-enable' },
+  { id:'SEC-004', title:'Application Firewall enabled',      sev:'high',     path:'security.firewall.enabled',               op:'eq_true',  cis:'CIS 2.6.2', remediation:'Enable in System Settings → Network → Firewall' },
+  { id:'SEC-005', title:'Firewall stealth mode',             sev:'medium',   path:'security.firewall.stealth_mode',          op:'eq_true',  cis:'CIS 2.6.3', remediation:'Run: sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on' },
+  { id:'SEC-006', title:'Automatic security updates',        sev:'high',     path:'security.auto_updates.automatic_install_security', op:'eq_true', cis:'CIS 1.1.3', remediation:'Enable in System Settings → General → Software Update → Automatic Updates' },
+  { id:'SEC-007', title:'Critical updates auto-install',     sev:'high',     path:'security.auto_updates.critical_updates',  op:'eq_true',  cis:'CIS 1.1.4', remediation:'Enable critical update installation in Software Update settings' },
+  { id:'SEC-008', title:'Automatic update check',            sev:'medium',   path:'security.auto_updates.automatic_check',   op:'eq_true',  cis:'CIS 1.1.1', remediation:'Enable automatic update checks in System Settings' },
+  { id:'ID-001',  title:'Remote Login (SSH) disabled',       sev:'high',     path:'identity.ssh_enabled',                    op:'eq_false', cis:'CIS 2.3.3', remediation:'Disable via: sudo systemsetup -setremotelogin off' },
+  { id:'ID-002',  title:'Auto-login disabled',               sev:'critical', path:'identity.autologin',                      op:'eq_false', cis:'CIS 2.3.1', remediation:'Disable auto-login in System Settings → Users & Groups' },
+  { id:'ID-003',  title:'Screen lock with password',         sev:'high',     path:'identity.screen_lock.require_password',   op:'eq_true',  cis:'CIS 2.4.3', remediation:'Enable in System Settings → Screen Saver → Require password' },
+  { id:'ID-004',  title:'Screen lock delay ≤ 5 minutes',     sev:'medium',   path:'identity.screen_lock.idle_minutes',        op:'lte',      threshold:5,     cis:'CIS 2.4.4', remediation:'Set display sleep to 5 minutes or less in System Settings → Displays' },
+  { id:'MDM-001', title:'MDM enrolled',                      sev:'high',     path:'mdm.enrolled',                            op:'eq_true',  cis:'Enterprise', remediation:'Enroll device via Apple Business Manager or MDM server' },
+  { id:'MDM-002', title:'Device supervised',                 sev:'medium',   path:'mdm.supervised',                          op:'eq_true',  cis:'Enterprise', remediation:'Re-enroll via Apple Business Manager (DEP) for supervision' },
+];
+
+function evalCheck(check, data) {
+  const val = getPath(data, check.path);
+  let pass = false;
+  if (check.op === 'eq_true')  pass = val === true;
+  if (check.op === 'eq_false') pass = val === false;
+  if (check.op === 'lte')      pass = typeof val === 'number' && val >= 0 && val <= check.threshold;
+  const unsupported = val === undefined || val === null || val === '' || val === -1;
+  return {
+    ...check,
+    status: unsupported ? 'UNKNOWN' : pass ? 'PASS' : 'FAIL',
+    value:  val,
+  };
+}
+
+function getPath(obj, path) {
+  return path.split('.').reduce((a, k) => (a != null && Object.prototype.hasOwnProperty.call(a, k) ? a[k] : undefined), obj);
+}
+
+function evalAll(data) {
+  return CHECKS.map(c => evalCheck(c, data));
+}
+
+function complianceScore(results) {
+  const active = results.filter(r => r.status !== 'UNKNOWN');
+  if (!active.length) return 0;
+  return Math.round(active.filter(r => r.status === 'PASS').length / active.length * 100);
+}
+
+// ── Rich sample data ──────────────────────────────────────────────────────────
+const SAMPLE = {
+  meta: {
+    agent_version:'1.0.0', collected_at: new Date().toISOString(),
+    hostname:'MacBook-Pro-Enterprise', serial:'C02XK1JJJG5J',
+    model:'MacBook Pro (16-inch, M3 Pro, 2023)', chip:'Apple M3 Pro',
+    memory_gb:36, macos_version:'14.4.1', macos_build:'23E224', macos_name:'macOS Sonoma',
+  },
+  security: {
+    filevault:  { enabled:true,  status:'FileVault is On.' },
+    sip:        { enabled:true,  status:'System Integrity Protection status: enabled.' },
+    gatekeeper: { enabled:true,  status:'assessments enabled' },
+    firewall:   { enabled:true,  stealth_mode:false, block_all:false, status:'Firewall is enabled. (State = 1)' },
+    secure_boot:{ level:'Full Security', apple_chip:true },
+    xprotect:   { version:'5271', last_update:'Apr 20 2026' },
+    auto_updates:{
+      automatic_check:true, automatic_download:true,
+      automatic_install_macos:false, automatic_install_app:true,
+      automatic_install_security:true, critical_updates:true,
+    },
+  },
+  identity: {
+    users: [
+      { name:'mattias',  fullname:'Mattias Camner', admin:true,  uid:501 },
+      { name:'mdmadmin', fullname:'MDM Admin',       admin:true,  uid:502 },
+      { name:'helpdesk', fullname:'Help Desk',       admin:false, uid:503 },
+    ],
+    ssh_enabled: false,
+    autologin:   false,
+    screen_lock: { enabled:true, delay_seconds:60, idle_minutes:3, require_password:true },
+  },
+  mdm: {
+    enrolled:true, supervised:true, dep:true,
+    server:'mdm.company.se',
+    profiles:[
+      { name:'MDM Enrollment Profile (com.company.mdm)' },
+      { name:'Wi-Fi Policy — Corp-WiFi-5G (com.company.wifi)' },
+      { name:'Restrictions Policy (com.company.restrictions)' },
+      { name:'GlobalProtect VPN (com.company.vpn)' },
+      { name:'Company Root Certificate (com.company.cert.root)' },
+      { name:'Software Update Policy (com.company.updates)' },
+    ],
+  },
+  software: {
+    pending_updates:[
+      { name:'Safari 17.4.1', size:'85 MB' },
+    ],
+    last_update:'2026-04-18',
+  },
+  network: {
+    interfaces:[
+      { name:'Wi-Fi',                device:'en0', status:'active',    ip:'10.10.4.120', ssid:'Corp-WiFi-5G' },
+      { name:'Ethernet',             device:'en1', status:'inactive' },
+      { name:'GlobalProtect VPN',    device:'vpn', status:'connected', ip:'172.16.0.45' },
+      { name:'Thunderbolt Bridge',   device:'en2', status:'inactive' },
+    ],
+    dns:['10.10.1.10','10.10.1.11'],
+    proxy:{ enabled:false },
+  },
+  certificates:{
+    system:[
+      { name:'Company Root CA',       expiry:'2028-12-31' },
+      { name:'Company Issuing CA',    expiry:'2027-06-30' },
+      { name:'Device Certificate',    expiry:'2026-06-15' },
+      { name:'DigiCert Global Root',  expiry:'2031-11-10' },
+      { name:'GlobalSign Root CA',    expiry:'2029-01-28' },
+    ],
+  },
+};
+
+// ── Data loading ──────────────────────────────────────────────────────────────
+async function fetchAgent() {
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 2500);
+    const r = await fetch('http://127.0.0.1:38764/status', { signal:ctrl.signal, cache:'no-store' });
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    if (!d.meta) throw new Error();
+    return { source:'agent', data:d };
+  } catch(e) {}
+  return { source:'sample', data:SAMPLE };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function certDays(expiry) {
+  if (!expiry) return null;
+  return Math.floor((new Date(expiry) - Date.now()) / 86400000);
+}
+function relTime(iso) {
+  if (!iso) return '—';
+  const m = Math.floor((Date.now()-new Date(iso))/60000);
+  if (m<1) return 'just now'; if (m<60) return `${m}m ago`;
+  if (m<1440) return `${Math.floor(m/60)}h ago`; return `${Math.floor(m/1440)}d ago`;
+}
+function macVer(v) {
+  const m = { '14':'Sonoma','13':'Ventura','12':'Monterey','11':'Big Sur','10':'Catalina or older' };
+  const maj = String(v||'').split('.')[0];
+  return m[maj] || '';
+}
+
+// ── Atoms ─────────────────────────────────────────────────────────────────────
+function Chip({ label, color, C, small }) {
+  return (
+    <span style={{ padding:small?'1px 5px':'2px 7px', borderRadius:4, fontSize:small?9:10, fontWeight:700, fontFamily:'monospace', letterSpacing:'0.05em', background:`${color}1e`, color, border:`1px solid ${color}44` }}>
+      {label}
+    </span>
+  );
+}
+
+function StatusDot({ pass, warn, C }) {
+  const col = pass ? C.green : warn ? C.amber : C.red;
+  return <span style={{ width:8, height:8, borderRadius:'50%', background:col, display:'inline-block', flexShrink:0 }}/>;
+}
+
+function RowCheck({ r, C }) {
+  const [open, setOpen] = useState(false);
+  const col   = r.status==='PASS' ? C.green : r.status==='FAIL' ? C.red : C.faint;
+  const sevCol = r.sev==='critical' ? C.red : r.sev==='high' ? C.orange : r.sev==='medium' ? C.amber : C.faint;
+  return (
+    <>
+      <tr onClick={() => r.status==='FAIL' && setOpen(o=>!o)}
+        style={{ borderBottom:`1px solid ${C.border}`, cursor:r.status==='FAIL'?'pointer':'default' }}
+        onMouseEnter={e=>e.currentTarget.style.background=C.s2}
+        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+        <td style={{ padding:'8px 14px', width:28 }}>
+          <StatusDot pass={r.status==='PASS'} warn={r.status==='UNKNOWN'} C={C}/>
+        </td>
+        <td style={{ padding:'8px 6px 8px 0', fontSize:13, color:C.text, fontWeight:500 }}>{r.title}</td>
+        <td style={{ padding:'8px 14px', whiteSpace:'nowrap' }}>
+          <span style={{ fontSize:9, padding:'1px 5px', borderRadius:3, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', background:`${sevCol}18`, color:sevCol, fontFamily:'monospace' }}>{r.sev}</span>
+        </td>
+        <td style={{ padding:'8px 14px', whiteSpace:'nowrap' }}>
+          <Chip label={r.status} color={col} C={C} small/>
+        </td>
+        <td style={{ padding:'8px 14px', fontSize:10, color:C.faint, fontFamily:'monospace', whiteSpace:'nowrap' }}>{r.cis}</td>
+        <td style={{ padding:'8px 14px', width:16, color:C.faint, fontSize:11, textAlign:'right' }}>
+          {r.status==='FAIL' ? (open?'▲':'▼') : ''}
+        </td>
+      </tr>
+      {open && r.status==='FAIL' && (
+        <tr style={{ background:`${C.amber}0a`, borderBottom:`1px solid ${C.border}` }}>
+          <td colSpan={6} style={{ padding:'8px 14px 10px 42px' }}>
+            <div style={{ fontSize:12, color:C.amber, display:'flex', gap:6, alignItems:'flex-start' }}>
+              <span style={{ marginTop:1 }}>⚡</span>
+              <span>{r.remediation}</span>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function Section({ title, icon, children, defaultOpen=true, C }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ border:`1px solid ${C.border}`, borderRadius:10, overflow:'hidden', marginBottom:16 }}>
+      <div onClick={() => setOpen(o=>!o)}
+        style={{ padding:'10px 16px', background:C.s2, borderBottom:open?`1px solid ${C.border}`:'none', display:'flex', alignItems:'center', gap:10, cursor:'pointer', userSelect:'none' }}>
+        <span style={{ fontSize:14 }}>{icon}</span>
+        <span style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.1em', flex:1 }}>{title}</span>
+        <span style={{ fontSize:11, color:C.faint }}>{open?'▲':'▼'}</span>
+      </div>
+      {open && <div style={{ background:C.surface }}>{children}</div>}
+    </div>
+  );
+}
+
+function KV({ label, value, color, mono, C }) {
+  return (
+    <div style={{ display:'flex', padding:'7px 0', borderBottom:`1px solid ${C.border}`, gap:12 }}>
+      <span style={{ fontSize:12, color:C.muted, minWidth:160, flexShrink:0 }}>{label}</span>
+      <span style={{ fontSize:12, color:color||C.text, fontFamily:mono?'monospace':undefined, fontWeight:color?600:undefined }}>{value||'—'}</span>
+    </div>
+  );
+}
+
+// ── Score gauge ───────────────────────────────────────────────────────────────
+function ScoreGauge({ score, C }) {
+  const col = score>=80 ? C.green : score>=55 ? C.amber : C.red;
+  const R = 58, circ = 2*Math.PI*R;
+  const offset = circ*(1-score/100);
+  return (
+    <div style={{ position:'relative', width:140, height:140, flexShrink:0 }}>
+      <svg width="140" height="140" style={{ transform:'rotate(-90deg)' }}>
+        <circle cx="70" cy="70" r={R} fill="none" stroke={C.s3} strokeWidth="10"/>
+        <circle cx="70" cy="70" r={R} fill="none" stroke={col} strokeWidth="10"
+          strokeDasharray={circ} strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition:'stroke-dashoffset 1s ease, stroke 0.4s ease' }}/>
+      </svg>
+      <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ fontSize:34, fontWeight:800, fontFamily:'monospace', color:col, lineHeight:1 }}>{score}</div>
+        <div style={{ fontSize:9, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3 }}>CIS score</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Source badge ──────────────────────────────────────────────────────────────
+function SourceBadge({ source, C }) {
+  const live = source === 'agent';
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+      <span style={{ width:6, height:6, borderRadius:'50%', background:live?C.green:C.amber, display:'inline-block' }} className="pulse"/>
+      <span style={{ fontSize:11, color:C.muted }}>{live?'Live · agent':'Sample data'}</span>
+    </div>
+  );
+}
+
+// ── Certificate row ───────────────────────────────────────────────────────────
+function CertRow({ cert, C }) {
+  const days = certDays(cert.expiry);
+  const col  = days===null ? C.faint : days<0 ? C.red : days<=60 ? C.amber : C.green;
+  const label = days===null ? '—' : days<0 ? `Expired ${Math.abs(days)}d ago` : `${days}d`;
+  return (
+    <div style={{ display:'flex', alignItems:'center', padding:'8px 16px', borderBottom:`1px solid ${C.border}`, gap:12 }}>
+      <span style={{ fontSize:13, color:C.text, flex:1 }}>{cert.name}</span>
+      <span style={{ fontSize:11, fontFamily:'monospace', color:col, fontWeight:600 }}>{label}</span>
+    </div>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App() {
+  const [payload,   setPayload]   = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [theme,     setTheme]     = useState('dark');
+  const [refreshAt, setRefreshAt] = useState(null);
+
+  const C = theme === 'light' ? LIGHT : DARK;
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const p = await fetchAgent();
+    setPayload(p);
+    setRefreshAt(new Date());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const data    = payload?.data || SAMPLE;
+  const source  = payload?.source || 'sample';
+  const results = useMemo(() => evalAll(data), [data]);
+  const score   = useMemo(() => complianceScore(results), [results]);
+
+  const passed  = results.filter(r=>r.status==='PASS').length;
+  const failed  = results.filter(r=>r.status==='FAIL').length;
+  const unknown = results.filter(r=>r.status==='UNKNOWN').length;
+  const scoreCol = score>=80 ? C.green : score>=55 ? C.amber : C.red;
+  const hasCrit  = results.some(r=>r.status==='FAIL'&&r.sev==='critical');
+
+  const meta = data.meta || {};
+  const sec  = data.security || {};
+  const id   = data.identity || {};
+  const mdm  = data.mdm || {};
+  const sw   = data.software || {};
+  const net  = data.network || {};
+  const certs= data.certificates?.system || [];
+
+  const checksBySev = ['critical','high','medium'].map(sev => [sev, results.filter(r=>r.sev===sev)]);
+
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif" }}>
+
+      {/* ── Critical banner ── */}
+      {!loading && hasCrit && (
+        <div className="pulse" style={{ background:`${C.red}14`, borderBottom:`1px solid ${C.red}40`, padding:'7px 24px', display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:12, fontWeight:700, color:C.red }}>⚠ Critical controls failed</span>
+          <span style={{ fontSize:12, color:C.red }}>— {results.filter(r=>r.status==='FAIL'&&r.sev==='critical').map(r=>r.title).join(' · ')}</span>
+        </div>
+      )}
+
+      {/* ── Header ── */}
+      <div className="sticky" style={{ position:'sticky', top:0, zIndex:100, background:C.surface, borderBottom:`1px solid ${C.border}`, padding:'0 24px' }}>
+        <div style={{ height:54, display:'flex', alignItems:'center', gap:14, maxWidth:1200, margin:'0 auto' }}>
+
+          {/* Logo */}
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:30, height:30, borderRadius:8, background:`${C.blue}18`, border:`1px solid ${C.blue}40`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>⌘</div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text, lineHeight:1.1 }}>macOS Enterprise</div>
+              <div style={{ fontSize:9, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>Security Dashboard</div>
+            </div>
+          </div>
+
+          <div style={{ width:1, height:22, background:C.border }}/>
+
+          {/* Device info */}
+          {!loading && (
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <span style={{ fontSize:13, fontWeight:600, fontFamily:'monospace', color:C.text }}>{meta.hostname || '—'}</span>
+              <Chip label={`${meta.macos_version || ''} ${macVer(meta.macos_version)}`} color={C.blue} C={C}/>
+              {meta.chip && <Chip label={meta.chip} color={C.purple} C={C}/>}
+            </div>
+          )}
+
+          <div style={{ flex:1 }}/>
+
+          <SourceBadge source={source} C={C}/>
+
+          <div style={{ width:1, height:22, background:C.border }}/>
+
+          {/* Score pill */}
+          {!loading && (
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <span style={{ fontSize:11, color:C.muted }}>CIS Score</span>
+              <span style={{ fontSize:14, fontWeight:800, fontFamily:'monospace', color:scoreCol }}>{score}</span>
+            </div>
+          )}
+
+          {/* Theme */}
+          <button onClick={() => setTheme(t => t==='dark'?'light':'dark')} className="no-print"
+            style={{ background:C.s2, border:`1px solid ${C.border}`, borderRadius:6, padding:'4px 10px', fontSize:12, color:C.muted, cursor:'pointer' }}>
+            {theme==='dark'?'☀ Light':'⬤ Dark'}
+          </button>
+
+          {/* Refresh */}
+          <button onClick={refresh} disabled={loading} className="no-print"
+            style={{ background:C.s2, border:`1px solid ${C.border}`, borderRadius:6, padding:'4px 10px', fontSize:12, color:C.text, cursor:loading?'wait':'pointer', display:'flex', alignItems:'center', gap:5 }}>
+            <span className={loading?'spin':''}>↻</span>
+            {refreshAt && !loading ? relTime(refreshAt.toISOString()) : 'Refresh'}
+          </button>
+
+          {/* Print */}
+          <button onClick={() => window.print()} className="no-print"
+            style={{ background:C.s2, border:`1px solid ${C.border}`, borderRadius:6, padding:'4px 10px', fontSize:12, color:C.muted, cursor:'pointer' }}>
+            🖨
+          </button>
+        </div>
+      </div>
+
+      {/* ── Print header ── */}
+      <div id="print-header" style={{ padding:'16px 24px 12px', borderBottom:'1px solid #ccc' }}>
+        <div style={{ fontSize:20, fontWeight:700 }}>macOS Enterprise Security Report</div>
+        <div style={{ fontSize:12, color:'#555', marginTop:4 }}>
+          {meta.hostname} · {meta.macos_version} · CIS Score: {score}/100 · {new Date().toLocaleString()}
+        </div>
+      </div>
+
+      {/* ── Main ── */}
+      {loading && !payload ? (
+        <div style={{ padding:'100px 0', textAlign:'center', color:C.muted }}>
+          <span className="spin" style={{ fontSize:22, display:'block', marginBottom:12 }}>↻</span>
+          Connecting to agent…
+        </div>
+      ) : (
+        <div className="fadein" style={{ maxWidth:1200, margin:'0 auto', padding:'24px 24px 60px', display:'grid', gridTemplateColumns:'1fr 320px', gap:20, alignItems:'start' }}>
+
+          {/* ── Left column ── */}
+          <div>
+
+            {/* Score + summary */}
+            <div style={{ border:`1px solid ${C.border}`, borderRadius:10, background:C.surface, padding:'20px 24px', marginBottom:16, display:'flex', alignItems:'center', gap:28, flexWrap:'wrap' }}>
+              <ScoreGauge score={score} C={C}/>
+              <div style={{ flex:1, minWidth:200 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>CIS macOS Benchmark · Level 1</div>
+                <div style={{ display:'flex', gap:20, flexWrap:'wrap', marginBottom:14 }}>
+                  {[['Pass',passed,C.green],['Fail',failed,failed>0?C.red:C.muted],['Unknown',unknown,C.faint]].map(([l,v,col])=>(
+                    <div key={l} style={{ textAlign:'center' }}>
+                      <div style={{ fontSize:26, fontWeight:800, fontFamily:'monospace', color:col }}>{v}</div>
+                      <div style={{ fontSize:9, color:C.muted, textTransform:'uppercase', letterSpacing:'0.07em', marginTop:2 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Score bar */}
+                <div style={{ height:6, background:C.s3, borderRadius:4, overflow:'hidden' }}>
+                  <div style={{ width:`${score}%`, height:'100%', background:scoreCol, borderRadius:4, transition:'width 0.8s ease' }}/>
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+                  <span style={{ fontSize:9, color:C.faint }}>0</span>
+                  <span style={{ fontSize:9, color:C.faint }}>100</span>
+                </div>
+              </div>
+              {/* Model/chip card */}
+              <div style={{ background:C.s2, border:`1px solid ${C.border}`, borderRadius:8, padding:'14px 18px', minWidth:180 }}>
+                <div style={{ fontSize:12, fontWeight:600, color:C.text, marginBottom:6 }}>{meta.model || '—'}</div>
+                {meta.chip && <div style={{ fontSize:11, color:C.muted, marginBottom:4 }}>{meta.chip}</div>}
+                <div style={{ fontSize:11, color:C.muted, marginBottom:4 }}>{meta.memory_gb}GB RAM</div>
+                <div style={{ fontSize:10, fontFamily:'monospace', color:C.faint }}>{meta.serial}</div>
+                <div style={{ fontSize:10, color:C.faint, marginTop:6 }}>Build {meta.macos_build}</div>
+              </div>
+            </div>
+
+            {/* ── Compliance checks ── */}
+            <Section title="Compliance Checks" icon="🔒" C={C}>
+              {checksBySev.map(([sev, rows]) => rows.length === 0 ? null : (
+                <div key={sev}>
+                  <div style={{ padding:'6px 14px', background:C.s3, borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:6 }}>
+                    <span style={{ fontSize:9, fontWeight:700, color:C.faint, textTransform:'uppercase', letterSpacing:'0.1em' }}>{sev}</span>
+                    <span style={{ fontSize:9, color:C.faint, background:C.s4, border:`1px solid ${C.border}`, borderRadius:8, padding:'0 5px', fontFamily:'monospace' }}>{rows.length}</span>
+                  </div>
+                  <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                    <tbody>{rows.map(r => <RowCheck key={r.id} r={r} C={C}/>)}</tbody>
+                  </table>
+                </div>
+              ))}
+            </Section>
+
+            {/* ── Security controls detail ── */}
+            <Section title="Security Controls" icon="🛡" C={C}>
+              <div style={{ padding:'10px 16px' }}>
+                {[
+                  ['FileVault',       sec.filevault?.enabled   ? 'Enabled' : 'Disabled', sec.filevault?.enabled ? C.green : C.red],
+                  ['SIP',             sec.sip?.enabled         ? 'Enabled' : 'Disabled', sec.sip?.enabled ? C.green : C.red],
+                  ['Gatekeeper',      sec.gatekeeper?.enabled  ? 'Enabled' : 'Disabled', sec.gatekeeper?.enabled ? C.green : C.red],
+                  ['App Firewall',    sec.firewall?.enabled    ? 'Enabled' : 'Disabled', sec.firewall?.enabled ? C.green : C.red],
+                  ['Stealth Mode',    sec.firewall?.stealth_mode ? 'Enabled' : 'Disabled', sec.firewall?.stealth_mode ? C.green : C.amber],
+                  ['Secure Boot',     sec.secure_boot?.level || '—', sec.secure_boot?.level==='Full Security' ? C.green : C.amber],
+                  ['XProtect',        sec.xprotect?.version ? `v${sec.xprotect.version}` : '—', C.text],
+                  ['XProtect updated',sec.xprotect?.last_update || '—', C.muted],
+                  ['Auto OS updates', sec.auto_updates?.automatic_install_macos ? 'Enabled' : 'Disabled', sec.auto_updates?.automatic_install_macos ? C.green : C.amber],
+                  ['Auto app updates',sec.auto_updates?.automatic_install_app ? 'Enabled' : 'Disabled', sec.auto_updates?.automatic_install_app ? C.green : C.amber],
+                ].map(([l,v,col]) => <KV key={l} label={l} value={v} color={col} C={C}/>)}
+              </div>
+            </Section>
+
+            {/* ── Identity & Access ── */}
+            <Section title="Identity & Access" icon="👤" C={C}>
+              <div style={{ padding:'10px 16px' }}>
+                <KV label="SSH Remote Login"  value={id.ssh_enabled ? 'Enabled ⚠' : 'Disabled'} color={id.ssh_enabled ? C.red : C.green} C={C}/>
+                <KV label="Auto-login"        value={id.autologin ? 'Enabled ⚠' : 'Disabled'} color={id.autologin ? C.red : C.green} C={C}/>
+                <KV label="Screen lock"       value={id.screen_lock?.require_password ? 'Enabled' : 'Disabled'} color={id.screen_lock?.require_password ? C.green : C.red} C={C}/>
+                <KV label="Lock delay"        value={id.screen_lock?.idle_minutes >= 0 ? `${id.screen_lock.idle_minutes} min display sleep` : '—'} color={id.screen_lock?.idle_minutes<=5 ? C.green : C.amber} C={C}/>
+              </div>
+
+              {/* Users table */}
+              <div style={{ borderTop:`1px solid ${C.border}`, padding:'10px 16px' }}>
+                <div style={{ fontSize:10, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Local accounts</div>
+                {(id.users || []).length === 0 ? (
+                  <div style={{ fontSize:12, color:C.muted, fontStyle:'italic' }}>No data — run agent with sudo</div>
+                ) : (
+                  <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                    <thead>
+                      <tr style={{ borderBottom:`1px solid ${C.border}` }}>
+                        {['Username','Full name','Role','UID'].map(h => (
+                          <th key={h} style={{ padding:'4px 0 4px 0', textAlign:'left', fontSize:9, fontWeight:700, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(id.users||[]).map(u => (
+                        <tr key={u.name} style={{ borderBottom:`1px solid ${C.border}` }}>
+                          <td style={{ padding:'6px 0', fontSize:12, fontFamily:'monospace', color:C.text }}>{u.name}</td>
+                          <td style={{ padding:'6px 12px 6px 0', fontSize:12, color:C.muted }}>{u.fullname}</td>
+                          <td style={{ padding:'6px 0' }}>
+                            <Chip label={u.admin?'admin':'standard'} color={u.admin?C.amber:C.green} C={C} small/>
+                          </td>
+                          <td style={{ padding:'6px 0', fontSize:11, fontFamily:'monospace', color:C.faint }}>{u.uid}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </Section>
+
+            {/* ── Software updates ── */}
+            <Section title="Software Updates" icon="🔄" C={C}>
+              <div style={{ padding:'10px 16px' }}>
+                <KV label="Last update"     value={sw.last_update || '—'} C={C}/>
+                <KV label="Pending updates" value={sw.pending_updates?.length ? `${sw.pending_updates.length} update${sw.pending_updates.length>1?'s':''}` : 'Up to date'} color={sw.pending_updates?.length ? C.amber : C.green} C={C}/>
+              </div>
+              {(sw.pending_updates||[]).length > 0 && (
+                <div style={{ borderTop:`1px solid ${C.border}`, padding:'0 16px 10px' }}>
+                  {sw.pending_updates.map((u,i) => (
+                    <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'6px 0', borderBottom:`1px solid ${C.border}`, alignItems:'center' }}>
+                      <span style={{ fontSize:12, color:C.text }}>{u.name}</span>
+                      <span style={{ fontSize:11, fontFamily:'monospace', color:C.faint }}>{u.size}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+
+          </div>
+
+          {/* ── Right sidebar ── */}
+          <div>
+
+            {/* MDM / Management */}
+            <Section title="Device Management" icon="📋" C={C}>
+              <div style={{ padding:'10px 16px' }}>
+                <KV label="MDM enrolled"  value={mdm.enrolled ? 'Yes' : 'No'} color={mdm.enrolled ? C.green : C.red} C={C}/>
+                <KV label="Supervised"    value={mdm.supervised ? 'Yes' : 'No'} color={mdm.supervised ? C.green : C.amber} C={C}/>
+                <KV label="DEP enrolled"  value={mdm.dep ? 'Yes' : 'No'} color={mdm.dep ? C.green : C.muted} C={C}/>
+                {mdm.server && <KV label="MDM server" value={mdm.server} mono C={C}/>}
+              </div>
+              {(mdm.profiles||[]).length > 0 && (
+                <div style={{ borderTop:`1px solid ${C.border}`, padding:'10px 16px 12px' }}>
+                  <div style={{ fontSize:10, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>
+                    Profiles ({mdm.profiles.length})
+                  </div>
+                  {mdm.profiles.map((p,i) => (
+                    <div key={i} style={{ fontSize:11, color:C.muted, padding:'3px 0', borderBottom:`1px solid ${C.border}`, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {p.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Section>
+
+            {/* Network */}
+            <Section title="Network" icon="🌐" C={C}>
+              <div style={{ padding:'10px 16px' }}>
+                {(net.interfaces||[]).map((iface,i) => {
+                  const col = iface.status==='active'||iface.status==='connected' ? C.green : C.faint;
+                  return (
+                    <div key={i} style={{ padding:'7px 0', borderBottom:`1px solid ${C.border}` }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:2 }}>
+                        <span style={{ width:7, height:7, borderRadius:'50%', background:col, display:'inline-block' }}/>
+                        <span style={{ fontSize:12, color:C.text, fontWeight:500 }}>{iface.name}</span>
+                        <span style={{ fontSize:9, color:col, fontFamily:'monospace', textTransform:'uppercase' }}>{iface.status}</span>
+                      </div>
+                      {iface.ip && <div style={{ fontSize:11, fontFamily:'monospace', color:C.muted, paddingLeft:14 }}>{iface.ip}</div>}
+                      {iface.ssid && <div style={{ fontSize:10, color:C.faint, paddingLeft:14 }}>SSID: {iface.ssid}</div>}
+                    </div>
+                  );
+                })}
+                {(net.dns||[]).length > 0 && (
+                  <div style={{ paddingTop:8 }}>
+                    <div style={{ fontSize:10, color:C.faint, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:4 }}>DNS</div>
+                    {net.dns.map((d,i) => <div key={i} style={{ fontSize:11, fontFamily:'monospace', color:C.muted }}>{d}</div>)}
+                  </div>
+                )}
+              </div>
+            </Section>
+
+            {/* Certificates */}
+            <Section title={`Certificates (${certs.length})`} icon="🔐" C={C}>
+              {certs.length === 0
+                ? <div style={{ padding:14, color:C.muted, fontSize:12, fontStyle:'italic' }}>No certificate data</div>
+                : certs.map((c,i) => <CertRow key={i} cert={c} C={C}/>)
+              }
+            </Section>
+
+            {/* Agent metadata */}
+            <Section title="Agent metadata" icon="⚙" defaultOpen={false} C={C}>
+              <div style={{ padding:'10px 16px' }}>
+                <KV label="Agent version"  value={`v${meta.agent_version||'—'}`} mono C={C}/>
+                <KV label="Collected"      value={relTime(meta.collected_at)} C={C}/>
+                <KV label="Data source"    value={source} C={C}/>
+              </div>
+            </Section>
+
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
