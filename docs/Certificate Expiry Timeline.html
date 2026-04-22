@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Certificate Expiry Timeline</title>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #484f58; border-radius: 3px; }
+    button, select, input { font-family: inherit; }
+    select { appearance: none; cursor: pointer; }
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    @keyframes fadein { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    @keyframes grow   { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+    .spin   { animation: spin 1s linear infinite; display:inline-block; }
+    .fadein { animation: fadein 0.3s ease; }
+    .pulse  { animation: pulse 2s ease-in-out infinite; }
+    @media print {
+      * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+      .no-print { display:none !important; }
+      body { background:white !important; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo, useRef, memo } = React;
+
+// ── Palette ───────────────────────────────────────────────────────────────────
+const C = {
+  bg:'#090d13', surface:'#0d1117', s2:'#161b22', s3:'#1c2128', s4:'#21262d',
+  border:'#30363d', text:'#e6edf3', muted:'#7d8590', faint:'#484f58',
+  green:'#3fb950', red:'#f85149', amber:'#d29922', blue:'#58a6ff',
+  orange:'#f0883e', purple:'#bc8cff',
+};
+
+// ── Status thresholds ─────────────────────────────────────────────────────────
+function certStatus(days) {
+  if (days === null) return 'unknown';
+  if (days < 0)   return 'expired';
+  if (days <= 30)  return 'critical';
+  if (days <= 90)  return 'warning';
+  if (days <= 180) return 'notice';
+  return 'ok';
+}
+function statusColor(s) {
+  return { expired:'#6e7681', critical:C.red, warning:C.amber, notice:C.orange, ok:C.green, unknown:C.faint }[s] || C.faint;
+}
+function statusLabel(s) {
+  return { expired:'Expired', critical:'Critical', warning:'Warning', notice:'Notice', ok:'OK', unknown:'Unknown' }[s] || s;
+}
+
+// ── Sample data ───────────────────────────────────────────────────────────────
+function daysFromNow(n) {
+  const d = new Date(); d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+const SAMPLE_CERTS = [
+  // Expired
+  { id:'c01', name:'Legacy VPN Root CA',       source:'IGEL-009',   site:'Göteborg Office', type:'Root CA',      expiry: daysFromNow(-12),  issuer:'Internal CA' },
+  { id:'c02', name:'Old Wi-Fi Auth Cert',       source:'ELUX-003',   site:'Malmö Hub',       type:'Client Cert',  expiry: daysFromNow(-4),   issuer:'Company Issuing CA' },
+  // Critical (≤30d)
+  { id:'c03', name:'Device Certificate',        source:'Zephyr',     site:'Stockholm HQ',    type:'Client Cert',  expiry: daysFromNow(7),    issuer:'Company Issuing CA' },
+  { id:'c04', name:'Kiosk TLS Certificate',     source:'KIOSK-02',   site:'Malmö Hub',       type:'TLS',          expiry: daysFromNow(14),   issuer:'DigiCert' },
+  { id:'c05', name:'IGEL UMS Server Cert',      source:'IGEL-UMS',   site:'Stockholm HQ',    type:'Server Cert',  expiry: daysFromNow(22),   issuer:'Company Issuing CA' },
+  { id:'c06', name:'RADIUS Auth Certificate',   source:'IGEL-014',   site:'Göteborg Office', type:'Client Cert',  expiry: daysFromNow(28),   issuer:'Company Issuing CA' },
+  // Warning (31–90d)
+  { id:'c07', name:'Company Root CA',           source:'IGEL-001',   site:'Stockholm HQ',    type:'Root CA',      expiry: daysFromNow(45),   issuer:'Internal Root' },
+  { id:'c08', name:'Company Root CA',           source:'ELUX-001',   site:'Göteborg Office', type:'Root CA',      expiry: daysFromNow(45),   issuer:'Internal Root' },
+  { id:'c09', name:'Company Root CA',           source:'MAC-001',    site:'Remote',          type:'Root CA',      expiry: daysFromNow(45),   issuer:'Internal Root' },
+  { id:'c10', name:'Citrix Gateway TLS',        source:'IGEL-022',   site:'Stockholm HQ',    type:'TLS',          expiry: daysFromNow(67),   issuer:'DigiCert' },
+  { id:'c11', name:'MDM APNS Certificate',      source:'mdm.company',site:'Stockholm HQ',    type:'APNS',         expiry: daysFromNow(82),   issuer:'Apple' },
+  // Notice (91–180d)
+  { id:'c12', name:'Company Issuing CA',        source:'IGEL-001',   site:'Stockholm HQ',    type:'Issuing CA',   expiry: daysFromNow(120),  issuer:'Company Root CA' },
+  { id:'c13', name:'Company Issuing CA',        source:'ELUX-001',   site:'Göteborg Office', type:'Issuing CA',   expiry: daysFromNow(120),  issuer:'Company Root CA' },
+  { id:'c14', name:'S/MIME Email Cert',         source:'Zephyr',     site:'Stockholm HQ',    type:'S/MIME',       expiry: daysFromNow(155),  issuer:'Company Issuing CA' },
+  { id:'c15', name:'VPN Client Certificate',    source:'IGEL-007',   site:'Malmö Hub',       type:'Client Cert',  expiry: daysFromNow(170),  issuer:'Company Issuing CA' },
+  // OK (>180d)
+  { id:'c16', name:'DigiCert Global Root CA',   source:'Zephyr',     site:'Stockholm HQ',    type:'Root CA',      expiry: daysFromNow(600),  issuer:'DigiCert' },
+  { id:'c17', name:'GlobalSign Root CA',        source:'IGEL-001',   site:'Stockholm HQ',    type:'Root CA',      expiry: daysFromNow(730),  issuer:'GlobalSign' },
+  { id:'c18', name:'ISRG Root X1',              source:'MAC-001',    site:'Remote',          type:'Root CA',      expiry: daysFromNow(1460), issuer:'Let\'s Encrypt' },
+  { id:'c19', name:'Microsoft RSA Root 2017',   source:'IGEL-001',   site:'Stockholm HQ',    type:'Root CA',      expiry: daysFromNow(1825), issuer:'Microsoft' },
+  { id:'c20', name:'Internal Code Signing CA',  source:'IGEL-UMS',   site:'Stockholm HQ',    type:'Code Signing', expiry: daysFromNow(900),  issuer:'Company Root CA' },
+].map(c => {
+  const days = c.expiry ? Math.floor((new Date(c.expiry) - Date.now()) / 86400000) : null;
+  return { ...c, days, status: certStatus(days) };
+});
+
+// ── Data loading ──────────────────────────────────────────────────────────────
+function extractCertsFromFleet(fleetJson) {
+  const certs = [];
+  let id = 0;
+  for (const client of fleetJson.clients || []) {
+    const d = client.data || {};
+    const hostname = client.hostname || client.ip;
+    const site = client.site || 'Unknown';
+
+    // certificates.details (rich)
+    for (const cert of d.certificates?.details || []) {
+      const days = cert.not_after ? Math.floor((new Date(cert.not_after) - Date.now()) / 86400000) : null;
+      certs.push({ id:`fleet-${id++}`, name:cert.name||'Unknown', source:hostname, site, type:'System', expiry:(cert.not_after||'').slice(0,10), days, status:certStatus(days), issuer:cert.store||'' });
+    }
+    // certificates.installed (names only, no expiry)
+    for (const name of d.certificates?.installed || []) {
+      if (certs.find(c=>c.name===name&&c.source===hostname)) continue;
+      certs.push({ id:`fleet-${id++}`, name, source:hostname, site, type:'System', expiry:null, days:null, status:'unknown', issuer:'' });
+    }
+    // macOS agent format
+    for (const cert of d.certificates?.system || []) {
+      const days = cert.expiry ? Math.floor((new Date(cert.expiry) - Date.now()) / 86400000) : null;
+      certs.push({ id:`fleet-${id++}`, name:cert.name||'Unknown', source:hostname, site, type:'System', expiry:cert.expiry||null, days, status:certStatus(days), issuer:'' });
+    }
+  }
+  return certs;
+}
+
+function extractCertsFromMacAgent(data) {
+  const certs = [];
+  let id = 0;
+  const hostname = data.meta?.hostname || 'This Mac';
+  const site = 'Local';
+  for (const cert of data.certificates?.system || []) {
+    const days = cert.expiry ? Math.floor((new Date(cert.expiry) - Date.now()) / 86400000) : null;
+    certs.push({ id:`mac-${id++}`, name:cert.name||'Unknown', source:hostname, site, type:'System', expiry:cert.expiry||null, days, status:certStatus(days), issuer:'' });
+  }
+  return certs;
+}
+
+async function loadCerts() {
+  const sources = [];
+  // Try fleet collector
+  try {
+    const ctrl = new AbortController(); setTimeout(()=>ctrl.abort(), 2500);
+    const r = await fetch('http://127.0.0.1:38766/fleet', { signal:ctrl.signal, cache:'no-store' });
+    if (r.ok) {
+      const j = await r.json();
+      const c = extractCertsFromFleet(j);
+      if (c.length) sources.push({ label:'Fleet Collector', certs:c });
+    }
+  } catch(e) {}
+  // Try macOS agent
+  try {
+    const ctrl = new AbortController(); setTimeout(()=>ctrl.abort(), 2000);
+    const r = await fetch('http://127.0.0.1:38764/status', { signal:ctrl.signal, cache:'no-store' });
+    if (r.ok) {
+      const j = await r.json();
+      const c = extractCertsFromMacAgent(j);
+      if (c.length) sources.push({ label:'macOS Agent', certs:c });
+    }
+  } catch(e) {}
+
+  if (sources.length > 0) {
+    // Merge and deduplicate by name+source
+    const all = sources.flatMap(s=>s.certs);
+    const seen = new Set();
+    const unique = all.filter(c => { const k=`${c.name}|${c.source}`; if(seen.has(k)) return false; seen.add(k); return true; });
+    return { live: true, labels: sources.map(s=>s.label), certs: unique };
+  }
+  return { live: false, labels: ['Sample data'], certs: SAMPLE_CERTS };
+}
+
+// ── Horizon chart (expiration density) ───────────────────────────────────────
+function HorizonChart({ certs, C }) {
+  const MONTHS = 18;
+  const buckets = Array.from({ length: MONTHS }, (_, i) => {
+    const from = i * 30, to = (i+1) * 30;
+    const items = certs.filter(c => c.days !== null && c.days >= from && c.days < to);
+    const critical = items.filter(c=>c.status==='critical'||c.status==='expired').length;
+    const warning  = items.filter(c=>c.status==='warning').length;
+    const notice   = items.filter(c=>c.status==='notice').length;
+    const ok       = items.filter(c=>c.status==='ok').length;
+    return { label: monthLabel(i), critical, warning, notice, ok, total:items.length };
+  });
+  const maxVal = Math.max(...buckets.map(b=>b.total), 1);
+
+  return (
+    <div>
+      <div style={{ display:'flex', gap:2, alignItems:'flex-end', height:52, paddingBottom:4 }}>
+        {buckets.map((b,i) => {
+          const h = Math.max(2, Math.round((b.total / maxVal) * 44));
+          const col = b.critical>0 ? C.red : b.warning>0 ? C.amber : b.notice>0 ? C.orange : b.total>0 ? C.green : C.s4;
+          return (
+            <div key={i} title={`${b.label}: ${b.total} cert${b.total!==1?'s':''}`}
+              style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'flex-end', cursor:'default' }}>
+              <div style={{ height:h, background:col, borderRadius:'2px 2px 0 0', opacity:0.85, transition:'height 0.4s ease' }}/>
+            </div>
+          );
+        })}
+      </div>
+      {/* Month labels */}
+      <div style={{ display:'flex', gap:2 }}>
+        {buckets.map((b,i) => (
+          <div key={i} style={{ flex:1, fontSize:8, color:C.faint, textAlign:'center', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{b.label}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function monthLabel(i) {
+  const d = new Date(); d.setDate(d.getDate() + i*30);
+  return d.toLocaleDateString('en-SE', { month:'short' });
+}
+
+// ── Timeline bar ──────────────────────────────────────────────────────────────
+const HORIZON = 365 * 2; // 2 year view
+
+function TimelineBar({ days, status, C }) {
+  if (days === null) return <span style={{ fontSize:10, color:C.faint, fontStyle:'italic' }}>No expiry data</span>;
+  const col    = statusColor(status);
+  const pct    = days < 0 ? 0 : Math.min(days / HORIZON * 100, 100);
+  const today  = Math.min(0 / HORIZON * 100, 100);
+
+  return (
+    <div style={{ position:'relative', height:8, background:C.s3, borderRadius:4, overflow:'visible', minWidth:120 }}>
+      {/* Color zones */}
+      <div style={{ position:'absolute', left:0, top:0, bottom:0, width:`${30/HORIZON*100}%`,  background:`${C.red}20`,    borderRadius:'4px 0 0 4px' }}/>
+      <div style={{ position:'absolute', left:`${30/HORIZON*100}%`, top:0, bottom:0, width:`${60/HORIZON*100}%`,  background:`${C.amber}18` }}/>
+      <div style={{ position:'absolute', left:`${90/HORIZON*100}%`, top:0, bottom:0, width:`${90/HORIZON*100}%`,  background:`${C.orange}14` }}/>
+      {/* Fill */}
+      {days >= 0 && (
+        <div style={{ position:'absolute', left:0, top:0, bottom:0, width:`${pct}%`, background:col, borderRadius:4, opacity:0.75, transformOrigin:'left', animation:'grow 0.6s ease' }}/>
+      )}
+      {/* Today line */}
+      <div style={{ position:'absolute', top:-2, bottom:-2, left:0, width:2, background:C.blue, borderRadius:1 }}/>
+      {/* Expiry dot */}
+      {days >= 0 && (
+        <div style={{ position:'absolute', top:'50%', left:`${pct}%`, transform:'translate(-50%,-50%)', width:10, height:10, borderRadius:'50%', background:col, border:`2px solid ${C.surface}`, zIndex:2 }}/>
+      )}
+    </div>
+  );
+}
+
+// ── Cert detail panel ─────────────────────────────────────────────────────────
+function CertDetail({ cert, onClose, C }) {
+  if (!cert) return null;
+  const col = statusColor(cert.status);
+  return (
+    <div className="fadein" style={{ height:'100%', display:'flex', flexDirection:'column' }}>
+      <div style={{ padding:'12px 16px', borderBottom:`1px solid ${C.border}`, background:C.s2, display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        <div style={{ width:10, height:10, borderRadius:'50%', background:col, flexShrink:0 }}/>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cert.name}</div>
+          <div style={{ fontSize:10, color:C.muted, marginTop:1 }}>{cert.source} · {cert.site}</div>
+        </div>
+        <button onClick={onClose} style={{ background:'none', border:'none', color:C.muted, cursor:'pointer', fontSize:16 }}>✕</button>
+      </div>
+
+      <div style={{ flex:1, overflowY:'auto', padding:'14px 16px' }}>
+        {/* Status pill */}
+        <div style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:6, background:`${col}18`, border:`1px solid ${col}44`, marginBottom:16 }}>
+          <span style={{ fontSize:12, fontWeight:700, color:col }}>{statusLabel(cert.status).toUpperCase()}</span>
+        </div>
+
+        {/* Days remaining — big number */}
+        {cert.days !== null && (
+          <div style={{ textAlign:'center', padding:'16px 0 20px', borderBottom:`1px solid ${C.border}`, marginBottom:16 }}>
+            <div style={{ fontSize:48, fontWeight:800, fontFamily:'monospace', color:col, lineHeight:1 }}>
+              {cert.days < 0 ? Math.abs(cert.days) : cert.days}
+            </div>
+            <div style={{ fontSize:11, color:C.muted, marginTop:4 }}>
+              {cert.days < 0 ? `days expired` : `days remaining`}
+            </div>
+          </div>
+        )}
+
+        {/* Timeline bar */}
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:9, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:8 }}>Timeline (2 year view)</div>
+          <TimelineBar days={cert.days} status={cert.status} C={C}/>
+          <div style={{ display:'flex', justifyContent:'space-between', marginTop:4 }}>
+            <span style={{ fontSize:8, color:C.faint }}>Today</span>
+            <span style={{ fontSize:8, color:C.faint }}>+2 years</span>
+          </div>
+        </div>
+
+        {/* Key/value details */}
+        {[
+          ['Certificate',  cert.name],
+          ['Source',       cert.source],
+          ['Site',         cert.site],
+          ['Type',         cert.type],
+          ['Issuer',       cert.issuer || '—'],
+          ['Expiry date',  cert.expiry || '—'],
+        ].map(([k,v]) => (
+          <div key={k} style={{ display:'flex', padding:'6px 0', borderBottom:`1px solid ${C.border}`, gap:10 }}>
+            <span style={{ fontSize:11, color:C.muted, minWidth:90, flexShrink:0 }}>{k}</span>
+            <span style={{ fontSize:11, color:C.text, fontFamily:'monospace', wordBreak:'break-all' }}>{v}</span>
+          </div>
+        ))}
+
+        {/* Remediation */}
+        {(cert.status==='critical'||cert.status==='expired'||cert.status==='warning') && (
+          <div style={{ marginTop:16, padding:'10px 12px', background:`${C.amber}0c`, border:`1px solid ${C.amber}33`, borderRadius:6 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:C.amber, marginBottom:4 }}>⚡ Action needed</div>
+            <div style={{ fontSize:11, color:C.muted }}>
+              {cert.status==='expired'
+                ? 'This certificate has expired. Replace immediately to avoid authentication failures and trust errors.'
+                : cert.days <= 30
+                ? `Certificate expires in ${cert.days} days. Initiate renewal process now — allow time for deployment and propagation.`
+                : `Certificate expires in ${cert.days} days. Schedule renewal within the next 2–3 weeks.`}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Cert row ──────────────────────────────────────────────────────────────────
+const CertRow = memo(function CertRow({ cert, selected, onClick, showSource, C }) {
+  const col = statusColor(cert.status);
+  return (
+    <tr onClick={onClick}
+      style={{ borderBottom:`1px solid ${C.border}`, cursor:'pointer', background:selected?`${col}0c`:'transparent', transition:'background 0.1s' }}
+      onMouseEnter={e=>{ if(!selected) e.currentTarget.style.background=C.s2; }}
+      onMouseLeave={e=>{ if(!selected) e.currentTarget.style.background='transparent'; }}>
+      {/* Status dot */}
+      <td style={{ padding:'10px 14px', width:24 }}>
+        <div style={{ width:8, height:8, borderRadius:'50%', background:col }}/>
+      </td>
+      {/* Name */}
+      <td style={{ padding:'10px 6px 10px 0', fontSize:13, color:C.text, fontWeight:500, maxWidth:220 }}>
+        <div style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{cert.name}</div>
+        {showSource && <div style={{ fontSize:10, color:C.faint, marginTop:2 }}>{cert.source}</div>}
+      </td>
+      {/* Type */}
+      <td style={{ padding:'10px 14px', fontSize:10, color:C.muted, whiteSpace:'nowrap' }}>{cert.type}</td>
+      {/* Timeline bar */}
+      <td style={{ padding:'10px 14px', width:180 }}>
+        <TimelineBar days={cert.days} status={cert.status} C={C}/>
+      </td>
+      {/* Days */}
+      <td style={{ padding:'10px 14px', textAlign:'right', whiteSpace:'nowrap', width:80 }}>
+        {cert.days === null
+          ? <span style={{ fontSize:10, color:C.faint }}>—</span>
+          : cert.days < 0
+          ? <span style={{ fontSize:12, fontWeight:700, fontFamily:'monospace', color:col }}>{Math.abs(cert.days)}d ago</span>
+          : <span style={{ fontSize:13, fontWeight:700, fontFamily:'monospace', color:col }}>{cert.days}d</span>
+        }
+      </td>
+      {/* Expiry date */}
+      <td style={{ padding:'10px 14px', fontSize:11, color:C.muted, fontFamily:'monospace', whiteSpace:'nowrap' }}>
+        {cert.expiry || '—'}
+      </td>
+      {/* Status chip */}
+      <td style={{ padding:'10px 14px', whiteSpace:'nowrap' }}>
+        <span style={{ fontSize:9, padding:'2px 7px', borderRadius:4, fontWeight:700, fontFamily:'monospace', textTransform:'uppercase', letterSpacing:'0.06em', background:`${col}1e`, color:col, border:`1px solid ${col}44` }}>
+          {statusLabel(cert.status)}
+        </span>
+      </td>
+    </tr>
+  );
+});
+
+// ── Summary card ──────────────────────────────────────────────────────────────
+function SummaryCard({ label, value, color, sub, onClick, active, C }) {
+  return (
+    <div onClick={onClick}
+      style={{ background:active?`${color}14`:C.s2, border:`1px solid ${active?color:C.border}`, borderRadius:10, padding:'14px 18px', flex:1, minWidth:110, cursor:onClick?'pointer':'default', transition:'all 0.15s', boxShadow:active?`0 0 0 1px ${color}44`:undefined }}>
+      <div style={{ fontSize:28, fontWeight:800, fontFamily:'monospace', color:value>0?color:C.faint, lineHeight:1 }}>{value}</div>
+      <div style={{ fontSize:10, color:C.muted, textTransform:'uppercase', letterSpacing:'0.07em', marginTop:5 }}>{label}</div>
+      {sub && <div style={{ fontSize:10, color:C.faint, marginTop:3 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [allCerts,    setAllCerts]    = useState([]);
+  const [live,        setLive]        = useState(false);
+  const [sourceLabels,setSourceLabels]= useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [selected,    setSelected]    = useState(null);
+  const [filterStatus,setFilterStatus]= useState('all');
+  const [filterSite,  setFilterSite]  = useState('all');
+  const [filterType,  setFilterType]  = useState('all');
+  const [search,      setSearch]      = useState('');
+  const [sortKey,     setSortKey]     = useState('days');
+  const [refreshAt,   setRefreshAt]   = useState(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const result = await loadCerts();
+    setAllCerts(result.certs);
+    setLive(result.live);
+    setSourceLabels(result.labels);
+    setRefreshAt(new Date());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const sites = useMemo(() => [...new Set(allCerts.map(c=>c.site).filter(Boolean))].sort(), [allCerts]);
+  const types  = useMemo(() => [...new Set(allCerts.map(c=>c.type).filter(Boolean))].sort(), [allCerts]);
+
+  const summary = useMemo(() => ({
+    expired:  allCerts.filter(c=>c.status==='expired').length,
+    critical: allCerts.filter(c=>c.status==='critical').length,
+    warning:  allCerts.filter(c=>c.status==='warning').length,
+    notice:   allCerts.filter(c=>c.status==='notice').length,
+    ok:       allCerts.filter(c=>c.status==='ok').length,
+    unknown:  allCerts.filter(c=>c.status==='unknown').length,
+    total:    allCerts.length,
+  }), [allCerts]);
+
+  const visible = useMemo(() => {
+    let list = [...allCerts];
+    if (filterStatus !== 'all') list = list.filter(c=>c.status===filterStatus);
+    if (filterSite   !== 'all') list = list.filter(c=>c.site===filterSite);
+    if (filterType   !== 'all') list = list.filter(c=>c.type===filterType);
+    if (search) list = list.filter(c=>c.name.toLowerCase().includes(search.toLowerCase())||c.source.toLowerCase().includes(search.toLowerCase()));
+    list.sort((a,b) => {
+      if (sortKey==='days') {
+        if (a.days===null) return 1; if (b.days===null) return -1;
+        return a.days - b.days;
+      }
+      if (sortKey==='name') return a.name.localeCompare(b.name);
+      if (sortKey==='source') return a.source.localeCompare(b.source);
+      if (sortKey==='expiry') return (a.expiry||'9999').localeCompare(b.expiry||'9999');
+      return 0;
+    });
+    return list;
+  }, [allCerts, filterStatus, filterSite, filterType, search, sortKey]);
+
+  const selCert = selected ? allCerts.find(c=>c.id===selected) : null;
+  const hasProblem = summary.expired > 0 || summary.critical > 0;
+
+  const selStyle = { background:C.s3, border:`1px solid ${C.border}`, borderRadius:6, padding:'4px 10px 4px 10px', fontSize:12, color:C.text, cursor:'pointer' };
+
+  function SortTh({ label, k }) {
+    return (
+      <th onClick={()=>setSortKey(k)} style={{ padding:'7px 14px', textAlign: k==='days'||k==='expiry'?'right':'left', fontSize:9, fontWeight:700, color:sortKey===k?C.blue:C.faint, textTransform:'uppercase', letterSpacing:'0.08em', cursor:'pointer', whiteSpace:'nowrap', userSelect:'none' }}>
+        {label}{sortKey===k?' ↑':''}
+      </th>
+    );
+  }
+
+  return (
+    <div style={{ minHeight:'100vh', background:C.bg, color:C.text, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif", display:'flex', flexDirection:'column' }}>
+
+      {/* ── Alert banner ── */}
+      {!loading && hasProblem && (
+        <div className="pulse" style={{ background:`${C.red}14`, borderBottom:`1px solid ${C.red}40`, padding:'6px 24px', display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontSize:12, fontWeight:700, color:C.red }}>⚠</span>
+          <span style={{ fontSize:12, color:C.red }}>
+            {summary.expired > 0 && `${summary.expired} expired`}
+            {summary.expired > 0 && summary.critical > 0 && ' · '}
+            {summary.critical > 0 && `${summary.critical} expire within 30 days`}
+          </span>
+          <div style={{ flex:1 }}/>
+          <span style={{ fontSize:10, color:`${C.red}80` }}>Certificate action required</span>
+        </div>
+      )}
+
+      {/* ── Header ── */}
+      <div style={{ position:'sticky', top:0, zIndex:100, background:C.surface, borderBottom:`1px solid ${C.border}`, padding:'0 24px', flexShrink:0 }}>
+        <div style={{ height:54, display:'flex', alignItems:'center', gap:14, maxWidth:1300, margin:'0 auto' }}>
+
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:30, height:30, borderRadius:8, background:`${C.purple}18`, border:`1px solid ${C.purple}40`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15 }}>🔐</div>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:C.text, lineHeight:1.1 }}>Certificate Expiry Timeline</div>
+              <div style={{ fontSize:9, color:C.muted, textTransform:'uppercase', letterSpacing:'0.08em' }}>Fleet-wide · PKI overview</div>
+            </div>
+          </div>
+
+          <div style={{ width:1, height:22, background:C.border }}/>
+
+          <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+            <span style={{ width:6, height:6, borderRadius:'50%', background:live?C.green:C.amber, display:'inline-block' }} className="pulse"/>
+            <span style={{ fontSize:11, color:C.muted }}>{sourceLabels.join(' + ') || '—'}</span>
+          </div>
+
+          <div style={{ flex:1 }}/>
+
+          {/* Search */}
+          <div style={{ position:'relative' }}>
+            <span style={{ position:'absolute', left:8, top:'50%', transform:'translateY(-50%)', color:C.faint, fontSize:12, pointerEvents:'none' }}>⌕</span>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search certs…"
+              style={{ background:C.s2, border:`1px solid ${C.border}`, borderRadius:6, padding:'4px 10px 4px 26px', fontSize:12, color:C.text, width:160, outline:'none' }}/>
+          </div>
+
+          {/* Filters */}
+          <select value={filterSite} onChange={e=>setFilterSite(e.target.value)} style={selStyle}>
+            <option value="all">All sites</option>
+            {sites.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>
+          <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={selStyle}>
+            <option value="all">All types</option>
+            {types.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+
+          <button onClick={refresh} disabled={loading}
+            style={{ background:C.s2, border:`1px solid ${C.border}`, borderRadius:6, padding:'4px 10px', fontSize:12, color:C.text, cursor:loading?'wait':'pointer', display:'flex', alignItems:'center', gap:5 }}>
+            <span className={loading?'spin':''}>↻</span>
+            {refreshAt && !loading ? `${Math.round((Date.now()-refreshAt)/60000)}m ago` : 'Refresh'}
+          </button>
+
+          <button onClick={()=>window.print()}
+            style={{ background:C.s2, border:`1px solid ${C.border}`, borderRadius:6, padding:'4px 10px', fontSize:12, color:C.muted, cursor:'pointer' }}>🖨</button>
+        </div>
+      </div>
+
+      {/* ── Main ── */}
+      {loading && allCerts.length === 0 ? (
+        <div style={{ padding:'100px 0', textAlign:'center', color:C.muted }}>
+          <span className="spin" style={{ fontSize:22, display:'block', marginBottom:12 }}>↻</span>
+          Loading certificates…
+        </div>
+      ) : (
+        <div className="fadein" style={{ flex:1, display:'flex', overflow:'hidden', maxWidth:1300, width:'100%', margin:'0 auto', padding:'0' }}>
+
+          {/* ── Left: main content ── */}
+          <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minWidth:0 }}>
+
+            {/* Summary cards + horizon */}
+            <div style={{ padding:'16px 20px', borderBottom:`1px solid ${C.border}`, flexShrink:0 }}>
+              <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+                {[
+                  ['Expired',  summary.expired,  C.faint,  'Replace immediately', 'expired'],
+                  ['Critical', summary.critical, C.red,    'Expiring ≤ 30 days',  'critical'],
+                  ['Warning',  summary.warning,  C.amber,  'Expiring 31–90 days', 'warning'],
+                  ['Notice',   summary.notice,   C.orange, 'Expiring 91–180 days','notice'],
+                  ['OK',       summary.ok,       C.green,  'Expiring > 180 days', 'ok'],
+                  ['Total',    summary.total,    C.text,   `${sites.length} site${sites.length!==1?'s':''}`, 'all'],
+                ].map(([l,v,col,sub,fk]) => (
+                  <SummaryCard key={l} label={l} value={v} color={col} sub={sub}
+                    active={filterStatus===fk}
+                    onClick={()=>setFilterStatus(f=>f===fk?'all':fk)}
+                    C={C}/>
+                ))}
+              </div>
+
+              {/* Horizon chart */}
+              <div style={{ background:C.s2, border:`1px solid ${C.border}`, borderRadius:8, padding:'12px 16px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                  <span style={{ fontSize:10, fontWeight:700, color:C.muted, textTransform:'uppercase', letterSpacing:'0.1em' }}>Expiration density — next 18 months</span>
+                  <div style={{ flex:1 }}/>
+                  {['expired','critical','warning','notice','ok'].map(s=>(
+                    <span key={s} style={{ fontSize:9, color:statusColor(s), display:'flex', alignItems:'center', gap:3 }}>
+                      <span style={{ width:7, height:7, borderRadius:'50%', background:statusColor(s), display:'inline-block' }}/>
+                      {statusLabel(s)}
+                    </span>
+                  ))}
+                </div>
+                <HorizonChart certs={allCerts} C={C}/>
+              </div>
+            </div>
+
+            {/* Filter info */}
+            <div style={{ padding:'7px 20px', borderBottom:`1px solid ${C.border}`, display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+              <span style={{ fontSize:11, color:C.muted }}>
+                Showing <strong style={{ color:C.text }}>{visible.length}</strong> of {allCerts.length} certificates
+              </span>
+              {(filterStatus!=='all'||filterSite!=='all'||filterType!=='all'||search) && (
+                <button onClick={()=>{setFilterStatus('all');setFilterSite('all');setFilterType('all');setSearch('');}}
+                  style={{ fontSize:11, color:C.blue, background:'none', border:'none', cursor:'pointer' }}>
+                  Clear filters ✕
+                </button>
+              )}
+              <div style={{ flex:1 }}/>
+              <span style={{ fontSize:10, color:C.faint }}>Sort by</span>
+              {[['Days','days'],['Name','name'],['Source','source'],['Expiry','expiry']].map(([l,k])=>(
+                <button key={k} onClick={()=>setSortKey(k)}
+                  style={{ fontSize:11, color:sortKey===k?C.blue:C.muted, background:'none', border:'none', cursor:'pointer', fontWeight:sortKey===k?700:400 }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            {/* Table */}
+            <div style={{ flex:1, overflowY:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse' }}>
+                <thead style={{ position:'sticky', top:0, background:C.s3, zIndex:10 }}>
+                  <tr style={{ borderBottom:`1px solid ${C.border}` }}>
+                    <th style={{ width:24 }}/>
+                    <SortTh label="Certificate" k="name"/>
+                    <th style={{ padding:'7px 14px', textAlign:'left', fontSize:9, fontWeight:700, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em' }}>Type</th>
+                    <th style={{ padding:'7px 14px', textAlign:'left', fontSize:9, fontWeight:700, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em', width:180 }}>Timeline</th>
+                    <SortTh label="Days" k="days"/>
+                    <SortTh label="Expiry" k="expiry"/>
+                    <th style={{ padding:'7px 14px', textAlign:'left', fontSize:9, fontWeight:700, color:C.faint, textTransform:'uppercase', letterSpacing:'0.08em' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map(cert => (
+                    <CertRow key={cert.id} cert={cert} selected={selected===cert.id}
+                      onClick={()=>setSelected(s=>s===cert.id?null:cert.id)}
+                      showSource={true} C={C}/>
+                  ))}
+                  {visible.length === 0 && (
+                    <tr><td colSpan={7} style={{ padding:40, textAlign:'center', color:C.muted, fontSize:12 }}>No certificates match the current filters</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* ── Right: detail ── */}
+          <div style={{ width:320, flexShrink:0, borderLeft:`1px solid ${C.border}`, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+            {selCert ? (
+              <CertDetail cert={selCert} onClose={()=>setSelected(null)} C={C}/>
+            ) : (
+              <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:24, gap:8, color:C.faint }}>
+                <div style={{ fontSize:32 }}>🔐</div>
+                <div style={{ fontSize:12, textAlign:'center', lineHeight:1.6 }}>Select a certificate<br/>to see details and<br/>remediation guidance</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
