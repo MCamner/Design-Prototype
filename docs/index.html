@@ -4,30 +4,654 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Design Prototype</title>
+  <meta name="description" content="Enterprise-focused web app prototypes for client validation, endpoint visibility, and operational readiness.">
   <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --panel-2: #182142;
+      --text: #eef2ff;
+      --muted: #aab4d6;
+      --line: rgba(255,255,255,0.10);
+      --accent: #79a8ff;
+      --accent-2: #8ef0d2;
+      --shadow: 0 18px 60px rgba(0,0,0,0.35);
+      --max: 1120px;
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      font-family: Arial, sans-serif;
-      max-width: 760px;
-      margin: 60px auto;
-      padding: 0 20px;
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(121,168,255,0.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(142,240,210,0.10), transparent 24%),
+        linear-gradient(180deg, #0a1020 0%, #0c1224 100%);
+      color: var(--text);
       line-height: 1.6;
     }
-    h1 { margin-bottom: 8px; }
-    p { color: #444; }
-    ul { padding-left: 20px; }
-    a { text-decoration: none; }
-    a:hover { text-decoration: underline; }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .container {
+      width: min(var(--max), calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+      background: rgba(11, 16, 32, 0.72);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-height: 72px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .brand-mark {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #08111f;
+      font-weight: 800;
+      box-shadow: var(--shadow);
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    .hero {
+      padding: 92px 0 54px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255,255,255,0.03);
+      font-size: 0.92rem;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 34px;
+      align-items: center;
+      margin-top: 24px;
+    }
+
+    .hero h1 {
+      margin: 0 0 18px;
+      font-size: clamp(2.5rem, 6vw, 4.8rem);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+      max-width: 12ch;
+    }
+
+    .hero p.lead {
+      margin: 0 0 26px;
+      color: var(--muted);
+      font-size: 1.1rem;
+      max-width: 62ch;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 14px 18px;
+      border-radius: 14px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #08111f;
+      box-shadow: var(--shadow);
+    }
+
+    .button-secondary {
+      border-color: var(--line);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+    }
+
+    .hero-points {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .pill {
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .hero-card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 26px;
+    }
+
+    .terminal {
+      background: #09101d;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 18px;
+      overflow: hidden;
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.22);
+    }
+
+    .terminal-body {
+      padding: 18px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #d8e5ff;
+      font-size: 0.95rem;
+      white-space: pre-line;
+    }
+
+    section {
+      padding: 34px 0;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(1.6rem, 3vw, 2.5rem);
+      letter-spacing: -0.03em;
+    }
+
+    .section-head p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 52ch;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-kicker {
+      display: inline-block;
+      margin-bottom: 10px;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-2);
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 1.22rem;
+    }
+
+    .card p {
+      margin: 0 0 16px;
+      color: var(--muted);
+    }
+
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+
+    .list li + li {
+      margin-top: 8px;
+    }
+
+    .mini-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .mini-link:hover {
+      color: var(--accent-2);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 22px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .panel h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 1.15rem;
+    }
+
+    .steps {
+      display: grid;
+      gap: 14px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .step-num {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: rgba(121,168,255,0.14);
+      color: var(--text);
+      font-weight: 700;
+      border: 1px solid rgba(121,168,255,0.24);
+    }
+
+    .step p {
+      margin: 4px 0 0;
+      color: var(--muted);
+    }
+
+    .quote {
+      font-size: 1.05rem;
+      color: var(--text);
+      margin: 0 0 12px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .footer {
+      padding: 28px 0 60px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .footer-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid,
+      .cards,
+      .split {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .nav-inner {
+        align-items: flex-start;
+        padding: 14px 0;
+        flex-direction: column;
+      }
+
+      .hero {
+        padding-top: 60px;
+      }
+
+      .container {
+        width: min(var(--max), calc(100% - 24px));
+      }
+
+      .hero-card,
+      .card,
+      .panel {
+        padding: 20px;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Design Prototype</h1>
-  <p>Web app prototypes by Mattias Camner.</p>
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="./">
+        <span class="brand-mark">DP</span>
+        <span>Design Prototype</span>
+      </a>
 
-  <h2>Available prototypes</h2>
-  <ul>
-    <li><a href="./Client%20Readiness%20Dashboard.html">Client Readiness Dashboard</a></li>
-    <li><a href="./Fleet%20Command%20Center.html">Fleet Command Center</a></li>
-    <li><a href="./macOS%20Enterprise%20Dashboard.html">macOS Enterprise Dashboard</a></li>
-  </ul>
+      <nav class="nav-links">
+        <a href="#prototypes">Prototypes</a>
+        <a href="#approach">Approach</a>
+        <a href="#positioning">Positioning</a>
+        <a href="https://github.com/MCamner/Design-Prototype">GitHub Repo</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="eyebrow">Enterprise client platforms · browser-based prototypes · design exploration</div>
+
+        <div class="hero-grid">
+          <div>
+            <h1>Client-side validation for enterprise environments.</h1>
+            <p class="lead">
+              Design Prototype is a collection of web app concepts focused on endpoint readiness,
+              baseline visibility, and operational feedback for managed client platforms.
+              The goal is simple: make client state visible before it becomes an incident.
+            </p>
+
+            <div class="hero-actions">
+              <a class="button button-primary" href="./Client%20Readiness%20Dashboard.html">Open Client Readiness</a>
+              <a class="button button-secondary" href="https://github.com/MCamner/Design-Prototype">View Repository</a>
+            </div>
+
+            <div class="hero-points">
+              <span class="pill">Thin client scenarios</span>
+              <span class="pill">Citrix / VDI readiness</span>
+              <span class="pill">Baseline-driven checks</span>
+              <span class="pill">Static browser prototypes</span>
+            </div>
+          </div>
+
+          <div class="hero-card">
+            <div class="terminal">
+              <div class="terminal-bar">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+              </div>
+              <div class="terminal-body">Prototype focus
+
+1. Detect client context
+2. Check readiness signals
+3. Compare against expected baseline
+4. Surface operational status
+5. Give immediate feedback
+
+Outcome:
+Faster triage, clearer visibility,
+better client-side validation.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="prototypes">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h2>Core prototypes</h2>
+          </div>
+          <p>
+            These prototypes are not random demos. They explore how enterprise endpoints can
+            expose readiness, health, and operational state through lightweight browser-based tooling.
+          </p>
+        </div>
+
+        <div class="cards">
+          <article class="card">
+            <span class="card-kicker">Primary</span>
+            <h3>Client Readiness Dashboard</h3>
+            <p>
+              A readiness-focused interface for checking whether a client environment appears
+              prepared for expected enterprise usage patterns.
+            </p>
+            <ul class="list">
+              <li>Readiness and baseline thinking</li>
+              <li>Client-side visibility before access</li>
+              <li>Useful for managed endpoint scenarios</li>
+            </ul>
+            <a class="mini-link" href="./Client%20Readiness%20Dashboard.html">Open dashboard →</a>
+          </article>
+
+          <article class="card">
+            <span class="card-kicker">Operations</span>
+            <h3>Fleet Command Center</h3>
+            <p>
+              A concept for broader fleet-level visibility where multiple clients can be viewed
+              through a more operational, centralized lens.
+            </p>
+            <ul class="list">
+              <li>Multi-endpoint operational perspective</li>
+              <li>Status-oriented design direction</li>
+              <li>Supports scale thinking, not just single-client checks</li>
+            </ul>
+            <a class="mini-link" href="./Fleet%20Command%20Center.html">Open dashboard →</a>
+          </article>
+
+          <article class="card">
+            <span class="card-kicker">Platform</span>
+            <h3>macOS Enterprise Dashboard</h3>
+            <p>
+              A prototype direction for enterprise macOS visibility, linking configuration,
+              posture, and operational control into one browser-based interface.
+            </p>
+            <ul class="list">
+              <li>Enterprise platform perspective</li>
+              <li>Security and configuration visibility</li>
+              <li>Supports cross-platform design thinking</li>
+            </ul>
+            <a class="mini-link" href="./macOS%20Enterprise%20Dashboard.html">Open dashboard →</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="approach">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h2>Approach</h2>
+          </div>
+          <p>
+            This repo explores a practical design question: how much useful client insight can be
+            surfaced directly through portable web interfaces in constrained enterprise environments?
+          </p>
+        </div>
+
+        <div class="split">
+          <div class="panel">
+            <h3>Design principles</h3>
+            <ul class="list">
+              <li><strong>Client-aware:</strong> the interface should reflect endpoint context, not just show static UI.</li>
+              <li><strong>Portable:</strong> browser-based prototypes reduce friction and make testing easier.</li>
+              <li><strong>Operational:</strong> outputs should support triage, validation, and decision-making.</li>
+              <li><strong>Baseline-driven:</strong> “good” state should be explicit, not implied.</li>
+              <li><strong>Architecture-first:</strong> these prototypes are design artifacts, not only front-end exercises.</li>
+            </ul>
+          </div>
+
+          <div class="panel">
+            <h3>Typical flow</h3>
+            <div class="steps">
+              <div class="step">
+                <div class="step-num">1</div>
+                <div>
+                  <strong>Load the prototype</strong>
+                  <p>Open a portable dashboard in the client environment being evaluated.</p>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-num">2</div>
+                <div>
+                  <strong>Observe signals</strong>
+                  <p>Surface visible indicators tied to readiness, posture, or expected configuration.</p>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-num">3</div>
+                <div>
+                  <strong>Compare to baseline</strong>
+                  <p>Interpret the state against a known-good target rather than guessing what “healthy” means.</p>
+                </div>
+              </div>
+
+              <div class="step">
+                <div class="step-num">4</div>
+                <div>
+                  <strong>Take action faster</strong>
+                  <p>Use the output as a starting point for troubleshooting, validation, and architecture decisions.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="positioning">
+      <div class="container">
+        <div class="section-head">
+          <div>
+            <h2>Positioning</h2>
+          </div>
+          <p>
+            Design Prototype should be understood as an architecture and product exploration,
+            not just a folder of HTML files.
+          </p>
+        </div>
+
+        <div class="split">
+          <div class="panel">
+            <p class="quote">
+              “This repository explores client-side validation, endpoint readiness, and operational
+              visibility through lightweight enterprise-focused web prototypes.”
+            </p>
+            <p class="muted">
+              In other words: the repo is about making managed client environments easier to understand,
+              validate, and operate.
+            </p>
+          </div>
+
+          <div class="panel">
+            <h3>Why it matters</h3>
+            <ul class="list">
+              <li>Unknown client state slows troubleshooting.</li>
+              <li>Baseline gaps create inconsistent user outcomes.</li>
+              <li>Browser-based prototypes are fast to test and communicate.</li>
+              <li>Clear design artifacts improve technical conversations with stakeholders.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-box">
+      <div>
+        <strong>Design Prototype</strong><br>
+        <span class="muted">Web app prototypes for enterprise client platforms.</span>
+      </div>
+
+      <div class="hero-actions" style="margin:0;">
+        <a class="button button-secondary" href="https://github.com/MCamner/Design-Prototype">GitHub</a>
+        <a class="button button-primary" href="./Client%20Readiness%20Dashboard.html">Launch Prototype</a>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>
