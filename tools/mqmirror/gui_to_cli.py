@@ -1,329 +1,329 @@
 #!/usr/bin/env python3
 """
-gui_to_cli.py — GUI-to-CLI Companion (Python proof-of-concept)
+MQ Mirror — GUI actions → terminal command equivalents.
 
-Lyssnar på macOS-händelser via NSWorkspace och Accessibility API
-och skriver ut terminal-ekvivalenter i realtid.
-
-Installation:
-    pip install pyobjc-framework-Cocoa pyobjc-framework-ApplicationServices watchdog
-
-Krav:
-    Ge terminalen Accessibility-behörighet:
-    Systeminställningar → Integritet & Säkerhet → Tillgänglighet → lägg till Terminal
-
-Kör:
-    python3 gui_to_cli.py
+Modes:
+  python3 tools/mqmirror/gui_to_cli.py list
+  python3 tools/mqmirror/gui_to_cli.py show settings general
+  python3 tools/mqmirror/gui_to_cli.py search network
+  python3 tools/mqmirror/gui_to_cli.py watch
 """
 
-import sys
+from __future__ import annotations
+
+import argparse
 import os
-import subprocess
+import sys
 from datetime import datetime
-
-# ── Dependency check ──────────────────────────────────────────────────────────
-import ctypes
-import ctypes.util
-
-try:
-    import objc
-    from AppKit import (
-        NSWorkspace, NSWorkspaceDidActivateApplicationNotification,
-        NSWorkspaceDidLaunchApplicationNotification,
-        NSWorkspaceDidTerminateApplicationNotification,
-        NSWorkspaceDidMountNotification,
-        NSRunningApplication,
-    )
-    from Foundation import NSObject, NSNotificationCenter, NSRunLoop, NSDate
-    import ApplicationServices as AS
-    import Quartz
-except ImportError:
-    print("❌  Saknade beroenden. Kör:")
-    print("    pip install pyobjc-framework-Cocoa pyobjc-framework-ApplicationServices")
-    sys.exit(1)
-
-try:
-    from watchdog.observers import Observer
-    from watchdog.events import FileSystemEventHandler
-    HAS_WATCHDOG = True
-except ImportError:
-    HAS_WATCHDOG = False
-    print("⚠️  watchdog saknas — filsystemshändelser inaktiverade.")
-    print("   Kör: pip install watchdog\n")
+from typing import Dict, List, Tuple
 
 
-# ── Terminal output helpers ───────────────────────────────────────────────────
-RESET  = "\033[0m"
-BOLD   = "\033[1m"
-DIM    = "\033[2m"
-GREEN  = "\033[38;5;82m"
-BLUE   = "\033[38;5;75m"
-AMBER  = "\033[38;5;220m"
-PURPLE = "\033[38;5;141m"
-CYAN   = "\033[38;5;87m"
-MUTED  = "\033[38;5;244m"
-RED    = "\033[38;5;203m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+DIM = "\033[2m"
+GREEN = "\033[38;5;82m"
+CYAN = "\033[38;5;87m"
+AMBER = "\033[38;5;220m"
+RED = "\033[38;5;203m"
+MUTED = "\033[38;5;244m"
 
-CATEGORY_COLORS = {
-    "Finder":   GREEN,
-    "System":   BLUE,
-    "Nätverk":  AMBER,
-    "Git":      PURPLE,
-    "Homebrew": CYAN,
-    "App":      CYAN,
+
+Command = Tuple[str, str, str]  # command, description, safety
+
+
+COMMAND_LIBRARY: Dict[str, Dict[str, object]] = {
+    "settings.general": {
+        "gui": "System Settings → General",
+        "commands": [
+            ("open -a 'System Settings'", "Open System Settings", "safe"),
+            ("sw_vers", "Show macOS version", "safe"),
+            ("system_profiler SPSoftwareDataType", "Show software overview", "safe"),
+            ("scutil --get ComputerName", "Show computer name", "safe"),
+            ("scutil --get LocalHostName", "Show local host name", "safe"),
+            ("hostname", "Show hostname", "safe"),
+        ],
+    },
+    "settings.network": {
+        "gui": "System Settings → Network",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.Network-Settings.extension"', "Open Network settings", "safe"),
+            ("networksetup -listallhardwareports", "List network interfaces", "safe"),
+            ("ipconfig getifaddr en0", "Show Wi-Fi IP address", "safe"),
+            ("route -n get default", "Show default gateway", "safe"),
+            ("scutil --dns", "Show DNS configuration", "safe"),
+            ("networksetup -getdnsservers Wi-Fi", "Show Wi-Fi DNS servers", "safe"),
+        ],
+    },
+    "settings.displays": {
+        "gui": "System Settings → Displays",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.Displays-Settings.extension"', "Open Displays settings", "safe"),
+            ("system_profiler SPDisplaysDataType", "Show display/GPU information", "safe"),
+        ],
+    },
+    "settings.privacy": {
+        "gui": "System Settings → Privacy & Security",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"', "Open Privacy & Security", "safe"),
+            ("spctl --status", "Show Gatekeeper status", "safe"),
+            ("fdesetup status", "Show FileVault status", "safe"),
+            ("csrutil status", "Show SIP status", "safe"),
+        ],
+    },
+    "finder.files": {
+        "gui": "Finder → file operations",
+        "commands": [
+            ("open .", "Open current folder in Finder", "safe"),
+            ("pwd", "Show current directory", "safe"),
+            ("ls -la", "List files with details", "safe"),
+            ("mkdir new-folder", "Create folder", "modifies"),
+            ("touch file.txt", "Create file", "modifies"),
+            ("mv old.txt new.txt", "Rename or move file", "modifies"),
+            ("trash file.txt  # brew install trash", "Move file to Trash safely", "modifies"),
+        ],
+    },
+    "apps.common": {
+        "gui": "Open common apps",
+        "commands": [
+            ("open -a Finder", "Open Finder", "safe"),
+            ("open -a Safari", "Open Safari", "safe"),
+            ("open -a Terminal", "Open Terminal", "safe"),
+            ("open -a 'System Settings'", "Open System Settings", "safe"),
+            ("open -a 'Activity Monitor'", "Open Activity Monitor", "safe"),
+            ("open -a 'Visual Studio Code'", "Open VS Code", "safe"),
+        ],
+    },
+    "developer.xcode": {
+        "gui": "Xcode / developer tools",
+        "commands": [
+            ("xcode-select -p", "Show active developer directory", "safe"),
+            ("xcodebuild -version", "Show Xcode version", "safe"),
+            ("xcrun simctl list", "List simulators", "safe"),
+            ("xcrun xctrace list devices", "List devices for profiling", "safe"),
+        ],
+    },
 }
 
-def ts():
+
+APP_MAPPINGS = {
+    "Finder": ("open -a Finder", "Open Finder"),
+    "Safari": ("open -a Safari", "Open Safari"),
+    "Terminal": ("open -a Terminal", "Open Terminal"),
+    "System Settings": ("open -a 'System Settings'", "Open System Settings"),
+    "Activity Monitor": ("open -a 'Activity Monitor'", "Open Activity Monitor"),
+    "Visual Studio Code": ("open -a 'Visual Studio Code'", "Open VS Code"),
+    "Xcode": ("open -a Xcode", "Open Xcode"),
+    "Disk Utility": ("diskutil list", "List disks"),
+    "Simulator": ("xcrun simctl list", "List simulators"),
+}
+
+
+def now() -> str:
     return datetime.now().strftime("%H:%M:%S")
 
-def print_command(category, gui_action, cmd, explanation=""):
-    color = CATEGORY_COLORS.get(category, MUTED)
-    print(f"\n{DIM}{ts()}{RESET}  {color}{BOLD}[{category}]{RESET}")
-    print(f"  {BOLD}{gui_action}{RESET}")
-    print(f"  {MUTED}↓{RESET}")
-    print(f"  {GREEN}❯{RESET} {BOLD}{cmd}{RESET}")
-    if explanation:
-        print(f"  {MUTED}{explanation}{RESET}")
 
-def print_separator():
-    print(f"\n{MUTED}{'─' * 60}{RESET}")
-
-def print_header():
-    print(f"""
-{BOLD}{GREEN}┌─────────────────────────────────────────┐
-│      GUI → CLI Companion  v0.1          │
-│      Tryck Ctrl+C för att avsluta       │
-└─────────────────────────────────────────┘{RESET}
-
-{MUTED}Lyssnar på macOS-händelser...{RESET}
-{MUTED}(Se till att Terminal har Accessibility-behörighet){RESET}
-""")
+def header(title: str) -> None:
+    print(f"{BOLD}{CYAN}════════════════════════════════════════════════════{RESET}")
+    print(f"{BOLD}{CYAN}MQ Mirror — {title}{RESET}")
+    print(f"{BOLD}{CYAN}════════════════════════════════════════════════════{RESET}")
 
 
-# ── App-name → CLI mappings ───────────────────────────────────────────────────
-APP_LAUNCH_CMDS = {
-    "Finder":              ("open -a Finder",               "Öppnar Finder-appen"),
-    "Safari":              ("open -a Safari",               "Öppnar Safari"),
-    "Terminal":            ("open -a Terminal",             "Öppnar Terminal"),
-    "Xcode":               ("open -a Xcode",                "Öppnar Xcode"),
-    "Visual Studio Code":  ("code .",                       "Öppnar VS Code i aktuell katalog"),
-    "TextEdit":            ("open -e fil.txt",              "Öppnar fil i TextEdit"),
-    "Activity Monitor":    ("top",                          "Visar processer i realtid"),
-    "Disk Utility":        ("diskutil list",                "Listar alla diskenheter"),
-    "System Preferences":  ("open /System/Applications/System\\ Preferences.app", ""),
-    "System Settings":     ("open /System/Applications/System\\ Settings.app",    ""),
-    "App Store":           ("brew search <namn>",           "Sök paket via Homebrew istället"),
-    "Simulator":           ("xcrun simctl list",            "Listar tillgängliga simulatorer"),
-    "Instruments":         ("instruments -s devices",       "Listar enheter för profilering"),
-}
-
-APP_QUIT_CMDS = {
-    "Finder":   ("osascript -e 'tell application \"Finder\" to quit'", ""),
-    "Safari":   ("osascript -e 'tell application \"Safari\" to quit'", ""),
-}
+def safety_badge(level: str) -> str:
+    if level == "safe":
+        return f"{GREEN}safe{RESET}"
+    if level == "modifies":
+        return f"{AMBER}modifies{RESET}"
+    if level == "dangerous":
+        return f"{RED}dangerous{RESET}"
+    return f"{MUTED}{level}{RESET}"
 
 
-# ── NSWorkspace observer ──────────────────────────────────────────────────────
-class WorkspaceObserver(NSObject):
-
-    def init(self):
-        self = objc.super(WorkspaceObserver, self).init()
-        if self is None:
-            return None
-        nc = NSWorkspace.sharedWorkspace().notificationCenter()
-        nc.addObserver_selector_name_object_(
-            self, "appActivated:", NSWorkspaceDidActivateApplicationNotification, None)
-        nc.addObserver_selector_name_object_(
-            self, "appLaunched:", NSWorkspaceDidLaunchApplicationNotification, None)
-        nc.addObserver_selector_name_object_(
-            self, "appTerminated:", NSWorkspaceDidTerminateApplicationNotification, None)
-        nc.addObserver_selector_name_object_(
-            self, "volumeMounted:", NSWorkspaceDidMountNotification, None)
-        self._last_app = None
-        return self
-
-    def appActivated_(self, notification):
-        info = notification.userInfo()
-        app = info.get("NSWorkspaceApplicationKey")
-        if app is None:
-            return
-        name = app.localizedName()
-        if name == self._last_app:
-            return
-        self._last_app = name
-        cmd, note = APP_LAUNCH_CMDS.get(name, (None, None))
-        if cmd:
-            print_command("App", f"Byter till {name}", cmd, note)
-
-    def appLaunched_(self, notification):
-        info = notification.userInfo()
-        app = info.get("NSWorkspaceApplicationKey")
-        if app is None:
-            return
-        name = app.localizedName()
-        cmd, note = APP_LAUNCH_CMDS.get(name, (None, None))
-        if cmd:
-            print_command("App", f"Öppnar {name}", cmd, note)
-
-    def appTerminated_(self, notification):
-        info = notification.userInfo()
-        app = info.get("NSWorkspaceApplicationKey")
-        if app is None:
-            return
-        name = app.localizedName()
-        cmd, note = APP_QUIT_CMDS.get(name, (None, None))
-        if cmd:
-            print_command("App", f"Stänger {name}", cmd, note)
-
-    def volumeMounted_(self, notification):
-        info = notification.userInfo()
-        path = info.get("NSWorkspaceVolumeLocalizedNameKey", "volym")
-        print_command("System",
-            f"Monterar disk: {path}",
-            f"diskutil mount /Volumes/{path}",
-            "eller: hdiutil attach disk.dmg")
+def print_command(command: str, description: str, safety: str = "safe") -> None:
+    print(f"  {GREEN}❯{RESET} {BOLD}{command}{RESET}")
+    print(f"    {MUTED}{description} · {safety_badge(safety)}{RESET}")
 
 
-# ── Accessibility observer (AXObserver) ──────────────────────────────────────
-def check_accessibility():
-    """Kontrollera om Accessibility är beviljat."""
-    trusted = AS.AXIsProcessTrusted()
-    if not trusted:
-        print(f"\n{RED}{BOLD}⚠️  Accessibility-behörighet saknas!{RESET}")
-        print(f"{MUTED}Gå till:{RESET}")
-        print(f"  Systeminställningar → Integritet & Säkerhet →")
-        print(f"  Tillgänglighet → lägg till Terminal (eller iTerm2)\n")
-        # Öppna pref-panelen automatiskt
-        subprocess.Popen([
-            "open",
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-        ])
-    return trusted
-
-AX_ELEMENT_CMDS = {
-    # Knappnamn → (kommando, förklaring)
-    "Empty Trash":       ("rm -rf ~/.Trash/*",               "Tömmer papperskorgen"),
-    "Eject":             ("diskutil eject /Volumes/<enhet>", "Matar ut disk"),
-    "Connect":           ("ssh användarnamn@server",         "Ansluter via SSH"),
-    "New Folder":        ("mkdir ny-mapp",                   "Skapar ny mapp"),
-    "Get Info":          ("stat fil",                        "Visar filinfo"),
-    "Duplicate":         ("cp -r fil fil-kopia",             "Kopierar fil"),
-    "Move to Trash":     ("trash fil  # brew install trash", ""),
-    "Show Original":     ("readlink -f länk",                "Följer symbolisk länk"),
-    "Compress":          ("zip -r arkiv.zip mapp/",          "Komprimerar till zip"),
-    "Burn to Disc":      ("hdiutil burn fil.iso",            "Bränner ISO till skiva"),
-}
-
-def setup_ax_observer():
-    """AXObserver via Python/pyobjc är instabilt — hoppas över i denna version.
-    Implementeras i Swift-appen med native AXObserverCreate."""
-    return None
+def list_topics() -> None:
+    header("command library")
+    for key, value in sorted(COMMAND_LIBRARY.items()):
+        print(f"{GREEN}❯{RESET} {key}")
+        print(f"  {MUTED}{value['gui']}{RESET}")
 
 
-# ── FSEvents via watchdog ─────────────────────────────────────────────────────
-class FinderEventHandler(FileSystemEventHandler):
+def show_topic(category: str, topic: str) -> int:
+    key = f"{category}.{topic}"
+    item = COMMAND_LIBRARY.get(key)
 
-    def on_created(self, event):
-        path = event.src_path
-        if event.is_directory:
-            print_command("Finder", f"Ny mapp skapades: {os.path.basename(path)}",
-                f"mkdir -p \"{path}\"")
-        else:
-            print_command("Finder", f"Ny fil skapades: {os.path.basename(path)}",
-                f"touch \"{path}\"")
+    if not item:
+        print(f"{RED}No mapping found for: {key}{RESET}")
+        print()
+        print("Try:")
+        list_topics()
+        return 1
 
-    def on_deleted(self, event):
-        path = event.src_path
-        flag = "-r " if event.is_directory else ""
-        print_command("Finder", f"Raderar: {os.path.basename(path)}",
-            f"rm {flag}\"{path}\"",
-            "⚠️  rm är permanent — överväg: trash (brew install trash)")
-
-    def on_moved(self, event):
-        src  = event.src_path
-        dest = event.dest_path
-        src_dir  = os.path.dirname(src)
-        dest_dir = os.path.dirname(dest)
-        src_name  = os.path.basename(src)
-        dest_name = os.path.basename(dest)
-
-        if src_dir == dest_dir:
-            # Byte namn
-            print_command("Finder", f"Byter namn: {src_name} → {dest_name}",
-                f"mv \"{src}\" \"{dest}\"")
-        else:
-            # Flytt
-            print_command("Finder", f"Flyttar: {src_name}",
-                f"mv \"{src}\" \"{dest}\"")
-
-    def on_modified(self, event):
-        # Ignorera katalogmodifieringar (för mycket brus)
-        if event.is_directory:
-            return
-        path = event.src_path
-        # Filtrera bort system-noise
-        if any(skip in path for skip in [".DS_Store", "__pycache__", ".localized"]):
-            return
-        print_command("Finder", f"Fil ändrad: {os.path.basename(path)}",
-            f"# Redigera med: nano \"{path}\"  eller  code \"{path}\"")
+    header(str(item["gui"]))
+    print()
+    for command, description, safety in item["commands"]:  # type: ignore[index]
+        print_command(command, description, safety)
+    return 0
 
 
-def start_fs_watcher():
-    if not HAS_WATCHDOG:
-        return None, None
+def search_library(query: str) -> int:
+    query_l = query.lower()
+    matches = []
 
-    watch_paths = [
-        os.path.expanduser("~/Desktop"),
-        os.path.expanduser("~/Documents"),
-        os.path.expanduser("~/Downloads"),
-    ]
+    for key, item in COMMAND_LIBRARY.items():
+        haystack = f"{key} {item['gui']} " + " ".join(
+            f"{cmd} {desc}" for cmd, desc, _ in item["commands"]  # type: ignore[index]
+        )
+        if query_l in haystack.lower():
+            matches.append((key, item))
 
-    handler  = FinderEventHandler()
-    observer = Observer()
-    for p in watch_paths:
-        if os.path.exists(p):
-            observer.schedule(handler, p, recursive=True)
-            print(f"{MUTED}  📂 Bevakar: {p}{RESET}")
+    header(f"search: {query}")
 
-    observer.start()
-    return observer, handler
+    if not matches:
+        print(f"{AMBER}No matches.{RESET}")
+        return 1
+
+    for key, item in matches:
+        print()
+        print(f"{GREEN}❯ {key}{RESET}")
+        print(f"  {MUTED}{item['gui']}{RESET}")
+        for command, description, safety in item["commands"]:  # type: ignore[index]
+            print_command(command, description, safety)
+
+    return 0
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
-def main():
-    print_header()
+def watch_apps() -> int:
+    try:
+        import objc
+        from AppKit import (
+            NSWorkspace,
+            NSWorkspaceDidActivateApplicationNotification,
+            NSWorkspaceDidLaunchApplicationNotification,
+            NSWorkspaceDidTerminateApplicationNotification,
+        )
+        from Foundation import NSObject, NSRunLoop, NSDate
+    except ImportError:
+        print(f"{RED}Missing dependencies.{RESET}")
+        print("Install:")
+        print("  pip install pyobjc-framework-Cocoa")
+        return 1
 
-    # Workspace-observer
-    workspace_observer = WorkspaceObserver.alloc().init()
-    print(f"{GREEN}✓{RESET} NSWorkspace-observer aktiv (app-switchar, monterade volymer)")
+    class WorkspaceObserver(NSObject):
+        def init(self):
+            self = objc.super(WorkspaceObserver, self).init()
+            if self is None:
+                return None
 
-    # AX-observer
-    ax_obs = setup_ax_observer()
-    if ax_obs:
-        print(f"{GREEN}✓{RESET} Accessibility-observer aktiv (knappar, UI-element)")
-    else:
-        print(f"{MUTED}–{RESET}  Accessibility-observer: hoppas över (implementeras i Swift-appen)")
+            nc = NSWorkspace.sharedWorkspace().notificationCenter()
+            nc.addObserver_selector_name_object_(
+                self, "appActivated:", NSWorkspaceDidActivateApplicationNotification, None
+            )
+            nc.addObserver_selector_name_object_(
+                self, "appLaunched:", NSWorkspaceDidLaunchApplicationNotification, None
+            )
+            nc.addObserver_selector_name_object_(
+                self, "appTerminated:", NSWorkspaceDidTerminateApplicationNotification, None
+            )
+            self._last_app = None
+            return self
 
-    # FS-watcher
-    print(f"\n{MUTED}Filsystem-bevakning:{RESET}")
-    fs_observer, _ = start_fs_watcher()
-    if fs_observer:
-        print(f"{GREEN}✓{RESET} watchdog aktiv (Desktop, Documents, Downloads)")
+        def appActivated_(self, notification):
+            app = notification.userInfo().get("NSWorkspaceApplicationKey")
+            if app is None:
+                return
 
-    print_separator()
-    print(f"\n{BOLD}Redo. Gör saker i macOS GUI...{RESET}\n")
+            name = app.localizedName()
+            if name == self._last_app:
+                return
+
+            self._last_app = name
+            mapped = APP_MAPPINGS.get(name)
+            if mapped:
+                cmd, desc = mapped
+                print(f"\n{DIM}{now()}{RESET} {CYAN}[app activated]{RESET} {BOLD}{name}{RESET}")
+                print_command(cmd, desc)
+
+        def appLaunched_(self, notification):
+            app = notification.userInfo().get("NSWorkspaceApplicationKey")
+            if app is None:
+                return
+
+            name = app.localizedName()
+            mapped = APP_MAPPINGS.get(name)
+            if mapped:
+                cmd, desc = mapped
+                print(f"\n{DIM}{now()}{RESET} {GREEN}[app launched]{RESET} {BOLD}{name}{RESET}")
+                print_command(cmd, desc)
+
+        def appTerminated_(self, notification):
+            app = notification.userInfo().get("NSWorkspaceApplicationKey")
+            if app is None:
+                return
+
+            name = app.localizedName()
+            print(f"\n{DIM}{now()}{RESET} {AMBER}[app terminated]{RESET} {BOLD}{name}{RESET}")
+
+    header("watch mode")
+    print(f"{MUTED}Watching app launch/switch events. Press Ctrl+C to stop.{RESET}")
+
+    _observer = WorkspaceObserver.alloc().init()
 
     try:
-        # Kör NSRunLoop (krävs för Cocoa-notiser)
         loop = NSRunLoop.currentRunLoop()
         while True:
-            loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.1))
+            loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.2))
     except KeyboardInterrupt:
-        print(f"\n\n{MUTED}Avslutar...{RESET}")
-        if fs_observer:
-            fs_observer.stop()
-            fs_observer.join()
-        print(f"{GREEN}Hej då!{RESET}\n")
+        print(f"\n{GREEN}Stopped.{RESET}")
+        return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="mqmirror",
+        description="GUI actions → terminal command equivalents for macOS.",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser("list", help="List available GUI-to-CLI topics")
+
+    show = sub.add_parser("show", help="Show commands for a GUI area")
+    show.add_argument("category", help="Example: settings, finder, apps, developer")
+    show.add_argument("topic", help="Example: general, network, files, common")
+
+    search = sub.add_parser("search", help="Search command library")
+    search.add_argument("query")
+
+    sub.add_parser("watch", help="Watch active app changes and suggest commands")
+
+    args = parser.parse_args()
+
+    if args.command is None:
+        list_topics()
+        print()
+        print("Examples:")
+        print("  python3 tools/mqmirror/gui_to_cli.py show settings general")
+        print("  python3 tools/mqmirror/gui_to_cli.py search network")
+        print("  python3 tools/mqmirror/gui_to_cli.py watch")
+        return 0
+
+    if args.command == "list":
+        list_topics()
+        return 0
+
+    if args.command == "show":
+        return show_topic(args.category, args.topic)
+
+    if args.command == "search":
+        return search_library(args.query)
+
+    if args.command == "watch":
+        return watch_apps()
+
+    return 1
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
