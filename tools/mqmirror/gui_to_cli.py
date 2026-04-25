@@ -442,6 +442,7 @@ def main() -> int:
         prog="mqmirror",
         description="GUI actions → terminal command equivalents for macOS.",
     )
+    parser.add_argument("--json", action="store_true", help="Output JSON where supported")
     sub = parser.add_subparsers(dest="command")
 
     list_parser = sub.add_parser("list", help="List available GUI-to-CLI topics")
