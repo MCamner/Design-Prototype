@@ -24,7 +24,7 @@ It combines:
 
 ## Run
 
-Use the wrapper:
+Use the wrapper from the repository root:
 
 ```bash
 tools/mqmirror/mqmirror list
@@ -34,6 +34,14 @@ Or run the Python file directly:
 
 ```bash
 python3 tools/mqmirror/gui_to_cli.py list
+```
+
+If the launcher is on your `PATH`, use:
+
+```bash
+mqmirror list
+mqmirror inspect
+mqmirror watch --compact --ignore-terminal
 ```
 
 ---
@@ -84,9 +92,14 @@ tools/mqmirror/mqmirror inspect
 tools/mqmirror/mqmirror inspect --json
 tools/mqmirror/mqmirror watch --interval 1
 tools/mqmirror/mqmirror watch --interval 1 --compact
+tools/mqmirror/mqmirror watch --compact --ignore-terminal
 ```
 
 Stop watch mode with `Ctrl+C`.
+
+Use `--ignore-terminal` when running watch mode from Terminal, iTerm, VS Code,
+Warp, or Ghostty. It suppresses updates caused by the terminal itself becoming
+the frontmost app.
 
 ---
 
@@ -124,6 +137,35 @@ tools/mqmirror/mqmirror doctor
 - browser tab URL where available
 
 macOS may ask for Accessibility or Automation permission the first time this runs.
+
+On Swedish macOS, check:
+
+- `Systeminställningar → Integritet och säkerhet → Hjälpmedel`
+- `Systeminställningar → Integritet och säkerhet → Automatisering`
+
+Allow the app that actually runs the command. If you run from the built-in
+Terminal, allow `Terminal`. If you run from an integrated terminal, allow
+`Visual Studio Code`, `Code`, or the relevant terminal app.
+
+If `inspect` shows error `-10827`, quit and reopen the terminal app after
+changing permissions, then test again:
+
+```bash
+mqmirror inspect
+```
+
+For a clean live view while clicking around in other apps:
+
+```bash
+mqmirror watch --compact --ignore-terminal
+```
+
+When browser context is available, MQ Mirror can suggest commands such as:
+
+```bash
+open 'https://example.com'
+curl -I 'https://example.com'
+```
 
 ---
 
