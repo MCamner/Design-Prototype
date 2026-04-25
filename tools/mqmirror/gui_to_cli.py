@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MQ Mirror v0.3 — GUI actions → terminal command equivalents.
+MQ Mirror v0.5 — GUI actions → terminal command equivalents.
 
 Examples:
   mqmirror list
@@ -17,12 +17,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import shlex
 import shutil
+import sys
 import subprocess
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
+
+VERSION = "0.5"
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -196,13 +200,36 @@ SETTINGS_HINTS = {
 }
 
 
+TOPIC_ALIASES = {
+    "general": ("settings", "general"),
+    "network": ("settings", "network"),
+    "wifi": ("settings", "network"),
+    "wi-fi": ("settings", "network"),
+    "display": ("settings", "displays"),
+    "displays": ("settings", "displays"),
+    "privacy": ("settings", "privacy"),
+    "security": ("settings", "privacy"),
+    "keyboard": ("settings", "keyboard"),
+    "trackpad": ("settings", "trackpad"),
+    "battery": ("settings", "battery"),
+    "bluetooth": ("settings", "bluetooth"),
+    "sound": ("settings", "sound"),
+    "users": ("settings", "users"),
+    "sharing": ("settings", "sharing"),
+    "finder": ("finder", "files"),
+    "files": ("finder", "files"),
+    "apps": ("apps", "common"),
+    "xcode": ("developer", "xcode"),
+}
+
+
 def now() -> str:
     return datetime.now().strftime("%H:%M:%S")
 
 
 def header(title: str) -> None:
     print(f"{BOLD}{CYAN}════════════════════════════════════════════════════{RESET}")
-    print(f"{BOLD}{CYAN}MQ Mirror v0.3 — {title}{RESET}")
+    print(f"{BOLD}{CYAN}MQ Mirror v0.5 — {title}{RESET}")
     print(f"{BOLD}{CYAN}════════════════════════════════════════════════════{RESET}")
 
 
@@ -550,6 +577,9 @@ def normalize_search_text(value: str) -> str:
         .replace("-", "")
         .replace("_", "")
         .replace(" ", "")
+        .replace(".", "")
+        .replace("/", "")
+        .replace("&", "and")
     )
 
 
@@ -644,7 +674,7 @@ def explain_command(raw_command: str) -> int:
     return 1
 
 
-def watch_apps(interval: float = 1.0, as_json: bool = False) -> int:
+def watch_apps(interval: float = 1.0, as_json: bool = False, compact: bool = False) -> int:
     header("watch mode")
     print(f"{MUTED}Watching frontmost app/window context. Press Ctrl+C to stop.{RESET}")
 
@@ -664,8 +694,11 @@ def watch_apps(interval: float = 1.0, as_json: bool = False) -> int:
                     print(json.dumps(context, ensure_ascii=False))
                 else:
                     print()
-                    print(f"{DIM}{now()}{RESET}")
-                    print_context(context)
+                    if compact:
+                        print_context_compact(context)
+                    else:
+                        print(f"{DIM}{now()}{RESET}")
+                        print_context(context)
             time.sleep(interval)
     except KeyboardInterrupt:
         print(f"\n{GREEN}Stopped.{RESET}")
@@ -677,7 +710,89 @@ def watch_app_events() -> int:
     return watch_apps(interval=0.5, as_json=False)
 
 
+
+def doctor() -> int:
+    header("doctor")
+
+    checks = [
+        ("platform", platform.system(), "ok" if platform.system() == "Darwin" else "not macOS"),
+        ("python", sys.version.split()[0], "ok"),
+        ("osascript", shutil.which("osascript") or "-", "ok" if shutil.which("osascript") else "missing"),
+        ("open", shutil.which("open") or "-", "ok" if shutil.which("open") else "missing"),
+        ("pbcopy", shutil.which("pbcopy") or "-", "ok" if shutil.which("pbcopy") else "missing"),
+    ]
+
+    try:
+        import AppKit  # noqa: F401
+        pyobjc = "ok"
+    except ImportError:
+        pyobjc = "missing"
+
+    checks.append(("pyobjc", pyobjc, "optional for watch-events"))
+
+    failed = False
+
+    for name, value, status in checks:
+        if status in {"ok", "Darwin"}:
+            color = GREEN
+        elif status == "optional for watch-events":
+            color = AMBER
+        else:
+            color = RED
+            failed = True
+
+        print(f"{BOLD}{name:<12}{RESET} {value}  {color}{status}{RESET}")
+
+    print()
+    print(f"{MUTED}Context check:{RESET}")
+    ctx = frontmost_app_context()
+    app = ctx.get("app") or "-"
+    window = ctx.get("window_title") or "-"
+    print(f"  app:    {app}")
+    print(f"  window: {window}")
+
+    if ctx.get("errors"):
+        print()
+        print(f"{AMBER}macOS may require Accessibility or Automation permission.{RESET}")
+        print("Check: System Settings → Privacy & Security → Accessibility / Automation")
+
+    if pyobjc == "missing":
+        print()
+        print("Optional watch-events dependency:")
+        print("  pip install pyobjc-framework-Cocoa")
+
+    return 1 if failed else 0
+
+
+def print_context_compact(context: Dict[str, Any]) -> None:
+    app = context.get("app") or "unknown"
+    window = context.get("window_title") or ""
+    suggestions = context.get("suggestions", [])
+
+    print(f"{DIM}{now()}{RESET} {CYAN}{app}{RESET}")
+    if window:
+        print(f"  {MUTED}{window}{RESET}")
+
+    if not suggestions:
+        print(f"  {AMBER}No suggestions yet.{RESET}")
+        return
+
+    for i, (command, description, safety) in enumerate(suggestions[:4], start=1):
+        print(f"  {GREEN}{i}.{RESET} {BOLD}{command}{RESET}")
+        print(f"     {MUTED}{description} · {safety_badge(safety)}{RESET}")
+
+
+def rewrite_shortcut_args(argv: List[str]) -> List[str]:
+    if len(argv) == 2 and argv[1] in TOPIC_ALIASES:
+        category, topic = TOPIC_ALIASES[argv[1]]
+        return [argv[0], "show", category, topic]
+
+    return argv
+
+
 def main() -> int:
+    sys.argv = rewrite_shortcut_args(sys.argv)
+
     parser = argparse.ArgumentParser(
         prog="mqmirror",
         description="GUI actions → terminal command equivalents for macOS.",
@@ -718,6 +833,7 @@ def main() -> int:
     watch = sub.add_parser("watch", help="Watch frontmost app/window context and suggest commands")
     watch.add_argument("--interval", type=float, default=1.0, help="Polling interval in seconds")
     watch.add_argument("--json", action="store_true", help="Output JSON lines")
+    watch.add_argument("--compact", action="store_true", help="Use compact watch output")
 
     sub.add_parser("watch-events", help="Watch app/window changes using AppleScript polling")
 
@@ -730,6 +846,7 @@ def main() -> int:
             return 0
         print()
         print("Examples:")
+        print("  mqmirror network")
         print("  mqmirror show settings general")
         print("  mqmirror search network")
         print("  mqmirror copy settings network 2")
@@ -761,10 +878,17 @@ def main() -> int:
         return inspect_command(as_json)
 
     if args.command == "watch":
-        return watch_apps(args.interval, as_json)
+        return watch_apps(args.interval, as_json, args.compact)
 
     if args.command == "watch-events":
         return watch_app_events()
+
+    if args.command == "doctor":
+        return doctor()
+
+    if args.command == "version":
+        print(f"mqmirror {VERSION}")
+        return 0
 
     return 1
 
