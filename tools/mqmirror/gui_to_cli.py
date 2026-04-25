@@ -40,6 +40,7 @@ RED = "\033[38;5;203m"
 MUTED = "\033[38;5;244m"
 
 Command = Tuple[str, str, str]
+BOX_WIDTH = 72
 
 COMMAND_LIBRARY: Dict[str, Dict[str, Any]] = {
     "settings.general": {
@@ -250,10 +251,48 @@ def now() -> str:
     return datetime.now().strftime("%H:%M:%S")
 
 
+def strip_ansi(value: str) -> str:
+    plain = ""
+    in_escape = False
+    for char in value:
+        if char == "\033":
+            in_escape = True
+            continue
+        if in_escape and char == "m":
+            in_escape = False
+            continue
+        if not in_escape:
+            plain += char
+    return plain
+
+
+def visible_len(value: str) -> int:
+    return len(strip_ansi(value))
+
+
+def ascii_line(char: str = "=") -> str:
+    return "+" + (char * (BOX_WIDTH - 2)) + "+"
+
+
+def ascii_row(value: str = "") -> str:
+    padding = max(0, BOX_WIDTH - visible_len(value) - 4)
+    return f"| {value}{' ' * padding} |"
+
+
 def header(title: str) -> None:
-    print(f"{BOLD}{CYAN}════════════════════════════════════════════════════{RESET}")
-    print(f"{BOLD}{CYAN}MQ Mirror v0.5 — {title}{RESET}")
-    print(f"{BOLD}{CYAN}════════════════════════════════════════════════════{RESET}")
+    logo = [
+        " __  __  ___    __  __ _                     ",
+        "|  \\/  |/ _ \\  |  \\/  (_)_ __ _ __ ___  _ __ ",
+        "| |\\/| | | | | | |\\/| | | __| __/ _ \\| __|",
+        "| |  | | |_| | | |  | | | |  | | (_) | |   ",
+        "|_|  |_|\\__\\_\\ |_|  |_|_|_|  |_|\\___/|_|   ",
+    ]
+    print(f"{BOLD}{CYAN}{ascii_line('=')}{RESET}")
+    for line in logo:
+        print(f"{BOLD}{CYAN}{ascii_row(line)}{RESET}")
+    print(f"{BOLD}{CYAN}{ascii_line('-')}{RESET}")
+    print(f"{BOLD}{CYAN}{ascii_row(f'v{VERSION} :: {title}')}{RESET}")
+    print(f"{BOLD}{CYAN}{ascii_line('=')}{RESET}")
 
 
 def safety_badge(level: str) -> str:
@@ -287,8 +326,8 @@ def get_command(category: str, topic: str, index: int) -> Command | None:
 
 
 def print_command(index: int, command: str, description: str, safety: str = "safe") -> None:
-    print(f"  {GREEN}{index:>2}.{RESET} {BOLD}{command}{RESET}")
-    print(f"      {MUTED}{description} · {safety_badge(safety)}{RESET}")
+    print(f"  {GREEN}[{index:02}]{RESET} {BOLD}$ {command}{RESET}")
+    print(f"       {MUTED}-> {description} :: {safety_badge(safety)}{RESET}")
 
 
 def quote(value: str) -> str:
@@ -643,14 +682,22 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
 
 def print_context(context: Dict[str, Any]) -> None:
     header("inspect")
-    print(f"{GREEN}App:{RESET} {context.get('app') or 'unknown'}")
     has_context_errors = bool(context.get("errors"))
+    meta_rows = [
+        ("App", context.get("app") or "unknown"),
+    ]
     if context.get("bundle_id"):
-        print(f"{MUTED}Bundle:{RESET} {context['bundle_id']}")
+        meta_rows.append(("Bundle", context["bundle_id"]))
     if context.get("window_title"):
-        print(f"{MUTED}Window:{RESET} {context['window_title']}")
+        meta_rows.append(("Window", context["window_title"]))
     if context.get("context_source"):
-        print(f"{MUTED}Context source:{RESET} {context['context_source']}")
+        meta_rows.append(("Context source", context["context_source"]))
+
+    print(f"{MUTED}{ascii_line('-')}{RESET}")
+    for label, value in meta_rows:
+        print(f"{MUTED}|{RESET} {GREEN}{label:<14}{RESET} {value}")
+    print(f"{MUTED}{ascii_line('-')}{RESET}")
+
     if has_context_errors:
         for error in context["errors"]:
             print(f"{AMBER}Context warning:{RESET} {error}")
@@ -658,15 +705,15 @@ def print_context(context: Dict[str, Any]) -> None:
 
     finder = context.get("finder") or {}
     if finder.get("current_path"):
-        print(f"{MUTED}Finder path:{RESET} {finder['current_path']}")
+        print(f"{MUTED}| Finder path    {RESET} {finder['current_path']}")
     if finder.get("selected_paths"):
-        print(f"{MUTED}Selection:{RESET} {', '.join(finder['selected_paths'])}")
+        print(f"{MUTED}| Selection      {RESET} {', '.join(finder['selected_paths'])}")
 
     browser = context.get("browser") or {}
     if browser.get("tab_title"):
-        print(f"{MUTED}Tab:{RESET} {browser['tab_title']}")
+        print(f"{MUTED}| Tab            {RESET} {browser['tab_title']}")
     if browser.get("url"):
-        print(f"{MUTED}URL:{RESET} {browser['url']}")
+        print(f"{MUTED}| URL            {RESET} {browser['url']}")
 
     print()
     suggestions = context.get("suggestions", [])
@@ -680,7 +727,7 @@ def print_context(context: Dict[str, Any]) -> None:
         print("Tip: add a mapping to APP_MAPPINGS, SETTINGS_HINTS, or suggest_for_context().")
         return
 
-    print(f"{CYAN}Terminal equivalents:{RESET}")
+    print(f"{CYAN}:: Terminal equivalents{RESET}")
     for i, (command, description, safety) in enumerate(suggestions, start=1):
         print_command(i, command, description, safety)
 
@@ -701,7 +748,7 @@ def list_topics(as_json: bool = False) -> None:
 
     header("command library")
     for key, value in sorted(COMMAND_LIBRARY.items()):
-        print(f"{GREEN}❯{RESET} {key}")
+        print(f"{GREEN}>{RESET} {key}")
         print(f"  {MUTED}{value['gui']}{RESET}")
 
 
@@ -762,7 +809,7 @@ def search_library(query: str, as_json: bool = False) -> int:
 
     for key, item in matches.items():
         print()
-        print(f"{GREEN}❯ {key}{RESET}")
+        print(f"{GREEN}> {key}{RESET}")
         print(f"  {MUTED}{item['gui']}{RESET}")
         for i, (command, description, safety) in enumerate(item["commands"], start=1):
             print_command(i, command, description, safety)
@@ -852,10 +899,6 @@ def watch_apps(
     try:
         while True:
             context = inspect_frontmost()
-            if ignore_terminal and context.get("app") in {"Terminal", "iTerm2", "Ghostty", "Warp"}:
-                time.sleep(interval)
-                continue
-
             if ignore_terminal and is_terminal_context(context):
                 time.sleep(interval)
                 continue
