@@ -41,7 +41,9 @@ The dashboard detects that no collector is running and switches to demo mode (am
 ### Requirements
 
 - Python 3.8+ (no external packages)
-- Client Readiness Agent running on each client (`helper/client_readiness_agent.py`, port 38765)
+- Client Readiness Agent running on each client, exposing `http://<client-ip>:38765/status`
+
+Note: the fleet collector is included in this repo, but the per-client `helper/client_readiness_agent.py` referenced by the dashboard is not currently present. Use demo mode, provide a compatible external agent, or add that helper before expecting live client data.
 
 ### 1. Configure clients
 
@@ -154,6 +156,24 @@ The header switches from **amber "Demo mode"** to **green "Live · collector"** 
 
 The profile is read from the agent's `meta.profile` field. The collector config can also specify a `profile` field per client as fallback.
 
+### Expected client agent payload
+
+The collector passes each client's `data` object through to the dashboard. For best results, the client agent should return JSON shaped like the Client Readiness Dashboard sample data:
+
+```json
+{
+  "meta": {
+    "hostname": "IGEL-001",
+    "profile": "igel-os12-citrix",
+    "agent_version": "1.0.0",
+    "capabilities": ["network", "processes", "certificates"]
+  },
+  "network": {},
+  "processes": {},
+  "certificates": {}
+}
+```
+
 ---
 
 ## Dashboard features
@@ -183,6 +203,8 @@ design-prototyp/
 │   ├── fleet_collector.py             ← central collector server
 │   └── fleet_clients.json             ← client IP / hostname config
 ```
+
+Missing from the current repo: `helper/client_readiness_agent.py` (the per-client live agent expected on port 38765).
 
 ---
 

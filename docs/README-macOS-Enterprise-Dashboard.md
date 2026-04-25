@@ -160,7 +160,12 @@ Check that the agent is listening on port 38764:
 ```bash
 curl http://127.0.0.1:38764/status
 ```
-If the browser blocks `localhost` requests, try opening the dashboard via the agent itself (not as a local file) — serve it with any static file server on the same port.
+If the browser blocks `localhost` requests from a local file, serve the `docs/` folder with any static file server and open the dashboard from that local server. For example:
+```bash
+cd docs
+python3 -m http.server 8000
+```
+Then open `http://localhost:8000/macOS%20Enterprise%20Dashboard.html`.
 
 **MDM / profiles show no data**  
 Run the agent with `sudo`. The `profiles` command requires elevated privileges.
@@ -182,6 +187,14 @@ design-prototyp/
 ├── helper/
 │   └── macos_agent.py                    ← data collector agent
 ```
+
+---
+
+## Related prototypes
+
+- `docs/Certificate Expiry Timeline.html` can read certificate data from the macOS agent on port `38764`.
+- `docs/Fleet Command Center.html` is the fleet-level view for readiness data from multiple clients.
+- `docs/Client Readiness Dashboard.html` is the single-client readiness view for Citrix/thin-client scenarios.
 
 ---
 

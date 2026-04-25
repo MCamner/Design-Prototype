@@ -1,171 +1,177 @@
 # Design Prototype
 
-**Web App Prototypes for Enterprise Client Platforms**  
+**Interactive web prototypes for enterprise client platforms**  
 Author: Mattias Camner
 
 ---
 
-## 🚀 Overview
+## Overview
 
-This repository contains a collection of **interactive web-based prototypes** used to design, validate, and demonstrate client-side platform concepts.
+This repository contains browser-based prototypes for exploring endpoint readiness, macOS compliance, fleet visibility, and certificate expiry risk.
 
-Focus areas include:
+The prototypes are intentionally lightweight:
 
-- Client readiness validation
-- Endpoint baseline verification
-- Citrix / VDI environments
-- Thin client platforms (IGEL OS12, eLux)
-- Browser-based diagnostic tooling
-
-These prototypes are built to run directly in the browser — including **restricted environments like thin clients**.
+- single-file HTML apps in `docs/`
+- no build step
+- demo/sample data when no local helper is available
+- optional Python helper agents for live local or fleet data
 
 ---
 
-## 🧠 Why this exists
+## Prototypes
 
-Most enterprise environments struggle with:
+| Prototype | File | Purpose | Live data |
+|-----------|------|---------|-----------|
+| Client Readiness Dashboard | `docs/Client Readiness Dashboard.html` | Validates a single client against readiness profiles for Citrix/thin-client scenarios. | Expects a Client Readiness Agent on port `38765`. That agent is referenced by the UI but is not currently included in this repo. |
+| Fleet Command Center | `docs/Fleet Command Center.html` | Aggregates many client readiness states into a fleet view with filters, site breakdown, detail panel, and activity feed. | Uses `helper/fleet_collector.py` on port `38766`, which polls client agents on port `38765`. |
+| macOS Enterprise Dashboard | `docs/macOS Enterprise Dashboard.html` | Shows macOS security and compliance posture with CIS-style checks, local users, MDM, network, software updates, and certificates. | Uses `helper/macos_agent.py` on port `38764`. |
+| Certificate Expiry Timeline | `docs/Certificate Expiry Timeline.html` | Visualizes certificate expiry risk across local macOS data or fleet data. | Reads from the Fleet Collector (`38766`) and/or macOS Agent (`38764`) when available. |
 
-- Unknown client state
-- Inconsistent configurations
-- Lack of visibility before accessing critical services (e.g. Citrix)
+Open the landing page:
 
-This repo explores a different approach:
+```text
+docs/index.html
+```
 
-👉 **Move validation to the client**  
-👉 **Run lightweight checks in-browser**  
-👉 **Generate immediate readiness feedback**
-
----
-
-## 🧩 Key Prototypes
-
-### Client Readiness Check (v2)
-
-A browser-based diagnostic tool that evaluates whether a client meets a defined baseline.
-
-**Capabilities:**
-- Detect environment (browser / client type)
-- Validate endpoint connectivity
-- Check helper services (local agents)
-- Evaluate baseline compliance
-- Generate structured output (JSON / TXT)
-
-**Example use cases:**
-- IGEL OS12 Citrix validation
-- eLux client verification
-- Pre-access checks before VDI launch
+Or open any prototype HTML file directly in a browser.
 
 ---
 
-### Fleet Command Center (Concept)
+## Quick Start
 
-A prototype for aggregating multiple client states into a centralized view.
+### Demo mode
 
-**Goal:**
-- Provide visibility across distributed endpoints
-- Identify readiness gaps at scale
-- Support operational decision-making
+All dashboards can be opened directly from `docs/` and will fall back to embedded demo/sample data when live data is unavailable.
 
----
+```text
+docs/Client Readiness Dashboard.html
+docs/Fleet Command Center.html
+docs/macOS Enterprise Dashboard.html
+docs/Certificate Expiry Timeline.html
+```
 
-## ⚙️ How it works
+### macOS live data
 
-The prototypes are:
-
-- Static web apps (HTML + JS)
-- Config-driven (JSON profiles)
-- Designed for portability (no backend required)
-
-Example flow:
-
-1. Load prototype in browser
-2. Detect environment
-3. Execute checks (endpoints / helper / config)
-4. Evaluate against baseline
-5. Output readiness result
-
----
-
-## 🔌 Configuration
-
-Client readiness is driven by external configuration:
-
-- `client-readiness-config.json`
-- `profiles/index.json`
-
-Supports:
-
-- Multiple client profiles (IGEL, eLux, macOS, kiosk)
-- Custom endpoints
-- Timeout handling
-- URL overrides (query parameters)
-
----
-
-## 🧪 Example
+Run the local macOS agent from the project root:
 
 ```bash
-/client-readiness-v2.html?profile=igel-os12-citrix
+python3 helper/macos_agent.py
+```
+
+For fuller MDM/profile/user data:
+
+```bash
+sudo python3 helper/macos_agent.py
+```
+
+Then open:
+
+```text
+docs/macOS Enterprise Dashboard.html
+```
+
+or:
+
+```text
+docs/Certificate Expiry Timeline.html
+```
+
+### Fleet live data
+
+Edit:
+
+```text
+helper/fleet_clients.json
+```
+
+Start the collector:
+
+```bash
+python3 helper/fleet_collector.py
+```
+
+Open:
+
+```text
+http://localhost:38766
+```
+
+Note: live fleet data requires each configured client to expose a Client Readiness Agent on port `38765`. The collector is included in this repo; the per-client readiness agent is currently not included.
+
+---
+
+## Ports
+
+| Port | Component |
+|------|-----------|
+| `38764` | macOS Enterprise Agent |
+| `38765` | Client Readiness Agent expected by Client Readiness/Fleet prototypes |
+| `38766` | Fleet Collector |
+
+---
+
+## Repository Structure
+
+```text
+design-prototyp/
+├── docs/
+│   ├── index.html
+│   ├── Client Readiness Dashboard.html
+│   ├── Fleet Command Center.html
+│   ├── macOS Enterprise Dashboard.html
+│   ├── Certificate Expiry Timeline.html
+│   ├── README-Client-Readiness-Dashboard.md
+│   ├── README-Fleet-Command-Center.md
+│   ├── README-macOS-Enterprise-Dashboard.md
+│   └── README-Certificate-Expiry-Timeline.md
+├── helper/
+│   ├── fleet_collector.py
+│   ├── fleet_clients.json
+│   └── macos_agent.py
+└── tools/
+    └── mqmirror/
+        ├── README.md
+        └── gui_to_cli.py
 ```
 
 ---
 
-## 🎯 Design Principles
+## Documentation
 
-- **Zero install** — runs in browser
-- **Environment aware** — adapts to client type
-- **Config-driven** — no hardcoded logic
-- **Portable** — works in locked-down environments
-- **Observable** — produces structured output
+- `docs/README-Client-Readiness-Dashboard.md`
+- `docs/README-Fleet-Command-Center.md`
+- `docs/README-macOS-Enterprise-Dashboard.md`
+- `docs/README-Certificate-Expiry-Timeline.md`
 
 ---
 
-## 📁 Repository Structure
+## Tools
 
-```
-docs/
-  client-readiness-v2.html
-  evaluator.js
-  client-readiness-config.v2.json
-  profiles/
-    index.json
+### MQ Mirror
 
-helper/
-  fleet_collector.py
-  fleet_clients.json
+`tools/mqmirror/` contains a small macOS CLI prototype that maps common GUI actions to equivalent terminal commands.
+
+Run:
+
+```bash
+python3 tools/mqmirror/gui_to_cli.py list
 ```
 
----
+More details:
 
-## 🔭 Future Direction
-
-- Certificate visibility & validation
-- Smartcard detection & state handling
-- Network diagnostics (LAN / WiFi)
-- Integration with local helper agents
-- Fleet-level analytics
+- `tools/mqmirror/README.md`
+- `tools/mqmirror/gui_to_cli.py`
 
 ---
 
-## 🧭 Positioning
+## Notes
 
-This is not a finished product.
+This is a design and architecture exploration, not a finished product. Some live modes depend on helper agents that may be local-only, external, or future work.
 
-It is a **design and architecture exploration** of:
-
-👉 Client-side validation in enterprise environments  
-👉 Browser-based diagnostics in restricted platforms  
-👉 Baseline-driven endpoint control  
+Known gap: `helper/client_readiness_agent.py` is referenced by the Client Readiness and Fleet prototypes but is not currently present in this repository.
 
 ---
 
-## 📌 Related Work
-
-- macos-scripts → unified CLI workflows  
-- zephyr-workbench → architecture modelling (YAML-driven)
-
----
-
-## 📄 License
+## License
 
 MIT License
