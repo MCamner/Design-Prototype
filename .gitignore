@@ -3,3 +3,8 @@
 # Python
 __pycache__/
 *.pyc
+
+# Backups
+*.bak
+*.bak-*
+*.bak-v*
