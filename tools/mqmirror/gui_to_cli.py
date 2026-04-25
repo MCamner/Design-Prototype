@@ -627,7 +627,14 @@ def copy_command(category: str, topic: str, index: int) -> int:
         print(cmd)
         return 1
 
-    subprocess.run(["pbcopy"], input=cmd, text=True, check=True)
+    try:
+        subprocess.run(["pbcopy"], input=cmd, text=True, check=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        print(f"{RED}Could not copy with pbcopy:{RESET} {error}")
+        print(f"{MUTED}Copy manually:{RESET}")
+        print(cmd)
+        return 1
+
     print(f"{GREEN}Copied:{RESET} {cmd}")
     print(f"{MUTED}{description} · {safety_badge(safety)}{RESET}")
     return 0
