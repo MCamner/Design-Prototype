@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
 """
-MQ Mirror — GUI actions → terminal command equivalents.
+MQ Mirror v0.3 — GUI actions → terminal command equivalents.
 
-Modes:
-  python3 tools/mqmirror/gui_to_cli.py list
-  python3 tools/mqmirror/gui_to_cli.py show settings general
-  python3 tools/mqmirror/gui_to_cli.py search network
-  python3 tools/mqmirror/gui_to_cli.py watch
+Examples:
+  mqmirror list
+  mqmirror show settings general
+  mqmirror search network
+  mqmirror copy settings network 2
+  mqmirror run settings general 1 --confirm
+  mqmirror show settings network --json
+  mqmirror watch
 """
 
 from __future__ import annotations
 
 import argparse
-import os
-import sys
+import json
+import shutil
+import subprocess
 from datetime import datetime
-from typing import Dict, List, Tuple
-
+from typing import Any, Dict, Tuple
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -27,11 +30,9 @@ AMBER = "\033[38;5;220m"
 RED = "\033[38;5;203m"
 MUTED = "\033[38;5;244m"
 
+Command = Tuple[str, str, str]
 
-Command = Tuple[str, str, str]  # command, description, safety
-
-
-COMMAND_LIBRARY: Dict[str, Dict[str, object]] = {
+COMMAND_LIBRARY: Dict[str, Dict[str, Any]] = {
     "settings.general": {
         "gui": "System Settings → General",
         "commands": [
@@ -70,6 +71,62 @@ COMMAND_LIBRARY: Dict[str, Dict[str, object]] = {
             ("csrutil status", "Show SIP status", "safe"),
         ],
     },
+    "settings.keyboard": {
+        "gui": "System Settings → Keyboard",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.Keyboard-Settings.extension"', "Open Keyboard settings", "safe"),
+            ("defaults read NSGlobalDomain ApplePressAndHoldEnabled", "Show press-and-hold setting", "safe"),
+            ("defaults read NSGlobalDomain InitialKeyRepeat", "Show initial key repeat", "safe"),
+            ("defaults read NSGlobalDomain KeyRepeat", "Show key repeat", "safe"),
+        ],
+    },
+    "settings.trackpad": {
+        "gui": "System Settings → Trackpad",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.Trackpad-Settings.extension"', "Open Trackpad settings", "safe"),
+            ("defaults read com.apple.AppleMultitouchTrackpad", "Show trackpad preferences", "safe"),
+        ],
+    },
+    "settings.battery": {
+        "gui": "System Settings → Battery",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.Battery-Settings.extension"', "Open Battery settings", "safe"),
+            ("pmset -g batt", "Show battery status", "safe"),
+            ("pmset -g", "Show power management settings", "safe"),
+        ],
+    },
+    "settings.bluetooth": {
+        "gui": "System Settings → Bluetooth",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.BluetoothSettings"', "Open Bluetooth settings", "safe"),
+            ("system_profiler SPBluetoothDataType", "Show Bluetooth information", "safe"),
+        ],
+    },
+    "settings.sound": {
+        "gui": "System Settings → Sound",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.Sound-Settings.extension"', "Open Sound settings", "safe"),
+            ("system_profiler SPAudioDataType", "Show audio devices", "safe"),
+        ],
+    },
+    "settings.users": {
+        "gui": "System Settings → Users & Groups",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.Users-Groups-Settings.extension"', "Open Users & Groups", "safe"),
+            ("whoami", "Show current user", "safe"),
+            ("id", "Show current user identity/groups", "safe"),
+            ("dscl . list /Users", "List local users", "safe"),
+        ],
+    },
+    "settings.sharing": {
+        "gui": "System Settings → General → Sharing",
+        "commands": [
+            ('open "x-apple.systempreferences:com.apple.Sharing-Settings.extension"', "Open Sharing settings", "safe"),
+            ("scutil --get ComputerName", "Show computer name", "safe"),
+            ("scutil --get LocalHostName", "Show local hostname", "safe"),
+            ("launchctl print system/com.openssh.sshd 2>/dev/null | head", "Inspect SSH daemon state", "safe"),
+        ],
+    },
     "finder.files": {
         "gui": "Finder → file operations",
         "commands": [
@@ -104,7 +161,6 @@ COMMAND_LIBRARY: Dict[str, Dict[str, object]] = {
     },
 }
 
-
 APP_MAPPINGS = {
     "Finder": ("open -a Finder", "Open Finder"),
     "Safari": ("open -a Safari", "Open Safari"),
@@ -124,7 +180,7 @@ def now() -> str:
 
 def header(title: str) -> None:
     print(f"{BOLD}{CYAN}════════════════════════════════════════════════════{RESET}")
-    print(f"{BOLD}{CYAN}MQ Mirror — {title}{RESET}")
+    print(f"{BOLD}{CYAN}MQ Mirror v0.3 — {title}{RESET}")
     print(f"{BOLD}{CYAN}════════════════════════════════════════════════════{RESET}")
 
 
@@ -138,46 +194,78 @@ def safety_badge(level: str) -> str:
     return f"{MUTED}{level}{RESET}"
 
 
-def print_command(command: str, description: str, safety: str = "safe") -> None:
-    print(f"  {GREEN}❯{RESET} {BOLD}{command}{RESET}")
-    print(f"    {MUTED}{description} · {safety_badge(safety)}{RESET}")
+def topic_key(category: str, topic: str) -> str:
+    return f"{category}.{topic}"
 
 
-def list_topics() -> None:
+def get_topic(category: str, topic: str) -> Dict[str, Any] | None:
+    return COMMAND_LIBRARY.get(topic_key(category, topic))
+
+
+def get_command(category: str, topic: str, index: int) -> Command | None:
+    item = get_topic(category, topic)
+    if not item:
+        return None
+
+    commands = item["commands"]
+    if index < 1 or index > len(commands):
+        return None
+
+    return commands[index - 1]
+
+
+def print_command(index: int, command: str, description: str, safety: str = "safe") -> None:
+    print(f"  {GREEN}{index:>2}.{RESET} {BOLD}{command}{RESET}")
+    print(f"      {MUTED}{description} · {safety_badge(safety)}{RESET}")
+
+
+def list_topics(as_json: bool = False) -> None:
+    if as_json:
+        print(json.dumps(COMMAND_LIBRARY, indent=2, ensure_ascii=False))
+        return
+
     header("command library")
     for key, value in sorted(COMMAND_LIBRARY.items()):
         print(f"{GREEN}❯{RESET} {key}")
         print(f"  {MUTED}{value['gui']}{RESET}")
 
 
-def show_topic(category: str, topic: str) -> int:
-    key = f"{category}.{topic}"
+def show_topic(category: str, topic: str, as_json: bool = False) -> int:
+    key = topic_key(category, topic)
     item = COMMAND_LIBRARY.get(key)
 
     if not item:
         print(f"{RED}No mapping found for: {key}{RESET}")
-        print()
-        print("Try:")
-        list_topics()
+        print("Run: mqmirror list")
         return 1
+
+    if as_json:
+        print(json.dumps({key: item}, indent=2, ensure_ascii=False))
+        return 0
 
     header(str(item["gui"]))
     print()
-    for command, description, safety in item["commands"]:  # type: ignore[index]
-        print_command(command, description, safety)
+
+    for i, (command, description, safety) in enumerate(item["commands"], start=1):
+        print_command(i, command, description, safety)
+
     return 0
 
 
-def search_library(query: str) -> int:
+def search_library(query: str, as_json: bool = False) -> int:
     query_l = query.lower()
-    matches = []
+    matches = {}
 
     for key, item in COMMAND_LIBRARY.items():
         haystack = f"{key} {item['gui']} " + " ".join(
-            f"{cmd} {desc}" for cmd, desc, _ in item["commands"]  # type: ignore[index]
+            f"{cmd} {desc}" for cmd, desc, _ in item["commands"]
         )
         if query_l in haystack.lower():
-            matches.append((key, item))
+            matches[key] = item
+
+    if as_json:
+        print(json.dumps(matches, indent=2, ensure_ascii=False))
+        return 0 if matches else 1
 
     header(f"search: {query}")
 
@@ -185,14 +273,74 @@ def search_library(query: str) -> int:
         print(f"{AMBER}No matches.{RESET}")
         return 1
 
-    for key, item in matches:
+    for key, item in matches.items():
         print()
         print(f"{GREEN}❯ {key}{RESET}")
         print(f"  {MUTED}{item['gui']}{RESET}")
-        for command, description, safety in item["commands"]:  # type: ignore[index]
-            print_command(command, description, safety)
+        for i, (command, description, safety) in enumerate(item["commands"], start=1):
+            print_command(i, command, description, safety)
 
     return 0
+
+
+def copy_command(category: str, topic: str, index: int) -> int:
+    command = get_command(category, topic, index)
+    if not command:
+        print(f"{RED}No command found for {category}.{topic} index {index}{RESET}")
+        return 1
+
+    cmd, description, safety = command
+
+    if not shutil.which("pbcopy"):
+        print(f"{RED}pbcopy not found. Copy manually:{RESET}")
+        print(cmd)
+        return 1
+
+    subprocess.run(["pbcopy"], input=cmd, text=True, check=True)
+    print(f"{GREEN}Copied:{RESET} {cmd}")
+    print(f"{MUTED}{description} · {safety_badge(safety)}{RESET}")
+    return 0
+
+
+def run_command(category: str, topic: str, index: int, confirm: bool, allow_modifies: bool) -> int:
+    command = get_command(category, topic, index)
+    if not command:
+        print(f"{RED}No command found for {category}.{topic} index {index}{RESET}")
+        return 1
+
+    cmd, description, safety = command
+
+    if safety != "safe" and not allow_modifies:
+        print(f"{AMBER}Blocked:{RESET} command safety is {safety_badge(safety)}")
+        print("Use --allow-modifies if you really want to run it.")
+        print(cmd)
+        return 1
+
+    if not confirm:
+        print(f"{AMBER}Dry run only.{RESET}")
+        print("Use --confirm to execute.")
+        print()
+        print_command(index, cmd, description, safety)
+        return 0
+
+    print(f"{GREEN}Running:{RESET} {cmd}")
+    return subprocess.call(cmd, shell=True)
+
+
+def explain_command(raw_command: str) -> int:
+    header("explain")
+
+    for key, item in COMMAND_LIBRARY.items():
+        for i, (cmd, description, safety) in enumerate(item["commands"], start=1):
+            if raw_command == cmd or raw_command in cmd:
+                print(f"{GREEN}Match:{RESET} {key} #{i}")
+                print_command(i, cmd, description, safety)
+                return 0
+
+    print(f"{AMBER}No exact library match.{RESET}")
+    print(f"{MUTED}Command:{RESET} {raw_command}")
+    print("Tip: add this command to COMMAND_LIBRARY if it belongs in MQ Mirror.")
+    return 1
 
 
 def watch_apps() -> int:
@@ -244,7 +392,7 @@ def watch_apps() -> int:
             if mapped:
                 cmd, desc = mapped
                 print(f"\n{DIM}{now()}{RESET} {CYAN}[app activated]{RESET} {BOLD}{name}{RESET}")
-                print_command(cmd, desc)
+                print_command(1, cmd, desc, "safe")
 
         def appLaunched_(self, notification):
             app = notification.userInfo().get("NSWorkspaceApplicationKey")
@@ -256,7 +404,7 @@ def watch_apps() -> int:
             if mapped:
                 cmd, desc = mapped
                 print(f"\n{DIM}{now()}{RESET} {GREEN}[app launched]{RESET} {BOLD}{name}{RESET}")
-                print_command(cmd, desc)
+                print_command(1, cmd, desc, "safe")
 
         def appTerminated_(self, notification):
             app = notification.userInfo().get("NSWorkspaceApplicationKey")
@@ -285,39 +433,67 @@ def main() -> int:
         prog="mqmirror",
         description="GUI actions → terminal command equivalents for macOS.",
     )
+    parser.add_argument("--json", action="store_true", help="Output JSON where supported")
+
     sub = parser.add_subparsers(dest="command")
 
     sub.add_parser("list", help="List available GUI-to-CLI topics")
 
     show = sub.add_parser("show", help="Show commands for a GUI area")
-    show.add_argument("category", help="Example: settings, finder, apps, developer")
-    show.add_argument("topic", help="Example: general, network, files, common")
+    show.add_argument("category")
+    show.add_argument("topic")
 
     search = sub.add_parser("search", help="Search command library")
     search.add_argument("query")
+
+    copy = sub.add_parser("copy", help="Copy command by topic/index")
+    copy.add_argument("category")
+    copy.add_argument("topic")
+    copy.add_argument("index", type=int)
+
+    run = sub.add_parser("run", help="Run command by topic/index")
+    run.add_argument("category")
+    run.add_argument("topic")
+    run.add_argument("index", type=int)
+    run.add_argument("--confirm", action="store_true", help="Actually execute command")
+    run.add_argument("--allow-modifies", action="store_true", help="Allow modifies commands")
+
+    explain = sub.add_parser("explain", help="Explain a command if it exists in the library")
+    explain.add_argument("raw_command")
 
     sub.add_parser("watch", help="Watch active app changes and suggest commands")
 
     args = parser.parse_args()
 
     if args.command is None:
-        list_topics()
+        list_topics(args.json)
         print()
         print("Examples:")
-        print("  python3 tools/mqmirror/gui_to_cli.py show settings general")
-        print("  python3 tools/mqmirror/gui_to_cli.py search network")
-        print("  python3 tools/mqmirror/gui_to_cli.py watch")
+        print("  mqmirror show settings general")
+        print("  mqmirror search network")
+        print("  mqmirror copy settings network 2")
+        print("  mqmirror run settings general 1 --confirm")
+        print("  mqmirror watch")
         return 0
 
     if args.command == "list":
-        list_topics()
+        list_topics(args.json)
         return 0
 
     if args.command == "show":
-        return show_topic(args.category, args.topic)
+        return show_topic(args.category, args.topic, args.json)
 
     if args.command == "search":
-        return search_library(args.query)
+        return search_library(args.query, args.json)
+
+    if args.command == "copy":
+        return copy_command(args.category, args.topic, args.index)
+
+    if args.command == "run":
+        return run_command(args.category, args.topic, args.index, args.confirm, args.allow_modifies)
+
+    if args.command == "explain":
+        return explain_command(args.raw_command)
 
     if args.command == "watch":
         return watch_apps()
