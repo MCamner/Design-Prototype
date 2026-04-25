@@ -252,15 +252,24 @@ def show_topic(category: str, topic: str, as_json: bool = False) -> int:
     return 0
 
 
+def normalize_search_text(value: str) -> str:
+    return (
+        value.lower()
+        .replace("-", "")
+        .replace("_", "")
+        .replace(" ", "")
+    )
+
+
 def search_library(query: str, as_json: bool = False) -> int:
-    query_l = query.lower()
+    query_l = normalize_search_text(query)
     matches = {}
 
     for key, item in COMMAND_LIBRARY.items():
         haystack = f"{key} {item['gui']} " + " ".join(
             f"{cmd} {desc}" for cmd, desc, _ in item["commands"]
         )
-        if query_l in haystack.lower():
+        if query_l in normalize_search_text(haystack):
             matches[key] = item
 
     if as_json:
