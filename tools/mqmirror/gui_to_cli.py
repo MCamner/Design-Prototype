@@ -9,6 +9,7 @@ Examples:
   mqmirror copy settings network 2
   mqmirror run settings general 1 --confirm
   mqmirror show settings network --json
+  mqmirror inspect
   mqmirror watch
 """
 
@@ -16,10 +17,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import shutil
 import subprocess
+import time
 from datetime import datetime
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 RESET = "\033[0m"
 BOLD = "\033[1m"
@@ -173,6 +176,25 @@ APP_MAPPINGS = {
     "Simulator": ("xcrun simctl list", "List simulators"),
 }
 
+SETTINGS_HINTS = {
+    "general": "settings.general",
+    "network": "settings.network",
+    "wi-fi": "settings.network",
+    "wifi": "settings.network",
+    "displays": "settings.displays",
+    "display": "settings.displays",
+    "privacy": "settings.privacy",
+    "security": "settings.privacy",
+    "keyboard": "settings.keyboard",
+    "trackpad": "settings.trackpad",
+    "battery": "settings.battery",
+    "bluetooth": "settings.bluetooth",
+    "sound": "settings.sound",
+    "users": "settings.users",
+    "groups": "settings.users",
+    "sharing": "settings.sharing",
+}
+
 
 def now() -> str:
     return datetime.now().strftime("%H:%M:%S")
@@ -217,6 +239,276 @@ def get_command(category: str, topic: str, index: int) -> Command | None:
 def print_command(index: int, command: str, description: str, safety: str = "safe") -> None:
     print(f"  {GREEN}{index:>2}.{RESET} {BOLD}{command}{RESET}")
     print(f"      {MUTED}{description} · {safety_badge(safety)}{RESET}")
+
+
+def quote(value: str) -> str:
+    return shlex.quote(value)
+
+
+def run_capture(cmd: List[str], timeout: float = 3.0) -> str:
+    result = run_process(cmd, timeout=timeout)
+    return str(result.get("stdout", "")).strip()
+
+
+def run_process(cmd: List[str], timeout: float = 3.0) -> Dict[str, Any]:
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except Exception:
+        return {"stdout": "", "stderr": "", "returncode": 1}
+    return {
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+        "returncode": result.returncode,
+    }
+
+
+def osascript(script: str, timeout: float = 3.0) -> str:
+    return run_capture(["osascript", "-e", script], timeout=timeout)
+
+
+def osascript_result(script: str, timeout: float = 3.0) -> Dict[str, Any]:
+    return run_process(["osascript", "-e", script], timeout=timeout)
+
+
+def frontmost_app_context() -> Dict[str, Any]:
+    script = r'''
+tell application "System Events"
+  set frontProc to first application process whose frontmost is true
+  set appName to name of frontProc
+  set bundleId to ""
+  try
+    set bundleId to bundle identifier of frontProc
+  end try
+  set windowTitle to ""
+  try
+    if exists window 1 of frontProc then set windowTitle to name of window 1 of frontProc
+  end try
+  return appName & linefeed & bundleId & linefeed & windowTitle
+end tell
+'''
+    result = osascript_result(script)
+    lines = str(result.get("stdout", "")).splitlines()
+    while len(lines) < 3:
+        lines.append("")
+    context = {
+        "app": lines[0],
+        "bundle_id": lines[1],
+        "window_title": lines[2],
+    }
+    if not lines[0] and result.get("returncode") != 0:
+        context["errors"] = [
+            str(result.get("stderr") or "Could not read frontmost app via System Events.")
+        ]
+    return context
+
+
+def finder_context() -> Dict[str, Any]:
+    script = r'''
+tell application "Finder"
+  set currentPath to ""
+  try
+    set currentPath to POSIX path of (insertion location as alias)
+  end try
+  set selectedPaths to {}
+  try
+    repeat with itemRef in selection
+      set end of selectedPaths to POSIX path of (itemRef as alias)
+    end repeat
+  end try
+  return currentPath & linefeed & (selectedPaths as text)
+end tell
+'''
+    lines = osascript(script).splitlines()
+    current_path = lines[0] if lines else ""
+    selected_paths: List[str] = []
+    if len(lines) > 1 and lines[1]:
+        selected_paths = [p for p in lines[1].split(", ") if p]
+    return {
+        "current_path": current_path,
+        "selected_paths": selected_paths,
+    }
+
+
+def browser_context(app_name: str) -> Dict[str, Any]:
+    if app_name not in {"Safari", "Google Chrome", "Microsoft Edge", "Arc"}:
+        return {}
+
+    if app_name == "Safari":
+        script = r'''
+tell application "Safari"
+  if not (exists front window) then return linefeed
+  set tabTitle to name of current tab of front window
+  set tabUrl to URL of current tab of front window
+  return tabTitle & linefeed & tabUrl
+end tell
+'''
+    else:
+        script = f'''
+tell application "{app_name}"
+  if not (exists front window) then return linefeed
+  set tabTitle to title of active tab of front window
+  set tabUrl to URL of active tab of front window
+  return tabTitle & linefeed & tabUrl
+end tell
+'''
+
+    lines = osascript(script).splitlines()
+    while len(lines) < 2:
+        lines.append("")
+    return {
+        "tab_title": lines[0],
+        "url": lines[1],
+    }
+
+
+def inspect_frontmost() -> Dict[str, Any]:
+    context = frontmost_app_context()
+    app = context.get("app", "")
+
+    if app == "Finder":
+        context["finder"] = finder_context()
+
+    browser = browser_context(app)
+    if browser:
+        context["browser"] = browser
+
+    context["suggestions"] = suggest_for_context(context)
+    return context
+
+
+def command_from_topic(topic: str) -> List[Command]:
+    item = COMMAND_LIBRARY.get(topic)
+    if not item:
+        return []
+    return list(item["commands"])
+
+
+def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
+    suggestions: List[Command] = []
+    app = context.get("app", "")
+    title = context.get("window_title", "")
+    title_l = title.lower()
+
+    mapped = APP_MAPPINGS.get(app)
+    if mapped:
+        suggestions.append((mapped[0], mapped[1], "safe"))
+
+    if app == "Finder":
+        finder = context.get("finder", {})
+        path = finder.get("current_path") or ""
+        selected = finder.get("selected_paths") or []
+        if path:
+            suggestions.extend([
+                (f"cd {quote(path)}", "Use Finder folder in the shell", "safe"),
+                (f"ls -la {quote(path)}", "List Finder folder contents", "safe"),
+            ])
+        if selected:
+            first = selected[0]
+            suggestions.extend([
+                (f"file {quote(first)}", "Identify selected Finder item", "safe"),
+                (f"mdls {quote(first)}", "Show Spotlight metadata for selected item", "safe"),
+            ])
+
+    browser = context.get("browser", {})
+    url = browser.get("url") or ""
+    if url:
+        suggestions.extend([
+            (f"open {quote(url)}", "Open current browser URL", "safe"),
+            (f"curl -I {quote(url)}", "Fetch HTTP headers for current URL", "safe"),
+        ])
+
+    if app == "System Settings":
+        for hint, topic in SETTINGS_HINTS.items():
+            if hint in title_l:
+                suggestions.extend(command_from_topic(topic))
+                break
+        if not any(hint in title_l for hint in SETTINGS_HINTS):
+            suggestions.extend(command_from_topic("settings.general"))
+
+    if app == "Activity Monitor":
+        suggestions.extend([
+            ("ps aux", "List running processes", "safe"),
+            ("top -o cpu", "Inspect CPU-heavy processes", "safe"),
+            ("vm_stat", "Show virtual memory statistics", "safe"),
+        ])
+
+    if app == "Disk Utility":
+        suggestions.extend([
+            ("diskutil list", "List disks and volumes", "safe"),
+            ("df -h", "Show mounted filesystem usage", "safe"),
+        ])
+
+    if app == "Terminal":
+        suggestions.extend([
+            ("pwd", "Show current shell directory", "safe"),
+            ("history | tail -20", "Show recent shell commands", "safe"),
+        ])
+
+    if app == "Visual Studio Code":
+        suggestions.extend([
+            ("pwd", "Show current workspace directory", "safe"),
+            ("git status --short", "Show repository changes", "safe"),
+        ])
+
+    seen = set()
+    unique = []
+    for cmd in suggestions:
+        if cmd[0] in seen:
+            continue
+        seen.add(cmd[0])
+        unique.append(cmd)
+    return unique[:8]
+
+
+def print_context(context: Dict[str, Any]) -> None:
+    header("inspect")
+    print(f"{GREEN}App:{RESET} {context.get('app') or 'unknown'}")
+    if context.get("bundle_id"):
+        print(f"{MUTED}Bundle:{RESET} {context['bundle_id']}")
+    if context.get("window_title"):
+        print(f"{MUTED}Window:{RESET} {context['window_title']}")
+    if context.get("errors"):
+        for error in context["errors"]:
+            print(f"{AMBER}Context warning:{RESET} {error}")
+        print(f"{MUTED}macOS may require Accessibility/Automation permission for Terminal or your shell app.{RESET}")
+
+    finder = context.get("finder") or {}
+    if finder.get("current_path"):
+        print(f"{MUTED}Finder path:{RESET} {finder['current_path']}")
+    if finder.get("selected_paths"):
+        print(f"{MUTED}Selection:{RESET} {', '.join(finder['selected_paths'])}")
+
+    browser = context.get("browser") or {}
+    if browser.get("tab_title"):
+        print(f"{MUTED}Tab:{RESET} {browser['tab_title']}")
+    if browser.get("url"):
+        print(f"{MUTED}URL:{RESET} {browser['url']}")
+
+    print()
+    suggestions = context.get("suggestions", [])
+    if not suggestions:
+        print(f"{AMBER}No command suggestions for this context yet.{RESET}")
+        print("Tip: add a mapping to APP_MAPPINGS, SETTINGS_HINTS, or suggest_for_context().")
+        return
+
+    print(f"{CYAN}Terminal equivalents:{RESET}")
+    for i, (command, description, safety) in enumerate(suggestions, start=1):
+        print_command(i, command, description, safety)
+
+
+def inspect_command(as_json: bool = False) -> int:
+    context = inspect_frontmost()
+    if as_json:
+        print(json.dumps(context, indent=2, ensure_ascii=False))
+    else:
+        print_context(context)
+    return 0
 
 
 def list_topics(as_json: bool = False) -> None:
@@ -352,7 +644,35 @@ def explain_command(raw_command: str) -> int:
     return 1
 
 
-def watch_apps() -> int:
+def watch_apps(interval: float = 1.0, as_json: bool = False) -> int:
+    header("watch mode")
+    print(f"{MUTED}Watching frontmost app/window context. Press Ctrl+C to stop.{RESET}")
+
+    last_key = None
+    try:
+        while True:
+            context = inspect_frontmost()
+            key = (
+                context.get("app"),
+                context.get("window_title"),
+                (context.get("browser") or {}).get("url"),
+                (context.get("finder") or {}).get("current_path"),
+            )
+            if key != last_key:
+                last_key = key
+                if as_json:
+                    print(json.dumps(context, ensure_ascii=False))
+                else:
+                    print()
+                    print(f"{DIM}{now()}{RESET}")
+                    print_context(context)
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        print(f"\n{GREEN}Stopped.{RESET}")
+        return 0
+
+
+def watch_app_events() -> int:
     try:
         import objc
         from AppKit import (
@@ -423,7 +743,7 @@ def watch_apps() -> int:
             name = app.localizedName()
             print(f"\n{DIM}{now()}{RESET} {AMBER}[app terminated]{RESET} {BOLD}{name}{RESET}")
 
-    header("watch mode")
+    header("watch app events")
     print(f"{MUTED}Watching app launch/switch events. Press Ctrl+C to stop.{RESET}")
 
     _observer = WorkspaceObserver.alloc().init()
@@ -442,7 +762,7 @@ def main() -> int:
         prog="mqmirror",
         description="GUI actions → terminal command equivalents for macOS.",
     )
-    parser.add_argument("--json", action="store_true", help="Output JSON where supported")
+    parser.add_argument("--json", dest="global_json", action="store_true", help="Output JSON where supported")
     sub = parser.add_subparsers(dest="command")
 
     list_parser = sub.add_parser("list", help="List available GUI-to-CLI topics")
@@ -472,30 +792,41 @@ def main() -> int:
     explain = sub.add_parser("explain", help="Explain a command if it exists in the library")
     explain.add_argument("raw_command")
 
-    sub.add_parser("watch", help="Watch active app changes and suggest commands")
+    inspect_parser = sub.add_parser("inspect", help="Inspect frontmost app/window and suggest commands")
+    inspect_parser.add_argument("--json", action="store_true", help="Output JSON")
+
+    watch = sub.add_parser("watch", help="Watch frontmost app/window context and suggest commands")
+    watch.add_argument("--interval", type=float, default=1.0, help="Polling interval in seconds")
+    watch.add_argument("--json", action="store_true", help="Output JSON lines")
+
+    sub.add_parser("watch-events", help="Watch app launch/switch events via PyObjC")
 
     args = parser.parse_args()
+    as_json = bool(getattr(args, "global_json", False) or getattr(args, "json", False))
 
     if args.command is None:
-        list_topics(args.json)
+        list_topics(as_json)
+        if as_json:
+            return 0
         print()
         print("Examples:")
         print("  mqmirror show settings general")
         print("  mqmirror search network")
         print("  mqmirror copy settings network 2")
         print("  mqmirror run settings general 1 --confirm")
+        print("  mqmirror inspect")
         print("  mqmirror watch")
         return 0
 
     if args.command == "list":
-        list_topics(args.json)
+        list_topics(as_json)
         return 0
 
     if args.command == "show":
-        return show_topic(args.category, args.topic, args.json)
+        return show_topic(args.category, args.topic, as_json)
 
     if args.command == "search":
-        return search_library(args.query, args.json)
+        return search_library(args.query, as_json)
 
     if args.command == "copy":
         return copy_command(args.category, args.topic, args.index)
@@ -506,8 +837,14 @@ def main() -> int:
     if args.command == "explain":
         return explain_command(args.raw_command)
 
+    if args.command == "inspect":
+        return inspect_command(as_json)
+
     if args.command == "watch":
-        return watch_apps()
+        return watch_apps(args.interval, as_json)
+
+    if args.command == "watch-events":
+        return watch_app_events()
 
     return 1
 
