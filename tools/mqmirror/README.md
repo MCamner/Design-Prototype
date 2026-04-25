@@ -2,28 +2,29 @@
 
 GUI actions → terminal command equivalents.
 
-A macOS prototype that helps translate common GUI actions into matching terminal commands.
+A macOS command-line prototype that helps translate common GUI actions into matching terminal commands.
 
 ---
 
 ## Concept
 
-MQ Mirror is a small command-line companion for macOS.
+MQ Mirror answers a simple question:
 
-It helps answer:
-
-> “If I do this in the GUI, what is the equivalent terminal command?”
+> If I do this in the GUI, what is the equivalent terminal command?
 
 It combines:
 
 - a GUI-to-CLI command library
 - safe copy/run helpers
 - frontmost app/window inspection
-- watch mode for app/window context changes
+- compact watch mode for context changes
+- runtime checks for local dependencies
 
 ---
 
 ## Run
+
+Use the wrapper:
 
 ```bash
 tools/mqmirror/mqmirror list
@@ -37,14 +38,18 @@ python3 tools/mqmirror/gui_to_cli.py list
 
 ---
 
-## Quick examples
+## Quick shortcuts
 
 ```bash
 tools/mqmirror/mqmirror network
 tools/mqmirror/mqmirror battery
 tools/mqmirror/mqmirror finder
 tools/mqmirror/mqmirror privacy
+tools/mqmirror/mqmirror keyboard
+tools/mqmirror/mqmirror trackpad
 ```
+
+These shortcut commands map to the underlying command library.
 
 ---
 
@@ -62,21 +67,9 @@ tools/mqmirror/mqmirror show settings network --json
 
 ## Copy and run
 
-Copy a command to clipboard:
-
 ```bash
 tools/mqmirror/mqmirror copy settings network 2
-```
-
-Dry-run a command:
-
-```bash
 tools/mqmirror/mqmirror run settings general 1
-```
-
-Run a safe command:
-
-```bash
 tools/mqmirror/mqmirror run settings general 1 --confirm
 ```
 
@@ -86,27 +79,10 @@ Commands marked as `modifies` are blocked by default unless explicitly allowed.
 
 ## Context inspection
 
-Inspect the current frontmost app/window:
-
 ```bash
 tools/mqmirror/mqmirror inspect
-```
-
-JSON output:
-
-```bash
 tools/mqmirror/mqmirror inspect --json
-```
-
-Watch context changes:
-
-```bash
 tools/mqmirror/mqmirror watch --interval 1
-```
-
-Compact watch mode:
-
-```bash
 tools/mqmirror/mqmirror watch --interval 1 --compact
 ```
 
@@ -116,15 +92,8 @@ Stop watch mode with `Ctrl+C`.
 
 ## Runtime checks
 
-Show version:
-
 ```bash
 tools/mqmirror/mqmirror version
-```
-
-Check local runtime dependencies:
-
-```bash
 tools/mqmirror/mqmirror doctor
 ```
 
