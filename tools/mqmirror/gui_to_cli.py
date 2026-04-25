@@ -673,88 +673,8 @@ def watch_apps(interval: float = 1.0, as_json: bool = False) -> int:
 
 
 def watch_app_events() -> int:
-    try:
-        import objc
-        from AppKit import (
-            NSWorkspace,
-            NSWorkspaceDidActivateApplicationNotification,
-            NSWorkspaceDidLaunchApplicationNotification,
-            NSWorkspaceDidTerminateApplicationNotification,
-        )
-        from Foundation import NSObject, NSRunLoop, NSDate
-    except ImportError:
-        print(f"{RED}Missing dependencies.{RESET}")
-        print("Install:")
-        print("  pip install pyobjc-framework-Cocoa")
-        return 1
-
-    class WorkspaceObserver(NSObject):
-        def init(self):
-            self = objc.super(WorkspaceObserver, self).init()
-            if self is None:
-                return None
-
-            nc = NSWorkspace.sharedWorkspace().notificationCenter()
-            nc.addObserver_selector_name_object_(
-                self, "appActivated:", NSWorkspaceDidActivateApplicationNotification, None
-            )
-            nc.addObserver_selector_name_object_(
-                self, "appLaunched:", NSWorkspaceDidLaunchApplicationNotification, None
-            )
-            nc.addObserver_selector_name_object_(
-                self, "appTerminated:", NSWorkspaceDidTerminateApplicationNotification, None
-            )
-            self._last_app = None
-            return self
-
-        def appActivated_(self, notification):
-            app = notification.userInfo().get("NSWorkspaceApplicationKey")
-            if app is None:
-                return
-
-            name = app.localizedName()
-            if name == self._last_app:
-                return
-
-            self._last_app = name
-            mapped = APP_MAPPINGS.get(name)
-            if mapped:
-                cmd, desc = mapped
-                print(f"\n{DIM}{now()}{RESET} {CYAN}[app activated]{RESET} {BOLD}{name}{RESET}")
-                print_command(1, cmd, desc, "safe")
-
-        def appLaunched_(self, notification):
-            app = notification.userInfo().get("NSWorkspaceApplicationKey")
-            if app is None:
-                return
-
-            name = app.localizedName()
-            mapped = APP_MAPPINGS.get(name)
-            if mapped:
-                cmd, desc = mapped
-                print(f"\n{DIM}{now()}{RESET} {GREEN}[app launched]{RESET} {BOLD}{name}{RESET}")
-                print_command(1, cmd, desc, "safe")
-
-        def appTerminated_(self, notification):
-            app = notification.userInfo().get("NSWorkspaceApplicationKey")
-            if app is None:
-                return
-
-            name = app.localizedName()
-            print(f"\n{DIM}{now()}{RESET} {AMBER}[app terminated]{RESET} {BOLD}{name}{RESET}")
-
-    header("watch app events")
-    print(f"{MUTED}Watching app launch/switch events. Press Ctrl+C to stop.{RESET}")
-
-    _observer = WorkspaceObserver.alloc().init()
-
-    try:
-        loop = NSRunLoop.currentRunLoop()
-        while True:
-            loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.2))
-    except KeyboardInterrupt:
-        print(f"\n{GREEN}Stopped.{RESET}")
-        return 0
+    print(f"{AMBER}watch-events now uses built-in AppleScript polling.{RESET}")
+    return watch_apps(interval=0.5, as_json=False)
 
 
 def main() -> int:
@@ -799,7 +719,7 @@ def main() -> int:
     watch.add_argument("--interval", type=float, default=1.0, help="Polling interval in seconds")
     watch.add_argument("--json", action="store_true", help="Output JSON lines")
 
-    sub.add_parser("watch-events", help="Watch app launch/switch events via PyObjC")
+    sub.add_parser("watch-events", help="Watch app/window changes using AppleScript polling")
 
     args = parser.parse_args()
     as_json = bool(getattr(args, "global_json", False) or getattr(args, "json", False))

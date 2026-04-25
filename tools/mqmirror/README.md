@@ -34,7 +34,7 @@ python3 tools/mqmirror/gui_to_cli.py watch
 - `run` — run a selected command safely
 - `inspect` — inspect the frontmost app/window and suggest terminal equivalents
 - `watch` — watch the frontmost app/window context and suggest commands when it changes
-- `watch-events` — watch app launch/switch events via PyObjC
+- `watch-events` — compatibility alias for app/window context watching
 - `--json` — output machine-readable data where supported
 
 ## App context inspection
