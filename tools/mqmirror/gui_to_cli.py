@@ -303,6 +303,31 @@ def osascript_result(script: str, timeout: float = 3.0) -> Dict[str, Any]:
     return run_process(["osascript", "-e", script], timeout=timeout)
 
 
+def frontmost_app_context_appkit(error: str = "") -> Dict[str, Any]:
+    context: Dict[str, Any] = {
+        "app": "",
+        "bundle_id": "",
+        "window_title": "",
+    }
+
+    try:
+        from AppKit import NSWorkspace
+
+        app = NSWorkspace.sharedWorkspace().frontmostApplication()
+        if app:
+            context["app"] = app.localizedName() or ""
+            context["bundle_id"] = app.bundleIdentifier() or ""
+            context["context_source"] = "AppKit"
+    except Exception as appkit_error:
+        if not error:
+            error = str(appkit_error)
+
+    if error:
+        context["errors"] = [error]
+
+    return context
+
+
 def frontmost_app_context() -> Dict[str, Any]:
     script = r'''
 tell application "System Events"
@@ -323,15 +348,17 @@ end tell
     lines = str(result.get("stdout", "")).splitlines()
     while len(lines) < 3:
         lines.append("")
+
+    if not lines[0] and result.get("returncode") != 0:
+        return frontmost_app_context_appkit(
+            str(result.get("stderr") or "Could not read frontmost app via System Events.")
+        )
+
     context = {
         "app": lines[0],
         "bundle_id": lines[1],
         "window_title": lines[2],
     }
-    if not lines[0] and result.get("returncode") != 0:
-        context["errors"] = [
-            str(result.get("stderr") or "Could not read frontmost app via System Events.")
-        ]
     return context
 
 
@@ -501,6 +528,8 @@ def print_context(context: Dict[str, Any]) -> None:
         print(f"{MUTED}Bundle:{RESET} {context['bundle_id']}")
     if context.get("window_title"):
         print(f"{MUTED}Window:{RESET} {context['window_title']}")
+    if context.get("context_source"):
+        print(f"{MUTED}Context source:{RESET} {context['context_source']}")
     if has_context_errors:
         for error in context["errors"]:
             print(f"{AMBER}Context warning:{RESET} {error}")
@@ -521,9 +550,9 @@ def print_context(context: Dict[str, Any]) -> None:
     print()
     suggestions = context.get("suggestions", [])
     if not suggestions:
-        if has_context_errors:
+        if has_context_errors and not context.get("app"):
             print(f"{AMBER}No command suggestions because MQ Mirror could not read the active GUI context.{RESET}")
-            print("Allow your terminal app in System Settings → Privacy & Security → Accessibility, then run mqmirror inspect again.")
+            print("Allow your terminal app in System Settings → Privacy & Security → Accessibility and Automation, then run mqmirror inspect again.")
             return
 
         print(f"{AMBER}No command suggestions for this context yet.{RESET}")
@@ -687,14 +716,25 @@ def explain_command(raw_command: str) -> int:
     return 1
 
 
-def watch_apps(interval: float = 1.0, as_json: bool = False, compact: bool = False) -> int:
+def watch_apps(
+    interval: float = 1.0,
+    as_json: bool = False,
+    compact: bool = False,
+    ignore_terminal: bool = False,
+) -> int:
     header("watch mode")
     print(f"{MUTED}Watching frontmost app/window context. Press Ctrl+C to stop.{RESET}")
+    if ignore_terminal:
+        print(f"{MUTED}Ignoring Terminal/iTerm/VS Code terminal contexts.{RESET}")
 
     last_key = None
     try:
         while True:
             context = inspect_frontmost()
+            if ignore_terminal and is_terminal_context(context):
+                time.sleep(interval)
+                continue
+
             key = (
                 context.get("app"),
                 context.get("window_title"),
@@ -721,6 +761,28 @@ def watch_apps(interval: float = 1.0, as_json: bool = False, compact: bool = Fal
 def watch_app_events() -> int:
     print(f"{AMBER}watch-events now uses built-in AppleScript polling.{RESET}")
     return watch_apps(interval=0.5, as_json=False)
+
+
+def is_terminal_context(context: Dict[str, Any]) -> bool:
+    app = str(context.get("app") or "")
+    bundle_id = str(context.get("bundle_id") or "")
+    terminal_apps = {
+        "Terminal",
+        "iTerm2",
+        "Warp",
+        "Ghostty",
+        "Visual Studio Code",
+        "Code",
+    }
+    terminal_bundle_prefixes = (
+        "com.apple.Terminal",
+        "com.googlecode.iterm2",
+        "dev.warp.Warp",
+        "com.mitchellh.ghostty",
+        "com.microsoft.VSCode",
+    )
+
+    return app in terminal_apps or bundle_id.startswith(terminal_bundle_prefixes)
 
 
 
@@ -847,6 +909,7 @@ def main() -> int:
     watch.add_argument("--interval", type=float, default=1.0, help="Polling interval in seconds")
     watch.add_argument("--json", action="store_true", help="Output JSON lines")
     watch.add_argument("--compact", action="store_true", help="Use compact watch output")
+    watch.add_argument("--ignore-terminal", action="store_true", help="Skip terminal app contexts while watching")
 
     sub.add_parser("watch-events", help="Watch app/window changes using AppleScript polling")
     sub.add_parser("doctor", help="Check local MQ Mirror runtime dependencies")
@@ -893,7 +956,7 @@ def main() -> int:
         return inspect_command(as_json)
 
     if args.command == "watch":
-        return watch_apps(args.interval, as_json, args.compact)
+        return watch_apps(args.interval, as_json, args.compact, args.ignore_terminal)
 
     if args.command == "watch-events":
         return watch_app_events()
