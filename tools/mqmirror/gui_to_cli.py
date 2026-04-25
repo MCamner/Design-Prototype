@@ -836,6 +836,8 @@ def main() -> int:
     watch.add_argument("--compact", action="store_true", help="Use compact watch output")
 
     sub.add_parser("watch-events", help="Watch app/window changes using AppleScript polling")
+    sub.add_parser("doctor", help="Check local MQ Mirror runtime dependencies")
+    sub.add_parser("version", help="Print MQ Mirror version")
 
     args = parser.parse_args()
     as_json = bool(getattr(args, "global_json", False) or getattr(args, "json", False))
