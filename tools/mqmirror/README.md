@@ -41,7 +41,8 @@ If the launcher is on your `PATH`, use:
 ```bash
 mqmirror list
 mqmirror inspect
-mqmirror watch --compact --ignore-terminal
+mqmirror inspect --limit 5
+mqmirror watch --compact --ignore-terminal --limit 4
 ```
 
 ---
@@ -92,9 +93,10 @@ Commands marked as `modifies` are blocked by default unless explicitly allowed.
 ```bash
 tools/mqmirror/mqmirror inspect
 tools/mqmirror/mqmirror inspect --json
+tools/mqmirror/mqmirror inspect --limit 5
 tools/mqmirror/mqmirror watch --interval 1
 tools/mqmirror/mqmirror watch --interval 1 --compact
-tools/mqmirror/mqmirror watch --compact --ignore-terminal
+tools/mqmirror/mqmirror watch --compact --ignore-terminal --limit 4
 ```
 
 Stop watch mode with `Ctrl+C`.
@@ -102,6 +104,20 @@ Stop watch mode with `Ctrl+C`.
 Use `--ignore-terminal` when running watch mode from Terminal, iTerm, VS Code,
 Warp, or Ghostty. It suppresses updates caused by the terminal itself becoming
 the frontmost app.
+
+Use `--limit` to keep suggestions short:
+
+```bash
+mqmirror inspect --limit 5
+mqmirror watch --compact --ignore-terminal --limit 4
+```
+
+Use `--plain` or `NO_COLOR=1` for copy/paste-friendly output:
+
+```bash
+mqmirror inspect --plain
+NO_COLOR=1 mqmirror network
+```
 
 ---
 
@@ -159,7 +175,7 @@ mqmirror inspect
 For a clean live view while clicking around in other apps:
 
 ```bash
-mqmirror watch --compact --ignore-terminal
+mqmirror watch --compact --ignore-terminal --limit 4
 ```
 
 When browser context is available, MQ Mirror can suggest commands such as:

@@ -182,7 +182,7 @@ If the launcher has been added to your `PATH`, run:
 ```bash
 mqmirror list
 mqmirror inspect
-mqmirror watch --compact --ignore-terminal
+mqmirror watch --compact --ignore-terminal --limit 4
 ```
 
 More details:

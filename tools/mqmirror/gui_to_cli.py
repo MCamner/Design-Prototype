@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import shlex
 import shutil
@@ -41,6 +42,7 @@ MUTED = "\033[38;5;244m"
 
 Command = Tuple[str, str, str]
 BOX_WIDTH = 72
+DEFAULT_SUGGESTION_LIMIT = 12
 
 COMMAND_LIBRARY: Dict[str, Dict[str, Any]] = {
     "settings.general": {
@@ -249,6 +251,26 @@ TOPIC_ALIASES = {
 
 def now() -> str:
     return datetime.now().strftime("%H:%M:%S")
+
+
+def configure_output(plain: bool = False) -> None:
+    if not plain and "NO_COLOR" not in os.environ:
+        return
+
+    globals_to_clear = ("RESET", "BOLD", "DIM", "GREEN", "CYAN", "AMBER", "RED", "MUTED")
+    for name in globals_to_clear:
+        globals()[name] = ""
+
+
+def positive_int(value: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be an integer") from error
+
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("must be 1 or greater")
+    return parsed
 
 
 def strip_ansi(value: str) -> str:
@@ -677,10 +699,20 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
             continue
         seen.add(cmd[0])
         unique.append(cmd)
-    return unique[:12]
+    return unique[:DEFAULT_SUGGESTION_LIMIT]
 
 
-def print_context(context: Dict[str, Any]) -> None:
+def limited_context(context: Dict[str, Any], limit: int | None) -> Dict[str, Any]:
+    if limit is None:
+        return context
+
+    limited = dict(context)
+    limited["suggestions"] = list(context.get("suggestions", []))[:limit]
+    return limited
+
+
+def print_context(context: Dict[str, Any], limit: int | None = None) -> None:
+    context = limited_context(context, limit)
     header("inspect")
     has_context_errors = bool(context.get("errors"))
     meta_rows = [
@@ -732,8 +764,9 @@ def print_context(context: Dict[str, Any]) -> None:
         print_command(i, command, description, safety)
 
 
-def inspect_command(as_json: bool = False) -> int:
+def inspect_command(as_json: bool = False, limit: int | None = None) -> int:
     context = inspect_frontmost()
+    context = limited_context(context, limit)
     if as_json:
         print(json.dumps(context, indent=2, ensure_ascii=False))
     else:
@@ -889,6 +922,7 @@ def watch_apps(
     as_json: bool = False,
     compact: bool = False,
     ignore_terminal: bool = False,
+    limit: int | None = None,
 ) -> int:
     header("watch mode")
     print(f"{MUTED}Watching frontmost app/window context. Press Ctrl+C to stop.{RESET}")
@@ -911,12 +945,13 @@ def watch_apps(
             )
             if key != last_key:
                 last_key = key
+                context = limited_context(context, limit)
                 if as_json:
                     print(json.dumps(context, ensure_ascii=False))
                 else:
                     print()
                     if compact:
-                        print_context_compact(context)
+                        print_context_compact(context, limit)
                     else:
                         print(f"{DIM}{now()}{RESET}")
                         print_context(context)
@@ -1007,7 +1042,8 @@ def doctor() -> int:
     return 1 if failed else 0
 
 
-def print_context_compact(context: Dict[str, Any]) -> None:
+def print_context_compact(context: Dict[str, Any], limit: int | None = None) -> None:
+    context = limited_context(context, limit)
     app = context.get("app") or "unknown"
     window = context.get("window_title") or ""
     suggestions = context.get("suggestions", [])
@@ -1020,7 +1056,8 @@ def print_context_compact(context: Dict[str, Any]) -> None:
         print(f"  {AMBER}No suggestions yet.{RESET}")
         return
 
-    for i, (command, description, safety) in enumerate(suggestions[:4], start=1):
+    compact_limit = limit if limit is not None else 4
+    for i, (command, description, safety) in enumerate(suggestions[:compact_limit], start=1):
         print(f"  {GREEN}{i}.{RESET} {BOLD}{command}{RESET}")
         print(f"     {MUTED}{description} · {safety_badge(safety)}{RESET}")
 
@@ -1029,6 +1066,10 @@ def rewrite_shortcut_args(argv: List[str]) -> List[str]:
     if len(argv) == 2 and argv[1] in TOPIC_ALIASES:
         category, topic = TOPIC_ALIASES[argv[1]]
         return [argv[0], "show", category, topic]
+
+    if len(argv) > 2 and argv[-1] in TOPIC_ALIASES and all(arg.startswith("-") for arg in argv[1:-1]):
+        category, topic = TOPIC_ALIASES[argv[-1]]
+        return [argv[0], *argv[1:-1], "show", category, topic]
 
     return argv
 
@@ -1041,6 +1082,7 @@ def main() -> int:
         description="GUI actions → terminal command equivalents for macOS.",
     )
     parser.add_argument("--json", dest="global_json", action="store_true", help="Output JSON where supported")
+    parser.add_argument("--plain", dest="global_plain", action="store_true", help="Disable colors for plain text output")
     sub = parser.add_subparsers(dest="command")
 
     list_parser = sub.add_parser("list", help="List available GUI-to-CLI topics")
@@ -1072,12 +1114,16 @@ def main() -> int:
 
     inspect_parser = sub.add_parser("inspect", help="Inspect frontmost app/window and suggest commands")
     inspect_parser.add_argument("--json", action="store_true", help="Output JSON")
+    inspect_parser.add_argument("--limit", type=positive_int, help="Limit number of suggestions")
+    inspect_parser.add_argument("--plain", action="store_true", help="Disable colors for plain text output")
 
     watch = sub.add_parser("watch", help="Watch frontmost app/window context and suggest commands")
     watch.add_argument("--interval", type=float, default=1.0, help="Polling interval in seconds")
     watch.add_argument("--json", action="store_true", help="Output JSON lines")
     watch.add_argument("--compact", action="store_true", help="Use compact watch output")
     watch.add_argument("--ignore-terminal", action="store_true", help="Suppress terminal app updates in watch mode")
+    watch.add_argument("--limit", type=positive_int, help="Limit number of suggestions")
+    watch.add_argument("--plain", action="store_true", help="Disable colors for plain text output")
 
     sub.add_parser("watch-events", help="Watch app/window changes using AppleScript polling")
     sub.add_parser("doctor", help="Check local MQ Mirror runtime dependencies")
@@ -1085,6 +1131,7 @@ def main() -> int:
 
     args = parser.parse_args()
     as_json = bool(getattr(args, "global_json", False) or getattr(args, "json", False))
+    configure_output(bool(getattr(args, "global_plain", False) or getattr(args, "plain", False)))
 
     if args.command is None:
         list_topics(as_json)
@@ -1097,8 +1144,8 @@ def main() -> int:
         print("  mqmirror search network")
         print("  mqmirror copy settings network 2")
         print("  mqmirror run settings general 1 --confirm")
-        print("  mqmirror inspect")
-        print("  mqmirror watch")
+        print("  mqmirror inspect --limit 5")
+        print("  mqmirror watch --compact --ignore-terminal --limit 4")
         return 0
 
     if args.command == "list":
@@ -1121,10 +1168,10 @@ def main() -> int:
         return explain_command(args.raw_command)
 
     if args.command == "inspect":
-        return inspect_command(as_json)
+        return inspect_command(as_json, args.limit)
 
     if args.command == "watch":
-        return watch_apps(args.interval, as_json, args.compact, args.ignore_terminal)
+        return watch_apps(args.interval, as_json, args.compact, args.ignore_terminal, args.limit)
 
     if args.command == "watch-events":
         return watch_app_events()
