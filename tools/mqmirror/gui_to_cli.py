@@ -11,6 +11,7 @@ Examples:
   mqmirror show settings network --json
   mqmirror inspect
   mqmirror watch
+  mqmirror watch --interval 1 --compact --ignore-terminal
 """
 
 from __future__ import annotations
@@ -172,6 +173,7 @@ APP_MAPPINGS = {
     "Finder": ("open -a Finder", "Open Finder"),
     "Safari": ("open -a Safari", "Open Safari"),
     "Terminal": ("open -a Terminal", "Open Terminal"),
+    "ChatGPT Atlas": ("open -a 'ChatGPT Atlas'", "Open ChatGPT Atlas"),
     "System Settings": ("open -a 'System Settings'", "Open System Settings"),
     "Activity Monitor": ("open -a 'Activity Monitor'", "Open Activity Monitor"),
     "Visual Studio Code": ("open -a 'Visual Studio Code'", "Open VS Code"),
@@ -731,6 +733,10 @@ def watch_apps(
     try:
         while True:
             context = inspect_frontmost()
+            if ignore_terminal and context.get("app") in {"Terminal", "iTerm2", "Ghostty", "Warp"}:
+                time.sleep(interval)
+                continue
+
             if ignore_terminal and is_terminal_context(context):
                 time.sleep(interval)
                 continue
@@ -909,7 +915,7 @@ def main() -> int:
     watch.add_argument("--interval", type=float, default=1.0, help="Polling interval in seconds")
     watch.add_argument("--json", action="store_true", help="Output JSON lines")
     watch.add_argument("--compact", action="store_true", help="Use compact watch output")
-    watch.add_argument("--ignore-terminal", action="store_true", help="Skip terminal app contexts while watching")
+    watch.add_argument("--ignore-terminal", action="store_true", help="Suppress terminal app updates in watch mode")
 
     sub.add_parser("watch-events", help="Watch app/window changes using AppleScript polling")
     sub.add_parser("doctor", help="Check local MQ Mirror runtime dependencies")
