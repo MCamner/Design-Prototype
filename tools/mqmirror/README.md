@@ -55,6 +55,8 @@ tools/mqmirror/mqmirror finder
 tools/mqmirror/mqmirror privacy
 tools/mqmirror/mqmirror keyboard
 tools/mqmirror/mqmirror trackpad
+tools/mqmirror/mqmirror console
+tools/mqmirror/mqmirror keychain
 ```
 
 These shortcut commands map to the underlying command library.
@@ -165,7 +167,19 @@ When browser context is available, MQ Mirror can suggest commands such as:
 ```bash
 open 'https://example.com'
 curl -I 'https://example.com'
+dig example.com
+whois example.com
+openssl s_client -connect example.com:443 -servername example.com
 ```
+
+Context-specific monitoring also includes:
+
+- Finder file diagnostics: size, stats, extended attributes, Quick Look, app signatures
+- System Settings panels: privacy/security, network, sharing, login/background items
+- Activity Monitor: CPU, memory, sockets, VM stats, safe-blocked process termination template
+- Disk Utility: disks, mounts, filesystem usage, local Time Machine snapshots
+- Console: unified logging commands
+- Keychain Access: keychains, certificates, code signing identities
 
 ---
 

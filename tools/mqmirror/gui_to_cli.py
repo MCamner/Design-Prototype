@@ -26,6 +26,7 @@ import subprocess
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
+from urllib.parse import urlparse
 
 VERSION = "0.5"
 
@@ -167,6 +168,22 @@ COMMAND_LIBRARY: Dict[str, Dict[str, Any]] = {
             ("xcrun xctrace list devices", "List devices for profiling", "safe"),
         ],
     },
+    "apps.console": {
+        "gui": "Console / unified logging",
+        "commands": [
+            ("log stream --style compact", "Stream unified logs", "safe"),
+            ("log show --last 1h --style compact", "Show logs from the last hour", "safe"),
+            ("log show --predicate 'eventMessage CONTAINS[c] \"error\"' --last 1h", "Show recent error log messages", "safe"),
+        ],
+    },
+    "apps.keychain": {
+        "gui": "Keychain Access / certificates",
+        "commands": [
+            ("security list-keychains", "List keychains", "safe"),
+            ("security find-certificate -a -p", "Export certificates in PEM format", "safe"),
+            ("security find-identity -v -p codesigning", "List code signing identities", "safe"),
+        ],
+    },
 }
 
 APP_MAPPINGS = {
@@ -178,6 +195,8 @@ APP_MAPPINGS = {
     "Activity Monitor": ("open -a 'Activity Monitor'", "Open Activity Monitor"),
     "Visual Studio Code": ("open -a 'Visual Studio Code'", "Open VS Code"),
     "Xcode": ("open -a Xcode", "Open Xcode"),
+    "Console": ("open -a Console", "Open Console"),
+    "Keychain Access": ("open -a 'Keychain Access'", "Open Keychain Access"),
     "Disk Utility": ("diskutil list", "List disks"),
     "Simulator": ("xcrun simctl list", "List simulators"),
 }
@@ -222,6 +241,8 @@ TOPIC_ALIASES = {
     "files": ("finder", "files"),
     "apps": ("apps", "common"),
     "xcode": ("developer", "xcode"),
+    "console": ("apps", "console"),
+    "keychain": ("apps", "keychain"),
 }
 
 
@@ -445,6 +466,86 @@ def command_from_topic(topic: str) -> List[Command]:
     return list(item["commands"])
 
 
+def host_from_url(url: str) -> str:
+    host = urlparse(url).hostname or ""
+    return host.strip("[]")
+
+
+def browser_diagnostics(url: str) -> List[Command]:
+    host = host_from_url(url)
+    if not host:
+        return []
+
+    quoted_host = quote(host)
+    return [
+        (f"dig {quoted_host}", "Inspect DNS records for current site", "safe"),
+        (f"whois {quoted_host}", "Look up domain registration details", "safe"),
+        (f"openssl s_client -connect {quoted_host}:443 -servername {quoted_host}", "Inspect TLS handshake for current site", "safe"),
+        (
+            f"echo | openssl s_client -connect {quoted_host}:443 -servername {quoted_host} 2>/dev/null | openssl x509 -noout -dates -subject -issuer",
+            "Show certificate expiry and identity for current site",
+            "safe",
+        ),
+    ]
+
+
+def selected_file_diagnostics(path: str) -> List[Command]:
+    quoted_path = quote(path)
+    diagnostics: List[Command] = [
+        (f"du -sh {quoted_path}", "Show selected item size", "safe"),
+        (f"stat -f '%N %z bytes %Sm' {quoted_path}", "Show selected item file stats", "safe"),
+        (f"xattr -l {quoted_path}", "Show extended attributes", "safe"),
+        (f"qlmanage -p {quoted_path}", "Preview selected item with Quick Look", "safe"),
+    ]
+
+    if path.endswith(".app"):
+        diagnostics.extend([
+            (f"codesign -dv --verbose=4 {quoted_path}", "Inspect app code signature", "safe"),
+            (f"spctl --assess -vv {quoted_path}", "Assess app with Gatekeeper", "safe"),
+        ])
+
+    return diagnostics
+
+
+def system_settings_diagnostics(title: str) -> List[Command]:
+    title_l = title.lower()
+    diagnostics: List[Command] = []
+
+    if any(word in title_l for word in ("privacy", "security", "integritet", "säkerhet")):
+        diagnostics.extend([
+            ("spctl --status", "Show Gatekeeper status", "safe"),
+            ("fdesetup status", "Show FileVault status", "safe"),
+            ("profiles status -type enrollment", "Show MDM enrollment status", "safe"),
+            ("profiles list", "List installed configuration profiles", "safe"),
+            ("tccutil reset All  # destructive: resets privacy permissions", "Reset app privacy permissions", "dangerous"),
+        ])
+
+    if any(word in title_l for word in ("network", "wi-fi", "wifi", "nätverk")):
+        diagnostics.extend([
+            ("ifconfig", "Show network interface details", "safe"),
+            ("networksetup -listallnetworkservices", "List network services", "safe"),
+            ("scutil --dns", "Show DNS configuration", "safe"),
+            ("netstat -rn", "Show routing table", "safe"),
+        ])
+
+    if any(word in title_l for word in ("sharing", "delning")):
+        diagnostics.extend([
+            ("launchctl print system/com.openssh.sshd", "Inspect SSH daemon state", "safe"),
+            ("systemsetup -getremotelogin", "Show Remote Login setting", "safe"),
+            ("scutil --get ComputerName", "Show computer name", "safe"),
+            ("scutil --get LocalHostName", "Show local hostname", "safe"),
+        ])
+
+    if any(word in title_l for word in ("login", "inlogg", "background", "bakgrund")):
+        diagnostics.extend([
+            ("sfltool dumpbtm", "Dump login/background item metadata", "safe"),
+            ("launchctl print gui/$(id -u)", "Inspect current user launch services", "safe"),
+            ("ls -la ~/Library/LaunchAgents /Library/LaunchAgents /Library/LaunchDaemons", "List launch agents and daemons", "safe"),
+        ])
+
+    return diagnostics
+
+
 def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
     suggestions: List[Command] = []
     app = context.get("app", "")
@@ -470,6 +571,7 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
                 (f"file {quote(first)}", "Identify selected Finder item", "safe"),
                 (f"mdls {quote(first)}", "Show Spotlight metadata for selected item", "safe"),
             ])
+            suggestions.extend(selected_file_diagnostics(first))
 
     browser = context.get("browser", {})
     url = browser.get("url") or ""
@@ -478,6 +580,7 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
             (f"open {quote(url)}", "Open current browser URL", "safe"),
             (f"curl -I {quote(url)}", "Fetch HTTP headers for current URL", "safe"),
         ])
+        suggestions.extend(browser_diagnostics(url))
 
     if app == "System Settings":
         for hint, topic in SETTINGS_HINTS.items():
@@ -486,18 +589,25 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
                 break
         if not any(hint in title_l for hint in SETTINGS_HINTS):
             suggestions.extend(command_from_topic("settings.general"))
+        suggestions.extend(system_settings_diagnostics(title))
 
     if app == "Activity Monitor":
         suggestions.extend([
             ("ps aux", "List running processes", "safe"),
             ("top -o cpu", "Inspect CPU-heavy processes", "safe"),
+            ("top -o mem", "Inspect memory-heavy processes", "safe"),
+            ("lsof -i", "List open network sockets", "safe"),
             ("vm_stat", "Show virtual memory statistics", "safe"),
+            ("kill -TERM PID", "Terminate a process by PID", "dangerous"),
         ])
 
     if app == "Disk Utility":
         suggestions.extend([
             ("diskutil list", "List disks and volumes", "safe"),
+            ("diskutil info /", "Show startup volume disk information", "safe"),
             ("df -h", "Show mounted filesystem usage", "safe"),
+            ("mount", "Show mounted filesystems", "safe"),
+            ("tmutil listlocalsnapshots /", "List local Time Machine snapshots", "safe"),
         ])
 
     if app == "Terminal":
@@ -512,6 +622,15 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
             ("git status --short", "Show repository changes", "safe"),
         ])
 
+    if app == "Xcode":
+        suggestions.extend(command_from_topic("developer.xcode"))
+
+    if app == "Console":
+        suggestions.extend(command_from_topic("apps.console"))
+
+    if app == "Keychain Access":
+        suggestions.extend(command_from_topic("apps.keychain"))
+
     seen = set()
     unique = []
     for cmd in suggestions:
@@ -519,7 +638,7 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
             continue
         seen.add(cmd[0])
         unique.append(cmd)
-    return unique[:8]
+    return unique[:12]
 
 
 def print_context(context: Dict[str, Any]) -> None:
