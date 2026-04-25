@@ -496,11 +496,12 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
 def print_context(context: Dict[str, Any]) -> None:
     header("inspect")
     print(f"{GREEN}App:{RESET} {context.get('app') or 'unknown'}")
+    has_context_errors = bool(context.get("errors"))
     if context.get("bundle_id"):
         print(f"{MUTED}Bundle:{RESET} {context['bundle_id']}")
     if context.get("window_title"):
         print(f"{MUTED}Window:{RESET} {context['window_title']}")
-    if context.get("errors"):
+    if has_context_errors:
         for error in context["errors"]:
             print(f"{AMBER}Context warning:{RESET} {error}")
         print(f"{MUTED}macOS may require Accessibility/Automation permission for Terminal or your shell app.{RESET}")
@@ -520,6 +521,11 @@ def print_context(context: Dict[str, Any]) -> None:
     print()
     suggestions = context.get("suggestions", [])
     if not suggestions:
+        if has_context_errors:
+            print(f"{AMBER}No command suggestions because MQ Mirror could not read the active GUI context.{RESET}")
+            print("Allow your terminal app in System Settings → Privacy & Security → Accessibility, then run mqmirror inspect again.")
+            return
+
         print(f"{AMBER}No command suggestions for this context yet.{RESET}")
         print("Tip: add a mapping to APP_MAPPINGS, SETTINGS_HINTS, or suggest_for_context().")
         return
