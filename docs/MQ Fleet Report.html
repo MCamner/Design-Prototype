@@ -1,0 +1,1272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MQ Fleet Report</title>
+  <meta name="description" content="Generate a client-ready fleet compliance report from MQ tool exports.">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:      #1a2132;
+      --muted:    #5a6a82;
+      --line:     #e2e8f0;
+      --bg:       #f0f4f9;
+      --panel:    #ffffff;
+      --accent:   #2f6de0;
+      --green:    #1a7f4b;
+      --amber:    #b45309;
+      --red:      #c0392b;
+      --green-bg: #ecfdf5;
+      --amber-bg: #fffbeb;
+      --red-bg:   #fef2f2;
+      --green-bd: #bbf7d0;
+      --amber-bd: #fde68a;
+      --red-bd:   #fecaca;
+      --shadow:   0 2px 12px rgba(0,0,0,0.09);
+      --r:        10px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── IMPORT SCREEN ──────────────────────────────── */
+
+    .import-screen {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      gap: 32px;
+    }
+
+    .import-logo {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: clamp(8px, 1.6vw, 13px);
+      line-height: 1.15;
+      color: var(--accent);
+      white-space: pre;
+      text-align: center;
+      letter-spacing: 0;
+    }
+
+    .import-logo span {
+      color: var(--muted);
+      font-size: 0.85em;
+    }
+
+    .import-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 36px;
+      width: min(520px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .import-box h2 {
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .import-box p {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--line);
+      border-radius: var(--r);
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(47,109,224,0.04);
+      color: var(--accent);
+    }
+
+    .drop-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .import-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    .import-note {
+      font-size: 11.5px;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+    }
+
+    /* ── REPORT ─────────────────────────────────────── */
+
+    .report {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    .report-toolbar {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    /* ASCII HEADER */
+
+    .report-header {
+      background: #0b1120;
+      border-radius: 14px;
+      padding: 32px 36px 28px;
+      margin-bottom: 28px;
+      overflow: hidden;
+    }
+
+    .ascii-logo {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: clamp(7px, 1.4vw, 12px);
+      line-height: 1.15;
+      color: var(--accent);
+      white-space: pre;
+      letter-spacing: 0;
+      margin-bottom: 18px;
+    }
+
+    .report-title-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .report-title {
+      font-size: clamp(1.1rem, 3vw, 1.6rem);
+      font-weight: 700;
+      color: #e8eeff;
+      letter-spacing: -0.03em;
+    }
+
+    .report-meta {
+      color: #6b7fa8;
+      font-size: 12.5px;
+      text-align: right;
+      line-height: 1.7;
+    }
+
+    /* SECTION */
+
+    .section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 24px;
+      margin-bottom: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    /* EXECUTIVE SUMMARY */
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 28px;
+      align-items: center;
+    }
+
+    .score-ring {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      flex-shrink: 0;
+    }
+
+    .score-ring svg {
+      transform: rotate(-90deg);
+    }
+
+    .score-ring-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .score-ring-num {
+      font-size: 1.5rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .score-ring-sub {
+      font-size: 9.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stats-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-num {
+      font-size: 1.65rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    .stat-num.red    { color: var(--red); }
+    .stat-num.amber  { color: var(--amber); }
+    .stat-num.green  { color: var(--green); }
+
+    /* NARRATIVE */
+
+    .narrative {
+      font-size: 14.5px;
+      line-height: 1.75;
+      color: var(--ink);
+      border-left: 3px solid var(--accent);
+      padding-left: 16px;
+    }
+
+    .narrative + .narrative {
+      margin-top: 10px;
+    }
+
+    /* TREND */
+
+    .trend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .trend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .trend-chip.up   { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-bd); }
+    .trend-chip.down { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-bd); }
+    .trend-chip.flat { background: var(--bg);       color: var(--muted); border: 1px solid var(--line); }
+
+    .trend-since {
+      font-size: 11.5px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* CRITICAL FINDINGS */
+
+    .finding {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      align-items: start;
+      padding: 14px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .finding:last-child { margin-bottom: 0; }
+
+    .finding.critical { background: var(--red-bg);   border: 1px solid var(--red-bd); }
+    .finding.high     { background: var(--amber-bg); border: 1px solid var(--amber-bd); }
+
+    .finding-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .finding.critical .finding-icon { background: var(--red-bd); }
+    .finding.high .finding-icon     { background: var(--amber-bd); }
+
+    .finding-title {
+      font-weight: 700;
+      font-size: 13.5px;
+      margin-bottom: 2px;
+    }
+
+    .finding.critical .finding-title { color: var(--red); }
+    .finding.high .finding-title     { color: var(--amber); }
+
+    .finding-desc {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* DEVICE TABLE */
+
+    .device-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .device-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 0 10px 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .device-table td {
+      padding: 10px 10px 10px 0;
+      border-bottom: 1px solid var(--line);
+      vertical-align: middle;
+    }
+
+    .device-table tr:last-child td { border-bottom: none; }
+
+    .score-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .score-bar-track {
+      width: 60px;
+      height: 5px;
+      background: var(--line);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+    }
+
+    .score-val {
+      font-weight: 700;
+      font-size: 12.5px;
+      min-width: 28px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge.ok     { background: var(--green-bg); color: var(--green); }
+    .badge.warn   { background: var(--amber-bg); color: var(--amber); }
+    .badge.fail   { background: var(--red-bg);   color: var(--red); }
+    .badge.muted  { background: var(--bg);        color: var(--muted); }
+
+    /* CERTIFICATE TIMELINE */
+
+    .cert-timeline {
+      position: relative;
+      padding-top: 8px;
+    }
+
+    .cert-axis {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .cert-track {
+      position: relative;
+      height: 6px;
+      background: var(--line);
+      border-radius: 99px;
+      margin-bottom: 20px;
+    }
+
+    .cert-entries {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .cert-entry {
+      display: grid;
+      grid-template-columns: 180px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      font-size: 12.5px;
+    }
+
+    .cert-name {
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cert-bar-wrap {
+      position: relative;
+      height: 8px;
+      background: var(--line);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .cert-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+    }
+
+    .cert-days {
+      font-size: 11.5px;
+      font-weight: 600;
+      min-width: 80px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    /* RECOMMENDATIONS */
+
+    .rec {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      gap: 14px;
+      align-items: start;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .rec:last-child { border-bottom: none; }
+
+    .rec-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .rec-title {
+      font-weight: 700;
+      font-size: 13.5px;
+      margin-bottom: 3px;
+    }
+
+    .rec-desc {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .effort-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    .effort-quick    { background: var(--green-bg); color: var(--green); }
+    .effort-moderate { background: var(--amber-bg); color: var(--amber); }
+    .effort-complex  { background: var(--red-bg);   color: var(--red); }
+
+    /* FOOTER */
+
+    .report-footer {
+      margin-top: 32px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    /* PRINT ────────────────────────────────────────── */
+
+    @media print {
+      body { background: white; }
+      .no-print { display: none !important; }
+      .report { padding: 0; max-width: 100%; }
+      .section { box-shadow: none; break-inside: avoid; }
+      .report-header { border-radius: 0; }
+    }
+
+    @media (max-width: 600px) {
+      .summary-grid { grid-template-columns: 1fr; }
+      .cert-entry { grid-template-columns: 1fr auto; }
+      .cert-entry .cert-bar-wrap { display: none; }
+      .rec { grid-template-columns: 28px 1fr; }
+      .effort-tag { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── IMPORT SCREEN ───────────────────────────── -->
+  <div id="importScreen" class="import-screen">
+    <pre class="import-logo">&#9608;&#9608;&#9608;&#9607;   &#9608;&#9608;&#9608;&#9607; &#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9607;
+&#9608;&#9608;&#9608;&#9608;&#9607; &#9608;&#9608;&#9608;&#9608;&#9607;&#9608;&#9608;&#9609;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#9608;&#9608;&#9607;
+&#9608;&#9608;&#9609;&#9608;&#9608;&#9608;&#9608;&#9609;&#9608;&#9608;&#9607;&#9608;&#9608;&#9608;&#8203;&#8203;&#8203;&#8203;&#8203;&#8203;&#9608;&#9608;&#9607;
+&#9608;&#9608;&#9607;&#9609;&#9608;&#9608;&#9609;&#9608;&#9608;&#9607;&#9608;&#9608;&#9607;&#9608;&#9608;&#8203;&#8203; &#9608;&#9608;&#9607;
+&#9608;&#9608;&#9607; &#9609;&#8203;&#8203;&#9608;&#9608;&#9607; &#9609;&#9608;&#9608;&#9608;&#9608;&#9608;&#9608;&#9609;
+&#9609;&#8203;&#8203;&#9608;&#9608;&#9607;     &#9609;&#8203;&#8203; &#9609;&#8203;&#8203;&#8203;&#8203;&#9608;&#9608;&#9608;&#9609;
+<span>FLEET COMPLIANCE REPORT</span></pre>
+
+    <div class="import-box">
+      <div>
+        <h2>Import fleet data</h2>
+        <p>Drag in a JSON export from Fleet Command Center or macOS Enterprise Dashboard, or load sample data to preview the report.</p>
+      </div>
+
+      <div class="drop-zone" id="dropZone">
+        <span class="drop-icon">&#128449;</span>
+        Drop JSON file here
+        <br><small>fleet-export.json &nbsp;·&nbsp; macos-agent-export.json</small>
+      </div>
+
+      <div class="import-actions">
+        <button class="btn btn-ghost" id="filePickBtn">Browse file</button>
+        <button class="btn btn-primary" id="sampleBtn">Load sample data</button>
+        <input type="file" id="filePicker" accept=".json" style="display:none">
+      </div>
+
+      <p class="import-note">
+        No data leaves your browser. All processing happens locally.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── REPORT ───────────────────────────────────── -->
+  <div id="report" class="report" hidden>
+
+    <div class="report-toolbar no-print">
+      <button class="btn btn-ghost" id="newReportBtn">&#8592; New report</button>
+      <button class="btn btn-primary" id="printBtn">&#128438; Print / Save PDF</button>
+    </div>
+
+    <header class="report-header">
+      <pre class="ascii-logo" id="headerLogo"></pre>
+      <div class="report-title-row">
+        <div class="report-title">Fleet Compliance Report</div>
+        <div class="report-meta" id="reportMeta"></div>
+      </div>
+    </header>
+
+    <div class="section">
+      <div class="section-title">Executive summary</div>
+      <div class="summary-grid">
+        <div class="score-ring">
+          <svg width="96" height="96" viewBox="0 0 96 96">
+            <circle cx="48" cy="48" r="40" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+            <circle id="scoreArc" cx="48" cy="48" r="40" fill="none" stroke-width="8"
+                    stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2"/>
+          </svg>
+          <div class="score-ring-label">
+            <span class="score-ring-num" id="scoreNum">—</span>
+            <span class="score-ring-sub">score</span>
+          </div>
+        </div>
+        <div class="stats-row" id="statsRow"></div>
+      </div>
+    </div>
+
+    <div class="section" id="narrativeSection">
+      <div class="section-title">Summary</div>
+      <div id="narrativeBody"></div>
+    </div>
+
+    <div class="section" id="trendSection" hidden>
+      <div class="section-title">Trend since last report</div>
+      <div class="trend-row" id="trendBody"></div>
+      <div class="trend-since" id="trendSince"></div>
+    </div>
+
+    <div class="section" id="findingsSection">
+      <div class="section-title">Critical findings</div>
+      <div id="findingsBody"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Device inventory</div>
+      <table class="device-table" id="deviceTable"></table>
+    </div>
+
+    <div class="section" id="certSection">
+      <div class="section-title">Certificate expiry timeline</div>
+      <div class="cert-timeline">
+        <div class="cert-axis">
+          <span>Today</span>
+          <span>+3 months</span>
+          <span>+6 months</span>
+          <span>+12 months</span>
+        </div>
+        <div class="cert-entries" id="certEntries"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Recommendations</div>
+      <div id="recsBody"></div>
+    </div>
+
+    <footer class="report-footer">
+      <span id="footerLeft"></span>
+      <span>Generated by MQ Fleet Report &nbsp;·&nbsp; mcamner.github.io/Design-Prototype</span>
+    </footer>
+
+  </div>
+
+  <script>
+    // ── SAMPLE DATA ─────────────────────────────────────────────────────
+
+    const SAMPLE = {
+      source: "MQ Fleet Report Sample",
+      generated: new Date().toISOString(),
+      devices: [
+        {
+          hostname: "MBP-Alice",
+          model: "MacBook Pro 16\" M3",
+          serial: "C02XA1JHQ01N",
+          os_version: "14.4.1",
+          user: "alice@corp.com",
+          last_seen: new Date(Date.now() - 12 * 60000).toISOString(),
+          security: { filevault: true,  sip: true,  gatekeeper: true, firewall: true  },
+          mdm:      { enrolled: true,   supervised: true,  compliant: true  },
+          software: { pending_updates: 0 },
+          certificates: [
+            { name: "Corp VPN",   expires: daysFromNow(9)  },
+            { name: "WiFi Auth",  expires: daysFromNow(48) }
+          ]
+        },
+        {
+          hostname: "MBP-Bob",
+          model: "MacBook Pro 14\" M2",
+          serial: "C02XB2JHQ02N",
+          os_version: "14.3.0",
+          user: "bob@corp.com",
+          last_seen: new Date(Date.now() - 3 * 3600000).toISOString(),
+          security: { filevault: false, sip: true,  gatekeeper: true, firewall: true  },
+          mdm:      { enrolled: true,   supervised: true,  compliant: false },
+          software: { pending_updates: 3 },
+          certificates: [
+            { name: "WiFi Auth",  expires: daysFromNow(48) }
+          ]
+        },
+        {
+          hostname: "MBA-Carol",
+          model: "MacBook Air M2",
+          serial: "C02XC3JHQ03N",
+          os_version: "14.4.1",
+          user: "carol@corp.com",
+          last_seen: new Date(Date.now() - 25 * 60000).toISOString(),
+          security: { filevault: true,  sip: true,  gatekeeper: true, firewall: true  },
+          mdm:      { enrolled: true,   supervised: true,  compliant: true  },
+          software: { pending_updates: 1 },
+          certificates: [
+            { name: "Corp VPN",   expires: daysFromNow(9)  },
+            { name: "Dev Signing",expires: daysFromNow(182)}
+          ]
+        },
+        {
+          hostname: "MBP-Dave",
+          model: "MacBook Pro 13\" Intel",
+          serial: "C02XD4JHQ04N",
+          os_version: "13.6.5",
+          user: "dave@corp.com",
+          last_seen: new Date(Date.now() - 26 * 3600000).toISOString(),
+          security: { filevault: false, sip: false, gatekeeper: true, firewall: false },
+          mdm:      { enrolled: false,  supervised: false, compliant: false },
+          software: { pending_updates: 7 },
+          certificates: []
+        },
+        {
+          hostname: "MBA-Eve",
+          model: "MacBook Air M3",
+          serial: "C02XE5JHQ05N",
+          os_version: "14.4.1",
+          user: "eve@corp.com",
+          last_seen: new Date(Date.now() - 8 * 60000).toISOString(),
+          security: { filevault: true,  sip: true,  gatekeeper: true, firewall: true  },
+          mdm:      { enrolled: true,   supervised: true,  compliant: true  },
+          software: { pending_updates: 0 },
+          certificates: [
+            { name: "WiFi Auth",  expires: daysFromNow(48)  },
+            { name: "Dev Signing",expires: daysFromNow(182) }
+          ]
+        },
+        {
+          hostname: "MBP-Frank",
+          model: "MacBook Pro 14\" M3",
+          serial: "C02XF6JHQ06N",
+          os_version: "14.4.0",
+          user: "frank@corp.com",
+          last_seen: new Date(Date.now() - 2 * 3600000).toISOString(),
+          security: { filevault: true,  sip: true,  gatekeeper: true, firewall: true  },
+          mdm:      { enrolled: true,   supervised: false, compliant: true  },
+          software: { pending_updates: 2 },
+          certificates: [
+            { name: "Corp VPN",   expires: daysFromNow(9)  }
+          ]
+        }
+      ]
+    };
+
+    function daysFromNow(n) {
+      const d = new Date();
+      d.setDate(d.getDate() + n);
+      return d.toISOString().slice(0, 10);
+    }
+
+    // ── SCORING ─────────────────────────────────────────────────────────
+
+    function scoreDevice(dev) {
+      let score = 0;
+      if (dev.security.filevault)  score += 25;
+      if (dev.security.sip)        score += 20;
+      if (dev.security.firewall)   score += 15;
+      if (dev.mdm.enrolled)        score += 20;
+      if (dev.security.gatekeeper) score += 10;
+      if ((dev.software.pending_updates || 0) === 0) score += 10;
+      return score;
+    }
+
+    function scoreColor(s) {
+      return s >= 85 ? "var(--green)" : s >= 60 ? "var(--amber)" : "var(--red)";
+    }
+
+    function deviceIssues(dev) {
+      const issues = [];
+      if (!dev.security.filevault)  issues.push({ sev: "critical", key: "filevault",  label: "FileVault disabled",       desc: "Disk is unencrypted. If the device is lost or stolen, all data is accessible without a password." });
+      if (!dev.security.sip)        issues.push({ sev: "critical", key: "sip",         label: "SIP disabled",             desc: "System Integrity Protection is off. Core OS files can be modified by malware or unauthorized users." });
+      if (!dev.mdm.enrolled)        issues.push({ sev: "high",     key: "mdm",          label: "Not enrolled in MDM",      desc: "Device is unmanaged. Security policies, remote lock, and remote wipe cannot be enforced." });
+      if (!dev.security.firewall)   issues.push({ sev: "high",     key: "firewall",     label: "Firewall disabled",        desc: "Incoming connections are not filtered. This increases exposure on public networks." });
+      if ((dev.software.pending_updates || 0) >= 5) issues.push({ sev: "high", key: "updates", label: `${dev.software.pending_updates} pending updates`, desc: "Unpatched software may contain known security vulnerabilities." });
+      return issues;
+    }
+
+    // ── NARRATIVE ────────────────────────────────────────────────────────
+
+    function buildNarrative(devices, processed) {
+      const n  = devices.length;
+      const avg = processed.avgScore;
+      const critDevices = processed.criticalDevices;
+      const filevaultFail = devices.filter(d => !d.security.filevault).length;
+      const mdmFail       = devices.filter(d => !d.mdm.enrolled).length;
+      const updateBehind  = devices.filter(d => (d.software.pending_updates || 0) >= 3).length;
+      const expiringSoon  = processed.allCerts.filter(c => c.daysLeft <= 30).length;
+
+      const health = avg >= 85 ? "strong overall health"
+                   : avg >= 65 ? "adequate compliance with some gaps"
+                   : "several compliance gaps that need attention";
+
+      let p1 = `This report covers ${n} managed device${n !== 1 ? "s" : ""} with a fleet-wide compliance score of ${avg}%, indicating ${health}.`;
+
+      const risks = [];
+      if (filevaultFail > 0) risks.push(`${filevaultFail} device${filevaultFail > 1 ? "s lack" : " lacks"} disk encryption`);
+      if (mdmFail > 0)       risks.push(`${mdmFail} device${mdmFail > 1 ? "s are" : " is"} outside MDM control`);
+      if (updateBehind > 0)  risks.push(`${updateBehind} device${updateBehind > 1 ? "s have" : " has"} multiple pending software updates`);
+      if (expiringSoon > 0)  risks.push(`${expiringSoon} certificate${expiringSoon > 1 ? "s expire" : " expires"} within 30 days`);
+
+      let p2 = "";
+      if (risks.length === 0) {
+        p2 = "No critical risks were found. The fleet is well maintained — continue with routine update cycles and certificate renewals.";
+      } else {
+        p2 = `Key risks identified: ${risks.join("; ")}. `;
+        if (critDevices > 0) p2 += `${critDevices} device${critDevices > 1 ? "s require" : " requires"} immediate remediation before the next compliance review.`;
+        else p2 += "These issues are manageable and can be resolved in a scheduled maintenance window.";
+      }
+
+      return [p1, p2];
+    }
+
+    // ── RECOMMENDATIONS ─────────────────────────────────────────────────
+
+    function buildRecs(devices, processed) {
+      const recs = [];
+
+      const filevaultFail = devices.filter(d => !d.security.filevault);
+      if (filevaultFail.length > 0) {
+        recs.push({
+          priority: 1,
+          title: `Enable FileVault on ${filevaultFail.length} device${filevaultFail.length > 1 ? "s" : ""}`,
+          desc: `${filevaultFail.map(d => d.hostname).join(", ")}. Open System Settings → Privacy &amp; Security → FileVault and turn it on. Requires a restart.`,
+          effort: "quick",
+          effortLabel: "Quick"
+        });
+      }
+
+      const sipFail = devices.filter(d => !d.security.sip);
+      if (sipFail.length > 0) {
+        recs.push({
+          priority: 1,
+          title: `Re-enable SIP on ${sipFail.length} device${sipFail.length > 1 ? "s" : ""}`,
+          desc: `${sipFail.map(d => d.hostname).join(", ")}. Boot into Recovery Mode (hold Power on Apple Silicon), open Terminal, and run <code>csrutil enable</code>. Restart.`,
+          effort: "moderate",
+          effortLabel: "~20 min"
+        });
+      }
+
+      const critCerts = processed.allCerts.filter(c => c.daysLeft <= 14);
+      if (critCerts.length > 0) {
+        recs.push({
+          priority: 1,
+          title: `Renew ${critCerts.length} expiring certificate${critCerts.length > 1 ? "s" : ""} immediately`,
+          desc: `${critCerts.map(c => `${c.name} (${c.daysLeft}d)`).join(", ")}. Expired certificates will break VPN and Wi-Fi authentication for affected devices.`,
+          effort: "moderate",
+          effortLabel: "~30 min"
+        });
+      }
+
+      const mdmFail = devices.filter(d => !d.mdm.enrolled);
+      if (mdmFail.length > 0) {
+        recs.push({
+          priority: 2,
+          title: `Enroll ${mdmFail.length} device${mdmFail.length > 1 ? "s" : ""} in MDM`,
+          desc: `${mdmFail.map(d => d.hostname).join(", ")}. Unmanaged devices cannot receive policy enforcement, remote lock, or remote wipe.`,
+          effort: "moderate",
+          effortLabel: "~30 min"
+        });
+      }
+
+      const warnCerts = processed.allCerts.filter(c => c.daysLeft > 14 && c.daysLeft <= 30);
+      if (warnCerts.length > 0) {
+        recs.push({
+          priority: 2,
+          title: `Schedule renewal for ${warnCerts.length} certificate${warnCerts.length > 1 ? "s" : ""} expiring within 30 days`,
+          desc: `${warnCerts.map(c => `${c.name} (${c.daysLeft}d)`).join(", ")}. Plan renewal during a scheduled maintenance window.`,
+          effort: "moderate",
+          effortLabel: "~30 min"
+        });
+      }
+
+      const updateBehind = devices.filter(d => (d.software.pending_updates || 0) >= 3);
+      if (updateBehind.length > 0) {
+        recs.push({
+          priority: 3,
+          title: `Apply pending software updates`,
+          desc: `${updateBehind.map(d => `${d.hostname} (${d.software.pending_updates} updates)`).join(", ")}. Schedule a maintenance window or push updates via MDM.`,
+          effort: "quick",
+          effortLabel: "Quick (automated)"
+        });
+      }
+
+      return recs;
+    }
+
+    // ── TREND ────────────────────────────────────────────────────────────
+
+    const TREND_KEY = "mq-fleet-trend";
+
+    function loadTrend() {
+      try { return JSON.parse(localStorage.getItem(TREND_KEY)); } catch { return null; }
+    }
+
+    function saveTrend(summary) {
+      try {
+        localStorage.setItem(TREND_KEY, JSON.stringify({
+          date: new Date().toISOString(),
+          score: summary.avgScore,
+          criticals: summary.criticalCount,
+          devices: summary.deviceCount
+        }));
+      } catch {}
+    }
+
+    // ── PROCESS ──────────────────────────────────────────────────────────
+
+    function processFleet(data) {
+      const devices = data.devices || [data];
+      const scored  = devices.map(d => ({ ...d, score: scoreDevice(d), issues: deviceIssues(d) }));
+      const avgScore = Math.round(scored.reduce((s, d) => s + d.score, 0) / scored.length);
+
+      const allCerts = [];
+      const seen = new Set();
+      devices.forEach(dev => {
+        (dev.certificates || []).forEach(cert => {
+          const key = cert.name + cert.expires;
+          if (!seen.has(key)) {
+            seen.add(key);
+            const daysLeft = Math.ceil((new Date(cert.expires) - Date.now()) / 86400000);
+            allCerts.push({ ...cert, daysLeft });
+          }
+        });
+      });
+      allCerts.sort((a, b) => a.daysLeft - b.daysLeft);
+
+      const criticalDevices = scored.filter(d => d.issues.some(i => i.sev === "critical")).length;
+      const criticalCount   = scored.reduce((n, d) => n + d.issues.filter(i => i.sev === "critical").length, 0);
+
+      return { devices: scored, avgScore, allCerts, criticalDevices, criticalCount, deviceCount: scored.length };
+    }
+
+    // ── RENDER ────────────────────────────────────────────────────────────
+
+    const ASCII_LOGO = `███╗   ███╗ ██████╗
+████╗ ████║██╔═══██╗
+██╔████╔██║██║   ██║
+██║╚██╔╝██║██║▄▄ ██║
+██║ ╚═╝ ██║╚██████╔╝
+╚═╝     ╚═╝ ╚═════╝`;
+
+    function fmt(isoDate) {
+      return new Date(isoDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+    }
+
+    function timeSince(iso) {
+      const diff = Date.now() - new Date(iso).getTime();
+      const m = Math.floor(diff / 60000);
+      if (m < 60) return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}h ago`;
+      return `${Math.floor(h / 24)}d ago`;
+    }
+
+    function render(data) {
+      const processed = processFleet(data);
+      const { devices, avgScore, allCerts, criticalDevices, criticalCount } = processed;
+      const prev = loadTrend();
+      saveTrend(processed);
+
+      // Header
+      document.getElementById("headerLogo").textContent = ASCII_LOGO;
+      document.getElementById("reportMeta").innerHTML =
+        `Generated: ${fmt(data.generated || new Date().toISOString())}<br>
+         Source: ${escHtml(data.source || "imported data")}<br>
+         ${devices.length} device${devices.length !== 1 ? "s" : ""}`;
+
+      // Score ring
+      const arc = document.getElementById("scoreArc");
+      const circumference = 251.2;
+      arc.style.strokeDashoffset = circumference - (circumference * avgScore / 100);
+      arc.style.stroke = scoreColor(avgScore);
+      document.getElementById("scoreNum").textContent = avgScore + "%";
+      document.getElementById("scoreNum").style.color = scoreColor(avgScore);
+
+      // Stats
+      const certs30 = allCerts.filter(c => c.daysLeft <= 30).length;
+      document.getElementById("statsRow").innerHTML = `
+        <div class="stat"><span class="stat-num">${devices.length}</span><span class="stat-label">devices</span></div>
+        <div class="stat"><span class="stat-num ${criticalCount > 0 ? "red" : "green"}">${criticalCount}</span><span class="stat-label">critical issues</span></div>
+        <div class="stat"><span class="stat-num ${critDeviceCount(devices) > 0 ? "amber" : "green"}">${critDeviceCount(devices)}</span><span class="stat-label">devices affected</span></div>
+        <div class="stat"><span class="stat-num ${certs30 > 0 ? "amber" : "green"}">${certs30}</span><span class="stat-label">certs expiring soon</span></div>
+      `;
+
+      // Narrative
+      const [p1, p2] = buildNarrative(devices, processed);
+      document.getElementById("narrativeBody").innerHTML =
+        `<p class="narrative">${p1}</p><p class="narrative" style="margin-top:10px">${p2}</p>`;
+
+      // Trend
+      if (prev) {
+        const scoreDiff = avgScore - prev.score;
+        const critDiff  = criticalCount - prev.criticals;
+        document.getElementById("trendSection").removeAttribute("hidden");
+        document.getElementById("trendBody").innerHTML = `
+          ${trendChip(scoreDiff, `${scoreDiff > 0 ? "+" : ""}${scoreDiff}% compliance score`)}
+          ${trendChip(-critDiff, `${critDiff < 0 ? Math.abs(critDiff) + " fewer" : critDiff > 0 ? critDiff + " more" : "Same"} critical issue${Math.abs(critDiff) !== 1 ? "s" : ""}`)}
+        `;
+        document.getElementById("trendSince").textContent = `Compared to report from ${fmt(prev.date)}`;
+      }
+
+      // Critical findings
+      const allIssues = [];
+      devices.forEach(dev => dev.issues.forEach(issue => allIssues.push({ ...issue, hostname: dev.hostname })));
+      const grouped = groupBy(allIssues, i => i.key);
+      const findingsHtml = Object.values(grouped).map(group => {
+        const sev = group[0].sev;
+        const hostnames = [...new Set(group.map(i => i.hostname))];
+        return `
+          <div class="finding ${sev}">
+            <div class="finding-icon">${sev === "critical" ? "&#9888;" : "&#9650;"}</div>
+            <div>
+              <div class="finding-title">${escHtml(group[0].label)}
+                <small style="font-weight:400;font-size:11px;margin-left:6px">${hostnames.join(", ")}</small>
+              </div>
+              <div class="finding-desc">${group[0].desc}</div>
+            </div>
+          </div>`;
+      }).join("");
+      document.getElementById("findingsBody").innerHTML = findingsHtml ||
+        `<div class="finding" style="background:var(--green-bg);border:1px solid var(--green-bd)">
+           <div class="finding-icon" style="background:var(--green-bd)">&#10003;</div>
+           <div><div class="finding-title" style="color:var(--green)">No critical findings</div>
+           <div class="finding-desc">All devices passed critical security checks.</div></div>
+         </div>`;
+
+      // Device table
+      document.getElementById("deviceTable").innerHTML = `
+        <thead>
+          <tr>
+            <th>Device</th>
+            <th>Score</th>
+            <th>FileVault</th>
+            <th>MDM</th>
+            <th>Updates</th>
+            <th>Last seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${devices.map(dev => `
+            <tr>
+              <td>
+                <div style="font-weight:600">${escHtml(dev.hostname)}</div>
+                <div style="font-size:11.5px;color:var(--muted)">${escHtml(dev.model || "")} &nbsp;·&nbsp; ${escHtml(dev.os_version || "")}</div>
+              </td>
+              <td>
+                <div class="score-bar-wrap">
+                  <div class="score-bar-track">
+                    <div class="score-bar-fill" style="width:${dev.score}%;background:${scoreColor(dev.score)}"></div>
+                  </div>
+                  <span class="score-val" style="color:${scoreColor(dev.score)}">${dev.score}%</span>
+                </div>
+              </td>
+              <td>${statusBadge(dev.security.filevault)}</td>
+              <td>${statusBadge(dev.mdm.enrolled)}</td>
+              <td>${dev.software.pending_updates === 0
+                    ? '<span class="badge ok">Up to date</span>'
+                    : `<span class="badge ${dev.software.pending_updates >= 5 ? "fail" : "warn"}">${dev.software.pending_updates} pending</span>`}</td>
+              <td style="color:var(--muted);font-size:12.5px">${timeSince(dev.last_seen)}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      `;
+
+      // Certificates
+      if (allCerts.length === 0) {
+        document.getElementById("certSection").setAttribute("hidden", "");
+      } else {
+        const maxDays = 365;
+        document.getElementById("certEntries").innerHTML = allCerts.map(cert => {
+          const pct = Math.min(cert.daysLeft / maxDays * 100, 100);
+          const col = cert.daysLeft <= 14 ? "var(--red)" : cert.daysLeft <= 30 ? "var(--amber)" : cert.daysLeft <= 90 ? "#eab308" : "var(--green)";
+          const label = cert.daysLeft <= 0 ? "Expired" : `${cert.daysLeft}d remaining`;
+          return `
+            <div class="cert-entry">
+              <div class="cert-name">${escHtml(cert.name)}</div>
+              <div class="cert-bar-wrap">
+                <div class="cert-bar-fill" style="width:${pct}%;background:${col}"></div>
+              </div>
+              <div class="cert-days" style="color:${col}">${label}</div>
+            </div>`;
+        }).join("");
+      }
+
+      // Recommendations
+      const recs = buildRecs(devices, processed);
+      document.getElementById("recsBody").innerHTML = recs.length === 0
+        ? `<p style="color:var(--muted);font-size:13px">No action items — fleet is in good shape.</p>`
+        : recs.map((r, i) => `
+          <div class="rec">
+            <div class="rec-num">${i + 1}</div>
+            <div>
+              <div class="rec-title">${r.title}</div>
+              <div class="rec-desc">${r.desc}</div>
+            </div>
+            <span class="effort-tag effort-${r.effort}">${r.effortLabel}</span>
+          </div>`).join("");
+
+      // Footer
+      document.getElementById("footerLeft").textContent =
+        `${devices.length} devices · avg score ${avgScore}% · ${fmt(data.generated || new Date().toISOString())}`;
+
+      // Show report
+      document.getElementById("importScreen").setAttribute("hidden", "");
+      document.getElementById("report").removeAttribute("hidden");
+    }
+
+    // ── HELPERS ──────────────────────────────────────────────────────────
+
+    function critDeviceCount(devices) {
+      return devices.filter(d => d.issues.some(i => i.sev === "critical")).length;
+    }
+
+    function statusBadge(ok) {
+      return ok
+        ? '<span class="badge ok">&#10003; On</span>'
+        : '<span class="badge fail">&#10005; Off</span>';
+    }
+
+    function trendChip(delta, label) {
+      const cls = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+      const arrow = delta > 0 ? "&#8593;" : delta < 0 ? "&#8595;" : "&#8212;";
+      return `<span class="trend-chip ${cls}">${arrow} ${label}</span>`;
+    }
+
+    function groupBy(arr, fn) {
+      return arr.reduce((acc, item) => {
+        const k = fn(item);
+        (acc[k] = acc[k] || []).push(item);
+        return acc;
+      }, {});
+    }
+
+    function escHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function loadJson(text) {
+      try {
+        const data = JSON.parse(text);
+        if (Array.isArray(data)) return { devices: data, generated: new Date().toISOString(), source: "imported JSON" };
+        if (data.devices)        return data;
+        if (data.meta || data.security) return { devices: [data], generated: new Date().toISOString(), source: data.meta?.hostname || "imported device" };
+        throw new Error("Unrecognised JSON format.");
+      } catch (e) {
+        alert("Could not read file: " + e.message);
+        return null;
+      }
+    }
+
+    // ── EVENTS ───────────────────────────────────────────────────────────
+
+    document.getElementById("sampleBtn").addEventListener("click", () => render(SAMPLE));
+
+    document.getElementById("filePickBtn").addEventListener("click", () =>
+      document.getElementById("filePicker").click());
+
+    document.getElementById("filePicker").addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => { const d = loadJson(ev.target.result); if (d) render(d); };
+      reader.readAsText(file);
+    });
+
+    const dropZone = document.getElementById("dropZone");
+    dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+    dropZone.addEventListener("drop", e => {
+      e.preventDefault();
+      dropZone.classList.remove("drag-over");
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => { const d = loadJson(ev.target.result); if (d) render(d); };
+      reader.readAsText(file);
+    });
+
+    document.getElementById("newReportBtn").addEventListener("click", () => {
+      document.getElementById("report").setAttribute("hidden", "");
+      document.getElementById("importScreen").removeAttribute("hidden");
+    });
+
+    document.getElementById("printBtn").addEventListener("click", () => window.print());
+  </script>
+</body>
+</html>
