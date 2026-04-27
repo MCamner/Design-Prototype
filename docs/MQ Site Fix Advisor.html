@@ -1182,24 +1182,27 @@
         });
       }
 
-      if (/\bwidth\s*:\s*(?:9\d\d|[1-9]\d{3,})px/i.test(styleText)) {
+      const fixedWidthPattern = /(^|[;{]\s*)width\s*:\s*(?:9\d\d|[1-9]\d{3,})px/i;
+      const fixedHeightPattern = /(^|[;{]\s*)height\s*:\s*(?:6\d\d|[7-9]\d\d|[1-9]\d{3,})px/i;
+
+      if (fixedWidthPattern.test(styleText)) {
         addIssue(list, {
           severity: "Medium",
           category: "CSS",
           title: "Fixed desktop-width layout",
-          location: cssRuleLocation(styleText, styleNodes, locate, /\bwidth\s*:\s*(?:9\d\d|[1-9]\d{3,})px/i, "CSS width rule"),
+          location: cssRuleLocation(styleText, styleNodes, locate, fixedWidthPattern, "CSS width rule"),
           explanation: "Large fixed pixel widths commonly cause mobile overflow.",
           fix: "Use fluid sizing with max-width instead of hard desktop widths.",
           snippet: '.container { width: min(100%, 1200px); max-width: 1200px; }'
         });
       }
 
-      if (/\bheight\s*:\s*(?:6\d\d|[7-9]\d\d|[1-9]\d{3,})px/i.test(styleText)) {
+      if (fixedHeightPattern.test(styleText)) {
         addIssue(list, {
           severity: "Low",
           category: "CSS",
           title: "Large fixed height",
-          location: cssRuleLocation(styleText, styleNodes, locate, /\bheight\s*:\s*(?:6\d\d|[7-9]\d\d|[1-9]\d{3,})px/i, "CSS height rule"),
+          location: cssRuleLocation(styleText, styleNodes, locate, fixedHeightPattern, "CSS height rule"),
           explanation: "Large fixed heights can clip content on small screens.",
           fix: "Prefer min-height, content-driven layout, or responsive aspect-ratio.",
           snippet: '.hero-media { min-height: 420px; height: auto; aspect-ratio: 16 / 9; }'
