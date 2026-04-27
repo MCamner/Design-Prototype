@@ -149,6 +149,26 @@
       padding-top: 14px;
     }
 
+    .import-error {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12.5px;
+      color: var(--red);
+      line-height: 1.5;
+    }
+
+    .import-error strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .import-error.visible {
+      display: block;
+    }
+
     /* ── REPORT ─────────────────────────────────────── */
 
     .report {
@@ -642,6 +662,11 @@
         <button class="btn btn-ghost" id="filePickBtn">Browse file</button>
         <button class="btn btn-primary" id="sampleBtn">Load sample data</button>
         <input type="file" id="filePicker" accept=".json" style="display:none">
+      </div>
+
+      <div class="import-error" id="importError">
+        <strong id="importErrorTitle"></strong>
+        <span id="importErrorDesc"></span>
       </div>
 
       <p class="import-note">
@@ -1220,17 +1245,44 @@
         .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
     }
 
+    function showImportError(title, desc) {
+      const el = document.getElementById("importError");
+      document.getElementById("importErrorTitle").textContent = title;
+      document.getElementById("importErrorDesc").textContent = desc;
+      el.classList.add("visible");
+    }
+
+    function clearImportError() {
+      document.getElementById("importError").classList.remove("visible");
+    }
+
     function loadJson(text) {
+      clearImportError();
+      let data;
       try {
-        const data = JSON.parse(text);
-        if (Array.isArray(data)) return { devices: data, generated: new Date().toISOString(), source: "imported JSON" };
-        if (data.devices)        return data;
-        if (data.meta || data.security) return { devices: [data], generated: new Date().toISOString(), source: data.meta?.hostname || "imported device" };
-        throw new Error("Unrecognised JSON format.");
-      } catch (e) {
-        alert("Could not read file: " + e.message);
+        data = JSON.parse(text);
+      } catch {
+        showImportError("Invalid JSON file.", "The file could not be parsed. Make sure it is a valid .json export.");
         return null;
       }
+
+      if (Array.isArray(data))            return { devices: data, generated: new Date().toISOString(), source: "imported JSON" };
+      if (data.devices)                   return data;
+      if (data.meta || data.security)     return { devices: [data], generated: new Date().toISOString(), source: data.meta?.hostname || "imported device" };
+
+      if (data.issues && data.assets !== undefined) {
+        showImportError(
+          "Wrong file — this is a Site Fix Advisor report.",
+          "MQ Fleet Report needs device fleet data, not a web page audit. Export from Fleet Command Center or macOS Enterprise Dashboard instead, or use Load sample data to preview."
+        );
+        return null;
+      }
+
+      showImportError(
+        "Unrecognised JSON format.",
+        "Expected fleet data with a 'devices' array, or a single macOS agent export. Check the file and try again."
+      );
+      return null;
     }
 
     // ── EVENTS ───────────────────────────────────────────────────────────
