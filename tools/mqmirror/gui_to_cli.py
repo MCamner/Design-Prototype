@@ -459,14 +459,16 @@ tell application "Finder"
       set end of selectedPaths to POSIX path of (itemRef as alias)
     end repeat
   end try
-  return currentPath & linefeed & (selectedPaths as text)
+  set oldDelimiters to AppleScript's text item delimiters
+  set AppleScript's text item delimiters to linefeed
+  set selectedText to selectedPaths as text
+  set AppleScript's text item delimiters to oldDelimiters
+  return currentPath & linefeed & selectedText
 end tell
 '''
     lines = osascript(script).splitlines()
     current_path = lines[0] if lines else ""
-    selected_paths: List[str] = []
-    if len(lines) > 1 and lines[1]:
-        selected_paths = [p for p in lines[1].split(", ") if p]
+    selected_paths = [path for path in lines[1:] if path]
     return {
         "current_path": current_path,
         "selected_paths": selected_paths,
@@ -1006,14 +1008,14 @@ def doctor() -> int:
     except ImportError:
         pyobjc = "missing"
 
-    checks.append(("pyobjc", pyobjc, "optional for watch-events"))
+    checks.append(("pyobjc", pyobjc, "optional AppKit fallback"))
 
     failed = False
 
     for name, value, status in checks:
         if status in {"ok", "Darwin"}:
             color = GREEN
-        elif status == "optional for watch-events":
+        elif status == "optional AppKit fallback":
             color = AMBER
         else:
             color = RED
@@ -1036,7 +1038,7 @@ def doctor() -> int:
 
     if pyobjc == "missing":
         print()
-        print("Optional watch-events dependency:")
+        print("Optional AppKit fallback dependency:")
         print("  pip install pyobjc-framework-Cocoa")
 
     return 1 if failed else 0
@@ -1063,13 +1065,15 @@ def print_context_compact(context: Dict[str, Any], limit: int | None = None) -> 
 
 
 def rewrite_shortcut_args(argv: List[str]) -> List[str]:
-    if len(argv) == 2 and argv[1] in TOPIC_ALIASES:
-        category, topic = TOPIC_ALIASES[argv[1]]
-        return [argv[0], "show", category, topic]
+    args = argv[1:]
+    alias_args = [arg for arg in args if arg in TOPIC_ALIASES]
 
-    if len(argv) > 2 and argv[-1] in TOPIC_ALIASES and all(arg.startswith("-") for arg in argv[1:-1]):
-        category, topic = TOPIC_ALIASES[argv[-1]]
-        return [argv[0], *argv[1:-1], "show", category, topic]
+    if len(alias_args) == 1:
+        alias = alias_args[0]
+        remaining = [arg for arg in args if arg != alias]
+        if all(arg.startswith("-") for arg in remaining):
+            category, topic = TOPIC_ALIASES[alias]
+            return [argv[0], *remaining, "show", category, topic]
 
     return argv
 
