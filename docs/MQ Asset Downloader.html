@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Squarespace Asset Downloader</title>
+  <title>MQ Asset Downloader</title>
   <meta name="description" content="Find and download image assets from a Squarespace page URL.">
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" crossorigin="anonymous"></script>
   <style>
@@ -185,7 +185,8 @@
 
     input[type="url"],
     input[type="text"],
-    select {
+    select,
+    textarea {
       width: 100%;
       min-height: 44px;
       border: 1px solid var(--line);
@@ -196,9 +197,17 @@
       outline: none;
     }
 
+    textarea {
+      min-height: 104px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+    }
+
     input[type="url"]:focus,
     input[type="text"]:focus,
-    select:focus {
+    select:focus,
+    textarea:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(18, 106, 92, 0.14);
     }
@@ -520,8 +529,8 @@
   <header class="topbar">
     <div class="shell topbar-inner">
       <a class="brand" href="./index.html">
-        <span class="brand-mark">SA</span>
-        <span>Squarespace Asset Downloader</span>
+        <span class="brand-mark">MQ</span>
+        <span>MQ Asset Downloader</span>
       </a>
       <nav class="top-actions" aria-label="Page links">
         <a href="./index.html">Docs index</a>
@@ -552,10 +561,17 @@
         <div class="field">
           <label for="proxyMode">Fetch mode</label>
           <select id="proxyMode">
+            <option value="auto">Auto fallback</option>
             <option value="allorigins">AllOrigins proxy</option>
             <option value="direct">Direct browser fetch</option>
             <option value="corsproxy">corsproxy.io proxy</option>
+            <option value="codetabs">CodeTabs proxy</option>
           </select>
+        </div>
+
+        <div class="field">
+          <label for="htmlSource">HTML source fallback</label>
+          <textarea id="htmlSource" spellcheck="false" placeholder="Optional: paste view-source HTML here if the page fetch is blocked."></textarea>
         </div>
 
         <div class="checks">
@@ -587,8 +603,8 @@
         <div class="meter" aria-hidden="true"><span id="progressBar"></span></div>
 
         <p class="note">
-          Browser security can block cross-origin pages or files. If direct mode fails, use a proxy mode.
-          Download only assets you own or have permission to archive.
+          A 403 usually means the website or public proxy blocked browser fetching. Auto fallback tries multiple routes.
+          If they all fail, open the page source, paste it above, and scan again.
         </p>
       </aside>
 
@@ -626,6 +642,7 @@
   <script>
     const pageUrlInput = document.getElementById("pageUrl");
     const proxyModeInput = document.getElementById("proxyMode");
+    const htmlSourceInput = document.getElementById("htmlSource");
     const squarespaceOnlyInput = document.getElementById("squarespaceOnly");
     const preferOriginalsInput = document.getElementById("preferOriginals");
     const includeCssInput = document.getElementById("includeCss");
@@ -674,9 +691,17 @@
       return new URL(withScheme).toString();
     }
 
+    function fetchModes(preferred = proxyModeInput.value) {
+      const modes = preferred === "auto"
+        ? ["direct", "allorigins", "corsproxy", "codetabs"]
+        : [preferred, "direct", "allorigins", "corsproxy", "codetabs"];
+      return [...new Set(modes)];
+    }
+
     function proxiedUrl(url, mode = proxyModeInput.value) {
       if (mode === "direct") return url;
       if (mode === "corsproxy") return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      if (mode === "codetabs") return `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
       return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
     }
 
@@ -847,18 +872,25 @@
     }
 
     async function fetchText(url) {
-      const response = await fetch(proxiedUrl(url), { cache: "no-store" });
-      if (!response.ok) throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
-      return response.text();
+      const errors = [];
+      for (const mode of fetchModes()) {
+        try {
+          log(`Trying ${mode} fetch`);
+          const response = await fetch(proxiedUrl(url, mode), { cache: "no-store" });
+          if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+          const text = await response.text();
+          log(`Fetched page with ${mode}`);
+          return text;
+        } catch (error) {
+          errors.push(`${mode}: ${error.message || error}`);
+        }
+      }
+      throw new Error(`Fetch failed. ${errors.join(" | ")}`);
     }
 
     async function fetchBlob(url) {
-      const modes = [proxyModeInput.value];
-      if (!modes.includes("direct")) modes.push("direct");
-      if (!modes.includes("allorigins")) modes.push("allorigins");
-
       let lastError = null;
-      for (const mode of modes) {
+      for (const mode of fetchModes()) {
         try {
           const response = await fetch(proxiedUrl(url, mode), { cache: "no-store" });
           if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
@@ -937,7 +969,9 @@
         setStatus("Fetching page HTML...");
         log(`Fetching ${pageUrl}`);
 
-        const html = await fetchText(pageUrl);
+        const pastedHtml = htmlSourceInput.value.trim();
+        const html = pastedHtml || await fetchText(pageUrl);
+        if (pastedHtml) log("Using pasted HTML source");
         setStatus("Extracting image URLs...");
         assets = extractAssets(html, pageUrl);
         selected = new Set(assets.map(asset => asset.id));
