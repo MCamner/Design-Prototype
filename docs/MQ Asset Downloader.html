@@ -546,7 +546,7 @@
         <h1>Grab page images faster.</h1>
       </div>
       <p class="hero-copy">
-        Paste a public Squarespace page URL, scan the HTML for image assets, select what you want,
+        Paste a public page URL, scan the HTML for image assets, select what you want,
         and export the files as a zip archive directly from the browser.
       </p>
     </section>
@@ -574,11 +574,15 @@
           <textarea id="htmlSource" spellcheck="false" placeholder="Optional: paste view-source HTML here if the page fetch is blocked."></textarea>
         </div>
 
+        <div class="field">
+          <label for="siteMode">Site type</label>
+          <select id="siteMode">
+            <option value="all">All websites / other builders</option>
+            <option value="squarespace">Squarespace assets only</option>
+          </select>
+        </div>
+
         <div class="checks">
-          <label class="check-row">
-            <input id="squarespaceOnly" type="checkbox">
-            <span>Only Squarespace/static asset URLs</span>
-          </label>
           <label class="check-row">
             <input id="preferOriginals" type="checkbox" checked>
             <span>Prefer original image URL when possible</span>
@@ -643,7 +647,7 @@
     const pageUrlInput = document.getElementById("pageUrl");
     const proxyModeInput = document.getElementById("proxyMode");
     const htmlSourceInput = document.getElementById("htmlSource");
-    const squarespaceOnlyInput = document.getElementById("squarespaceOnly");
+    const siteModeInput = document.getElementById("siteMode");
     const preferOriginalsInput = document.getElementById("preferOriginals");
     const includeCssInput = document.getElementById("includeCss");
     const scanBtn = document.getElementById("scanBtn");
@@ -719,9 +723,21 @@
 
     function isLikelyImage(url) {
       const lowered = url.toLowerCase();
+      const knownImageHosts = [
+        "images.squarespace-cdn.com",
+        "static.squarespace.com",
+        "static1.squarespace.com",
+        "static.wixstatic.com",
+        "static.parastorage.com",
+        "cdn.shopify.com",
+        "shopifycdn.net",
+        "assets-global.website-files.com",
+        "uploads-ssl.webflow.com",
+        "images.ctfassets.net"
+      ];
       if (IMAGE_EXTENSIONS.some(ext => lowered.includes(ext))) return true;
-      if (lowered.includes("images.squarespace-cdn.com")) return true;
-      if (lowered.includes("static.squarespace.com")) return true;
+      if (knownImageHosts.some(host => lowered.includes(host))) return true;
+      if (lowered.includes("content-type=image") || lowered.includes("format=webp")) return true;
       if (lowered.includes("/static/") || lowered.includes("/s/")) return true;
       return false;
     }
@@ -829,13 +845,33 @@
       const found = [];
       const add = (url, source) => {
         if (!url || !isLikelyImage(url)) return;
-        if (squarespaceOnlyInput.checked && !isSquarespaceAsset(url)) return;
+        if (siteModeInput.value === "squarespace" && !isSquarespaceAsset(url)) return;
         found.push({ url, source });
       };
+      const imageAttrs = [
+        "data-src",
+        "data-original",
+        "data-lazy-src",
+        "data-image",
+        "data-image-src",
+        "data-bg",
+        "data-background",
+        "data-background-image",
+        "poster"
+      ];
+      const srcsetAttrs = ["data-srcset", "data-lazy-srcset"];
 
       doc.querySelectorAll("img[src]").forEach(node => add(absolutize(node.getAttribute("src"), baseUrl), "img[src]"));
       doc.querySelectorAll("img[srcset], source[srcset]").forEach(node => {
         parseSrcset(node.getAttribute("srcset") || "", baseUrl).forEach(url => add(url, "srcset"));
+      });
+      doc.querySelectorAll(imageAttrs.map(attr => `[${attr}]`).join(",")).forEach(node => {
+        imageAttrs.forEach(attr => add(absolutize(node.getAttribute(attr), baseUrl), attr));
+      });
+      doc.querySelectorAll(srcsetAttrs.map(attr => `[${attr}]`).join(",")).forEach(node => {
+        srcsetAttrs.forEach(attr => {
+          parseSrcset(node.getAttribute(attr) || "", baseUrl).forEach(url => add(url, attr));
+        });
       });
       doc.querySelectorAll("a[href]").forEach(node => add(absolutize(node.getAttribute("href"), baseUrl), "link"));
       doc.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"], meta[itemprop="image"]').forEach(node => {
