@@ -71,6 +71,18 @@ Squarespace asset filter. It can discover common image sources such as `img`,
 `srcset`, lazy-load data attributes, metadata images, links, and CSS background
 images when present in the fetched or pasted HTML.
 
+### MQ Site Fix Advisor
+
+File: `docs/MQ Site Fix Advisor.html`
+
+Audits a public page URL or pasted HTML for common SEO, image, link, and CSS
+issues. Results are shown in an older vSphere-inspired console layout with
+severity, location, practical fix guidance, platform notes, and exportable JSON.
+
+Checks include missing titles/descriptions, H1 problems, Open Graph gaps,
+missing image alt text, insecure HTTP resources, placeholder links, fixed-width
+CSS, removed focus outlines, extreme z-index values, and small font sizes.
+
 Open the landing page:
 
 ```text
@@ -92,6 +104,7 @@ docs/Fleet Command Center.html
 docs/macOS Enterprise Dashboard.html
 docs/Certificate Expiry Timeline.html
 docs/MQ Asset Downloader.html
+docs/MQ Site Fix Advisor.html
 ```
 
 ### macOS Live Data
@@ -158,6 +171,7 @@ design-prototyp/
 │   ├── macOS Enterprise Dashboard.html
 │   ├── Certificate Expiry Timeline.html
 │   ├── MQ Asset Downloader.html
+│   ├── MQ Site Fix Advisor.html
 │   ├── README-Client-Readiness-Dashboard.md
 │   ├── README-Fleet-Command-Center.md
 │   ├── README-macOS-Enterprise-Dashboard.md
@@ -181,8 +195,8 @@ design-prototyp/
 - `docs/README-Certificate-Expiry-Timeline.md`
 - `tools/mqmirror/README.md`
 
-The MQ Asset Downloader is documented inline in the tool UI and runs as a
-standalone browser page.
+The MQ Asset Downloader and MQ Site Fix Advisor are documented inline in their
+tool UIs and run as standalone browser pages.
 
 ## Tools
 

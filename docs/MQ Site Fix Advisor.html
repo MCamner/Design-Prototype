@@ -1,0 +1,1283 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MQ Site Fix Advisor</title>
+  <meta name="description" content="Audit a public page or pasted HTML for SEO, image, link, and CSS issues with practical fix guidance.">
+  <style>
+    :root {
+      --bg: #d8dde3;
+      --chrome: #365c7f;
+      --chrome-dark: #243f5b;
+      --chrome-light: #4f7fa9;
+      --panel: #f5f7f9;
+      --panel-2: #e9edf2;
+      --panel-3: #dfe5eb;
+      --ink: #1e2b36;
+      --muted: #5f6f7d;
+      --line: #aeb9c4;
+      --line-dark: #738292;
+      --accent: #1f6aa5;
+      --accent-2: #5b8f22;
+      --critical: #a3332b;
+      --warning: #a36a00;
+      --info: #23649c;
+      --good: #38772a;
+      --shadow: 0 14px 38px rgba(35, 55, 73, 0.22);
+      --max: 1460px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(#eef2f6 0, #d5dce4 160px, #c8d0d9 100%);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .app {
+      width: min(var(--max), calc(100% - 24px));
+      min-height: calc(100vh - 24px);
+      margin: 12px auto;
+      border: 1px solid #7b8da0;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 0 14px;
+      color: #fff;
+      background: linear-gradient(#4b7ba5, #2f5478);
+      border-bottom: 1px solid #193650;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      color: #12324d;
+      background: linear-gradient(#f8fbff, #c8d7e5);
+      border: 1px solid rgba(0, 0, 0, 0.3);
+      border-radius: 3px;
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    .toplinks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      color: #dce9f5;
+      font-size: 0.86rem;
+    }
+
+    .toplinks a:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 12px;
+      background: linear-gradient(#f8fafc, #dce3ea);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .crumbs {
+      color: #304b62;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .button {
+      min-height: 30px;
+      padding: 5px 12px;
+      border: 1px solid #7b8997;
+      border-radius: 2px;
+      color: #19354d;
+      background: linear-gradient(#fff, #dce5ee);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .button:hover {
+      border-color: #46657f;
+      background: linear-gradient(#fff, #cfdce7);
+    }
+
+    .button-primary {
+      color: #fff;
+      background: linear-gradient(#3d8bc6, #1d6096);
+      border-color: #164c77;
+    }
+
+    .button-primary:hover {
+      background: linear-gradient(#4b9bd8, #236ca8);
+    }
+
+    .button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 330px minmax(0, 1fr);
+      min-height: calc(100vh - 132px);
+    }
+
+    .sidebar {
+      background: #e7ecf1;
+      border-right: 1px solid var(--line-dark);
+    }
+
+    .pane-title {
+      padding: 8px 10px;
+      color: #fff;
+      background: linear-gradient(#557f9f, #345d7f);
+      border-bottom: 1px solid #234763;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .sidebar-body {
+      padding: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    label,
+    .label {
+      color: #263d51;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    input[type="url"],
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      min-height: 32px;
+      border: 1px solid #96a5b3;
+      border-radius: 2px;
+      background: #fff;
+      color: var(--ink);
+      padding: 6px 8px;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 160px;
+      resize: vertical;
+      font-family: Consolas, Menlo, ui-monospace, monospace;
+      font-size: 0.78rem;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(31, 106, 165, 0.16);
+    }
+
+    .checks {
+      display: grid;
+      gap: 7px;
+      margin: 12px 0;
+      color: var(--ink);
+      font-size: 0.85rem;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .status {
+      min-height: 36px;
+      margin-top: 12px;
+      padding: 8px;
+      color: #29445a;
+      background: #f9fbfd;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      font-size: 0.84rem;
+    }
+
+    .status.good { color: var(--good); border-color: rgba(56, 119, 42, 0.45); }
+    .status.warn { color: var(--warning); border-color: rgba(163, 106, 0, 0.45); }
+    .status.bad { color: var(--critical); border-color: rgba(163, 51, 43, 0.45); }
+
+    .note {
+      margin: 12px 0 0;
+      padding: 9px;
+      color: var(--muted);
+      background: #f7f9fb;
+      border: 1px solid var(--line);
+      font-size: 0.8rem;
+    }
+
+    .content {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      background: #f4f6f8;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 1px;
+      padding: 1px;
+      background: var(--line);
+      border-bottom: 1px solid var(--line-dark);
+    }
+
+    .stat {
+      padding: 12px;
+      background: linear-gradient(#fff, #edf2f6);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 1.55rem;
+      line-height: 1;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      padding: 9px 10px 0;
+      background: #dce3ea;
+      border-bottom: 1px solid #9aa8b6;
+      overflow: auto;
+    }
+
+    .tab {
+      min-height: 32px;
+      padding: 7px 13px;
+      border: 1px solid #9aa8b6;
+      border-bottom: 0;
+      background: linear-gradient(#f8fafc, #cfd9e2);
+      color: #2d4a63;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .tab.active {
+      background: #f4f6f8;
+      color: #142b3f;
+      position: relative;
+      top: 1px;
+    }
+
+    .main-grid {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) 390px;
+    }
+
+    .table-wrap {
+      min-width: 0;
+      overflow: auto;
+      border-right: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      font-size: 0.84rem;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 8px 9px;
+      color: #243c50;
+      background: linear-gradient(#eef3f7, #cfd9e2);
+      border-bottom: 1px solid var(--line-dark);
+      border-right: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 8px 9px;
+      border-bottom: 1px solid #e1e6eb;
+      border-right: 1px solid #edf1f4;
+      vertical-align: top;
+    }
+
+    tr {
+      cursor: pointer;
+    }
+
+    tr:hover td {
+      background: #eef6ff;
+    }
+
+    tr.selected td {
+      background: #dceeff;
+    }
+
+    .severity {
+      display: inline-flex;
+      min-width: 68px;
+      justify-content: center;
+      padding: 2px 7px;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .sev-high { background: var(--critical); }
+    .sev-medium { background: var(--warning); }
+    .sev-low { background: var(--info); }
+    .sev-ok { background: var(--good); }
+
+    .category {
+      color: #244760;
+      font-weight: 700;
+    }
+
+    .where {
+      max-width: 340px;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+      font-family: Consolas, Menlo, ui-monospace, monospace;
+      font-size: 0.76rem;
+    }
+
+    .details {
+      min-width: 0;
+      background: #eef2f5;
+    }
+
+    .details-body {
+      padding: 12px;
+    }
+
+    .details h2 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      color: #1d3f5a;
+    }
+
+    .details p {
+      margin: 0 0 10px;
+      color: var(--muted);
+    }
+
+    .fix-box {
+      margin-top: 10px;
+      padding: 10px;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+
+    .fix-box h3 {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: #29445a;
+    }
+
+    pre {
+      margin: 0;
+      padding: 10px;
+      overflow: auto;
+      color: #14324a;
+      background: #f0f4f8;
+      border: 1px solid #c6d1dc;
+      font-family: Consolas, Menlo, ui-monospace, monospace;
+      font-size: 0.78rem;
+      white-space: pre-wrap;
+    }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      min-height: 360px;
+      padding: 24px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 1040px) {
+      .layout,
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line-dark);
+      }
+
+      .table-wrap {
+        border-right: 0;
+      }
+
+      .summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .app {
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        border-left: 0;
+        border-right: 0;
+      }
+
+      .topbar,
+      .toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .toolbar-actions,
+      .button {
+        width: 100%;
+      }
+
+      .summary {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <a class="brand" href="./index.html">
+        <span class="brand-mark">MQ</span>
+        <span>Site Fix Advisor</span>
+      </a>
+      <nav class="toplinks" aria-label="Page links">
+        <a href="./index.html">Inventory</a>
+        <a href="./MQ%20Asset%20Downloader.html">Asset Downloader</a>
+      </nav>
+    </header>
+
+    <div class="toolbar">
+      <div class="crumbs">Home / Web Tools / MQ Site Fix Advisor</div>
+      <div class="toolbar-actions">
+        <button id="demoBtn" class="button" type="button">Load sample</button>
+        <button id="exportBtn" class="button" type="button" disabled>Export JSON</button>
+      </div>
+    </div>
+
+    <main class="layout">
+      <aside class="sidebar" aria-label="Audit controls">
+        <div class="pane-title">Scan target</div>
+        <div class="sidebar-body">
+          <div class="field">
+            <label for="pageUrl">Page URL</label>
+            <input id="pageUrl" type="url" placeholder="https://example.com/page" autocomplete="url">
+          </div>
+
+          <div class="field">
+            <label for="fetchMode">Fetch mode</label>
+            <select id="fetchMode">
+              <option value="auto">Auto fallback</option>
+              <option value="direct">Direct browser fetch</option>
+              <option value="allorigins">AllOrigins proxy</option>
+              <option value="corsproxy">corsproxy.io proxy</option>
+              <option value="codetabs">CodeTabs proxy</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="htmlSource">HTML source fallback</label>
+            <textarea id="htmlSource" spellcheck="false" placeholder="Optional: paste page HTML here if browser fetching is blocked."></textarea>
+          </div>
+
+          <div class="checks">
+            <label class="check-row"><input id="seoCheck" type="checkbox" checked> <span>SEO checks</span></label>
+            <label class="check-row"><input id="imageCheck" type="checkbox" checked> <span>Image checks</span></label>
+            <label class="check-row"><input id="linkCheck" type="checkbox" checked> <span>Link checks</span></label>
+            <label class="check-row"><input id="cssCheck" type="checkbox" checked> <span>CSS checks</span></label>
+          </div>
+
+          <div class="toolbar-actions">
+            <button id="scanBtn" class="button button-primary" type="button">Run audit</button>
+            <button id="clearBtn" class="button" type="button">Clear</button>
+          </div>
+
+          <div id="status" class="status">Waiting for a page URL or pasted HTML.</div>
+
+          <p class="note">
+            Browser CORS rules can block live fetching. Paste page source when needed. Link status is inferred from HTML unless the browser/proxy can fetch resources.
+          </p>
+        </div>
+      </aside>
+
+      <section class="content" aria-label="Audit results">
+        <div class="summary">
+          <div class="stat"><strong id="issueCount">0</strong><span>issues</span></div>
+          <div class="stat"><strong id="highCount">0</strong><span>high</span></div>
+          <div class="stat"><strong id="mediumCount">0</strong><span>medium</span></div>
+          <div class="stat"><strong id="assetCount">0</strong><span>assets</span></div>
+          <div class="stat"><strong id="domainCount">0</strong><span>domains</span></div>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Issue filters">
+          <button class="tab active" data-tab="all" type="button">All</button>
+          <button class="tab" data-tab="SEO" type="button">SEO</button>
+          <button class="tab" data-tab="Images" type="button">Images</button>
+          <button class="tab" data-tab="Links" type="button">Links</button>
+          <button class="tab" data-tab="CSS" type="button">CSS</button>
+        </div>
+
+        <div class="main-grid">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Severity</th>
+                  <th>Category</th>
+                  <th>Issue</th>
+                  <th>Location</th>
+                </tr>
+              </thead>
+              <tbody id="issueRows">
+                <tr>
+                  <td colspan="4">
+                    <div class="empty">Run an audit to populate issue guidance.</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <aside class="details" aria-label="Issue fix details">
+            <div class="pane-title">Recommended fix</div>
+            <div id="detailsBody" class="details-body">
+              <h2>No issue selected</h2>
+              <p>Select a row after scanning to see the practical fix, code snippet, and platform notes.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const pageUrlInput = document.getElementById("pageUrl");
+    const fetchModeInput = document.getElementById("fetchMode");
+    const htmlSourceInput = document.getElementById("htmlSource");
+    const scanBtn = document.getElementById("scanBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const demoBtn = document.getElementById("demoBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const statusEl = document.getElementById("status");
+    const issueRows = document.getElementById("issueRows");
+    const detailsBody = document.getElementById("detailsBody");
+    const issueCount = document.getElementById("issueCount");
+    const highCount = document.getElementById("highCount");
+    const mediumCount = document.getElementById("mediumCount");
+    const assetCount = document.getElementById("assetCount");
+    const domainCount = document.getElementById("domainCount");
+    const tabs = Array.from(document.querySelectorAll(".tab"));
+
+    const checks = {
+      seo: document.getElementById("seoCheck"),
+      images: document.getElementById("imageCheck"),
+      links: document.getElementById("linkCheck"),
+      css: document.getElementById("cssCheck")
+    };
+
+    const sampleHtml = `<!doctype html>
+<html>
+<head>
+  <title>Home</title>
+  <link rel="stylesheet" href="http://cdn.example.com/theme.css">
+  <style>
+    .hero { width: 1280px; height: 620px; position:absolute; z-index:999999; }
+    button { outline: none; color: #777; background: #888; }
+    .card { font-size: 11px; }
+  </style>
+</head>
+<body>
+  <h1>Welcome</h1>
+  <h1>Products</h1>
+  <img src="/assets/hero-large.jpg">
+  <img src="http://example.com/logo.png" alt="">
+  <a href="http://example.com/contact">Contact</a>
+  <a href="#">Empty link</a>
+  <script src="http://cdn.example.com/app.js"></script>
+</body>
+</html>`;
+
+    let activeTab = "all";
+    let issues = [];
+    let selectedIssueId = "";
+    let currentReport = null;
+
+    function setStatus(message, kind = "") {
+      statusEl.textContent = message;
+      statusEl.className = `status ${kind}`.trim();
+    }
+
+    function normalizePageUrl(value) {
+      const trimmed = value.trim();
+      if (!trimmed) return "";
+      const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+      return new URL(withScheme).toString();
+    }
+
+    function fetchModes(preferred = fetchModeInput.value) {
+      const modes = preferred === "auto"
+        ? ["direct", "allorigins", "corsproxy", "codetabs"]
+        : [preferred, "direct", "allorigins", "corsproxy", "codetabs"];
+      return [...new Set(modes)];
+    }
+
+    function proxiedUrl(url, mode) {
+      if (mode === "direct") return url;
+      if (mode === "corsproxy") return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      if (mode === "codetabs") return `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
+      return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    }
+
+    async function fetchText(url) {
+      const errors = [];
+      for (const mode of fetchModes()) {
+        try {
+          const response = await fetch(proxiedUrl(url, mode), { cache: "no-store" });
+          if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+          return await response.text();
+        } catch (error) {
+          errors.push(`${mode}: ${error.message || error}`);
+        }
+      }
+      throw new Error(`Fetch failed. ${errors.join(" | ")}`);
+    }
+
+    function absolutize(value, baseUrl) {
+      if (!value) return "";
+      const trimmed = value.trim().replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
+      if (!trimmed || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return "";
+      try {
+        return new URL(trimmed, baseUrl || window.location.href).toString();
+      } catch {
+        return trimmed;
+      }
+    }
+
+    function severityClass(severity) {
+      return `sev-${severity.toLowerCase()}`;
+    }
+
+    function addIssue(list, issue) {
+      list.push({
+        id: `issue-${list.length + 1}`,
+        severity: issue.severity,
+        category: issue.category,
+        title: issue.title,
+        location: issue.location || "document",
+        explanation: issue.explanation,
+        fix: issue.fix,
+        snippet: issue.snippet || "",
+        platform: issue.platform || "For Squarespace, Webflow, Wix, Shopify, or other builders: fix this in the page settings, theme editor, custom code area, or the specific content block where the issue appears."
+      });
+    }
+
+    function textOf(node) {
+      return (node ? node.textContent : "").trim();
+    }
+
+    function attr(node, name) {
+      return node ? (node.getAttribute(name) || "").trim() : "";
+    }
+
+    function analyzeSeo(doc, list) {
+      const title = textOf(doc.querySelector("title"));
+      const description = attr(doc.querySelector('meta[name="description"]'), "content");
+      const h1s = Array.from(doc.querySelectorAll("h1"));
+      const canonical = attr(doc.querySelector('link[rel="canonical"]'), "href");
+      const ogTitle = attr(doc.querySelector('meta[property="og:title"]'), "content");
+      const ogDescription = attr(doc.querySelector('meta[property="og:description"]'), "content");
+      const ogImage = attr(doc.querySelector('meta[property="og:image"]'), "content");
+      const viewport = attr(doc.querySelector('meta[name="viewport"]'), "content");
+
+      if (!title) {
+        addIssue(list, {
+          severity: "High",
+          category: "SEO",
+          title: "Missing page title",
+          location: "<head>",
+          explanation: "Search engines and browser tabs need a unique page title.",
+          fix: "Add a concise, unique title that describes the page. Aim for roughly 50-60 characters.",
+          snippet: "<title>Your page name | Brand</title>"
+        });
+      } else if (title.length < 10 || title.length > 65) {
+        addIssue(list, {
+          severity: "Medium",
+          category: "SEO",
+          title: "Page title length needs review",
+          location: `<title>${title}</title>`,
+          explanation: "Very short or very long titles are harder to scan in search results.",
+          fix: "Rewrite the title so the primary topic appears first and the brand appears last.",
+          snippet: `<title>${title.length < 10 ? "Specific service or product | Brand" : title.slice(0, 58)}</title>`
+        });
+      }
+
+      if (!description) {
+        addIssue(list, {
+          severity: "High",
+          category: "SEO",
+          title: "Missing meta description",
+          location: '<meta name="description">',
+          explanation: "A missing description gives search engines less useful summary text.",
+          fix: "Add a clear 140-160 character summary with the page value and main keyword.",
+          snippet: '<meta name="description" content="Describe the page clearly in one useful sentence.">'
+        });
+      } else if (description.length < 70 || description.length > 170) {
+        addIssue(list, {
+          severity: "Medium",
+          category: "SEO",
+          title: "Meta description length needs review",
+          location: description,
+          explanation: "Descriptions that are too short or too long often perform poorly in snippets.",
+          fix: "Rewrite the description as one natural sentence, roughly 140-160 characters.",
+          snippet: '<meta name="description" content="A specific, human-readable summary of this page and why it matters.">'
+        });
+      }
+
+      if (h1s.length === 0) {
+        addIssue(list, {
+          severity: "High",
+          category: "SEO",
+          title: "Missing H1 heading",
+          location: "<body>",
+          explanation: "A page should have a clear primary heading.",
+          fix: "Add one visible H1 that matches the page topic.",
+          snippet: "<h1>Main page topic</h1>"
+        });
+      } else if (h1s.length > 1) {
+        addIssue(list, {
+          severity: "Medium",
+          category: "SEO",
+          title: "Multiple H1 headings",
+          location: h1s.map(item => textOf(item)).join(" | "),
+          explanation: "Multiple H1s can blur page hierarchy.",
+          fix: "Keep one H1. Change secondary major headings to H2 or H3.",
+          snippet: "<h1>Main page topic</h1>\n<h2>Secondary section</h2>"
+        });
+      }
+
+      if (!canonical) {
+        addIssue(list, {
+          severity: "Low",
+          category: "SEO",
+          title: "Missing canonical URL",
+          location: "<head>",
+          explanation: "Canonical URLs help avoid duplicate-content ambiguity.",
+          fix: "Add a canonical link for important public pages.",
+          snippet: '<link rel="canonical" href="https://example.com/current-page">'
+        });
+      }
+
+      if (!viewport) {
+        addIssue(list, {
+          severity: "High",
+          category: "SEO",
+          title: "Missing responsive viewport meta",
+          location: "<head>",
+          explanation: "Without viewport meta, mobile rendering can be broken.",
+          fix: "Add the standard responsive viewport tag.",
+          snippet: '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        });
+      }
+
+      if (!ogTitle || !ogDescription || !ogImage) {
+        addIssue(list, {
+          severity: "Low",
+          category: "SEO",
+          title: "Incomplete Open Graph metadata",
+          location: "<head>",
+          explanation: "Shared links look better when title, description, and image are explicit.",
+          fix: "Add the missing Open Graph tags for social previews.",
+          snippet: '<meta property="og:title" content="Page title">\n<meta property="og:description" content="Short social summary">\n<meta property="og:image" content="https://example.com/social-image.jpg">'
+        });
+      }
+    }
+
+    function imageUrlFrom(node, baseUrl) {
+      const candidates = ["src", "data-src", "data-lazy-src", "data-original", "data-image", "data-image-src"];
+      for (const name of candidates) {
+        const value = attr(node, name);
+        if (value) return absolutize(value, baseUrl);
+      }
+      return "";
+    }
+
+    function analyzeImages(doc, baseUrl, list, inventory) {
+      const images = Array.from(doc.querySelectorAll("img"));
+      images.forEach((img, index) => {
+        const url = imageUrlFrom(img, baseUrl);
+        const alt = img.getAttribute("alt");
+        if (url) inventory.assets.add(url);
+
+        if (!url) {
+          addIssue(list, {
+            severity: "High",
+            category: "Images",
+            title: "Image has no usable source",
+            location: `img #${index + 1}`,
+            explanation: "An image without src or a known lazy-load source cannot reliably render.",
+            fix: "Set a valid src, or ensure the lazy-load attribute is populated by the builder.",
+            snippet: '<img src="/path/image.jpg" alt="Describe the image">'
+          });
+        }
+
+        if (alt === null) {
+          addIssue(list, {
+            severity: "Medium",
+            category: "Images",
+            title: "Image missing alt attribute",
+            location: url || `img #${index + 1}`,
+            explanation: "Screen readers and search engines need alt text for meaningful images.",
+            fix: "Add descriptive alt text. Use empty alt only when the image is purely decorative.",
+            snippet: '<img src="/path/image.jpg" alt="Short description of the image">'
+          });
+        } else if (!alt.trim()) {
+          addIssue(list, {
+            severity: "Low",
+            category: "Images",
+            title: "Image has empty alt text",
+            location: url || `img #${index + 1}`,
+            explanation: "Empty alt is correct for decorative images, but should be reviewed for content images.",
+            fix: "If the image communicates information, replace empty alt with a useful description.",
+            snippet: '<img src="/path/image.jpg" alt="Product dashboard showing renewal status">'
+          });
+        }
+
+        if (url.startsWith("http://")) {
+          addIssue(list, {
+            severity: "High",
+            category: "Images",
+            title: "Image uses insecure HTTP",
+            location: url,
+            explanation: "HTTP image resources can be blocked on HTTPS pages and weaken trust.",
+            fix: "Replace the image URL with HTTPS or re-upload it to the site's asset library.",
+            snippet: url.replace(/^http:\/\//, "https://")
+          });
+        }
+
+        const width = Number(attr(img, "width"));
+        const height = Number(attr(img, "height"));
+        if ((width && width > 2400) || (height && height > 1600)) {
+          addIssue(list, {
+            severity: "Medium",
+            category: "Images",
+            title: "Large image dimensions",
+            location: url || `img #${index + 1}`,
+            explanation: "Oversized images can slow down page rendering.",
+            fix: "Export a smaller version and use responsive image variants with srcset.",
+            snippet: '<img src="/image-1200.webp" srcset="/image-800.webp 800w, /image-1200.webp 1200w" sizes="100vw" alt="Description">'
+          });
+        }
+      });
+    }
+
+    function analyzeLinks(doc, baseUrl, list, inventory) {
+      const links = Array.from(doc.querySelectorAll("a[href], script[src], link[href]"));
+      links.forEach((node, index) => {
+        const raw = attr(node, node.tagName.toLowerCase() === "script" ? "src" : "href");
+        const url = absolutize(raw, baseUrl);
+        if (url && /^https?:\/\//i.test(url)) {
+          inventory.assets.add(url);
+          try {
+            inventory.domains.add(new URL(url).hostname);
+          } catch {
+            // Ignore malformed URLs after issue creation below.
+          }
+        }
+
+        if (!raw || raw === "#") {
+          addIssue(list, {
+            severity: "Medium",
+            category: "Links",
+            title: "Empty or placeholder link",
+            location: node.outerHTML.slice(0, 120),
+            explanation: "Placeholder links create dead navigation and poor accessibility.",
+            fix: "Replace the href with a real destination or remove the link until it is ready.",
+            snippet: '<a href="/contact">Contact</a>'
+          });
+        }
+
+        if (url.startsWith("http://")) {
+          addIssue(list, {
+            severity: "High",
+            category: "Links",
+            title: "Insecure HTTP resource or link",
+            location: url,
+            explanation: "HTTP resources can create mixed-content warnings or blocked requests.",
+            fix: "Use HTTPS where available. If the target has no HTTPS, replace the provider or host the asset securely.",
+            snippet: url.replace(/^http:\/\//, "https://")
+          });
+        }
+
+        if (node.tagName.toLowerCase() === "a" && !textOf(node) && !attr(node, "aria-label")) {
+          addIssue(list, {
+            severity: "Medium",
+            category: "Links",
+            title: "Link has no accessible text",
+            location: url || `link #${index + 1}`,
+            explanation: "Icon-only or empty links need readable text or an aria-label.",
+            fix: "Add visible text or an aria-label that names the destination.",
+            snippet: '<a href="/pricing" aria-label="Open pricing page">...</a>'
+          });
+        }
+      });
+    }
+
+    function analyzeCss(doc, baseUrl, list, inventory) {
+      const stylesheets = Array.from(doc.querySelectorAll('link[rel~="stylesheet"][href]'));
+      stylesheets.forEach(link => {
+        const url = absolutize(attr(link, "href"), baseUrl);
+        if (url) inventory.assets.add(url);
+        if (url.startsWith("http://")) {
+          addIssue(list, {
+            severity: "High",
+            category: "CSS",
+            title: "Stylesheet uses insecure HTTP",
+            location: url,
+            explanation: "HTTP CSS can be blocked on HTTPS pages and break the layout.",
+            fix: "Load the stylesheet over HTTPS or move the CSS into the site's secure asset system.",
+            snippet: `<link rel="stylesheet" href="${url.replace(/^http:\/\//, "https://")}">`
+          });
+        }
+      });
+
+      const styleText = Array.from(doc.querySelectorAll("style")).map(node => node.textContent || "").join("\n");
+      const inlineStyled = Array.from(doc.querySelectorAll("[style]"));
+      if (inlineStyled.length > 20) {
+        addIssue(list, {
+          severity: "Low",
+          category: "CSS",
+          title: "Many inline styles",
+          location: `${inlineStyled.length} inline style attributes`,
+          explanation: "Heavy inline styling is hard to maintain and override.",
+          fix: "Move repeated styling into reusable CSS classes or builder-level style settings.",
+          snippet: '.feature-card { padding: 16px; border: 1px solid #d6dde5; }'
+        });
+      }
+
+      if (/outline\s*:\s*none/i.test(styleText)) {
+        addIssue(list, {
+          severity: "Medium",
+          category: "CSS",
+          title: "Focus outline removed",
+          location: "style tag",
+          explanation: "Removing focus outlines can make keyboard navigation inaccessible.",
+          fix: "Keep a visible focus style when removing the browser default.",
+          snippet: ':focus-visible { outline: 2px solid #1f6aa5; outline-offset: 2px; }'
+        });
+      }
+
+      if (/\bwidth\s*:\s*(?:9\d\d|[1-9]\d{3,})px/i.test(styleText)) {
+        addIssue(list, {
+          severity: "Medium",
+          category: "CSS",
+          title: "Fixed desktop-width layout",
+          location: "CSS width rule",
+          explanation: "Large fixed pixel widths commonly cause mobile overflow.",
+          fix: "Use fluid sizing with max-width instead of hard desktop widths.",
+          snippet: '.container { width: min(100%, 1200px); max-width: 1200px; }'
+        });
+      }
+
+      if (/\bheight\s*:\s*(?:6\d\d|[7-9]\d\d|[1-9]\d{3,})px/i.test(styleText)) {
+        addIssue(list, {
+          severity: "Low",
+          category: "CSS",
+          title: "Large fixed height",
+          location: "CSS height rule",
+          explanation: "Large fixed heights can clip content on small screens.",
+          fix: "Prefer min-height, content-driven layout, or responsive aspect-ratio.",
+          snippet: '.hero-media { min-height: 420px; height: auto; aspect-ratio: 16 / 9; }'
+        });
+      }
+
+      if (/\bz-index\s*:\s*[1-9]\d{4,}/i.test(styleText)) {
+        addIssue(list, {
+          severity: "Low",
+          category: "CSS",
+          title: "Extreme z-index value",
+          location: "CSS z-index rule",
+          explanation: "Very high z-index values often signal stacking conflicts.",
+          fix: "Create a small z-index scale and use it consistently.",
+          snippet: ':root { --z-header: 10; --z-modal: 100; --z-toast: 200; }'
+        });
+      }
+
+      if (/\bfont-size\s*:\s*(?:[0-9]|10|11)px/i.test(styleText)) {
+        addIssue(list, {
+          severity: "Medium",
+          category: "CSS",
+          title: "Small font size",
+          location: "CSS font-size rule",
+          explanation: "Very small text is hard to read, especially on mobile.",
+          fix: "Use at least 14-16px for body text and reserve smaller sizes for metadata.",
+          snippet: 'body { font-size: 16px; line-height: 1.5; }'
+        });
+      }
+    }
+
+    function analyze(html, baseUrl) {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const found = [];
+      const inventory = {
+        assets: new Set(),
+        domains: new Set()
+      };
+
+      if (checks.seo.checked) analyzeSeo(doc, found);
+      if (checks.images.checked) analyzeImages(doc, baseUrl, found, inventory);
+      if (checks.links.checked) analyzeLinks(doc, baseUrl, found, inventory);
+      if (checks.css.checked) analyzeCss(doc, baseUrl, found, inventory);
+
+      if (!found.length) {
+        addIssue(found, {
+          severity: "OK",
+          category: "Summary",
+          title: "No selected checks found obvious issues",
+          location: baseUrl || "pasted HTML",
+          explanation: "The static scan did not find common SEO, image, link, or CSS issues in the available HTML.",
+          fix: "For deeper validation, test in a browser, run Lighthouse, and verify live resource status from the production URL.",
+          snippet: ""
+        });
+      }
+
+      return {
+        source: baseUrl || "pasted HTML",
+        created_at: new Date().toISOString(),
+        issues: found,
+        assets: Array.from(inventory.assets),
+        domains: Array.from(inventory.domains).sort()
+      };
+    }
+
+    function filteredIssues() {
+      return activeTab === "all" ? issues : issues.filter(issue => issue.category === activeTab);
+    }
+
+    function renderDetails(issue) {
+      if (!issue) {
+        detailsBody.innerHTML = `
+          <h2>No issue selected</h2>
+          <p>Select a row after scanning to see the practical fix, code snippet, and platform notes.</p>
+        `;
+        return;
+      }
+
+      detailsBody.innerHTML = `
+        <span class="severity ${severityClass(issue.severity)}">${issue.severity}</span>
+        <h2>${escapeHtml(issue.title)}</h2>
+        <p>${escapeHtml(issue.explanation)}</p>
+        <div class="fix-box">
+          <h3>Fix</h3>
+          <p>${escapeHtml(issue.fix)}</p>
+          ${issue.snippet ? `<pre>${escapeHtml(issue.snippet)}</pre>` : ""}
+        </div>
+        <div class="fix-box">
+          <h3>Platform note</h3>
+          <p>${escapeHtml(issue.platform)}</p>
+        </div>
+      `;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function render() {
+      const visible = filteredIssues();
+      const high = issues.filter(issue => issue.severity === "High").length;
+      const medium = issues.filter(issue => issue.severity === "Medium").length;
+
+      issueCount.textContent = String(issues.filter(issue => issue.severity !== "OK").length);
+      highCount.textContent = String(high);
+      mediumCount.textContent = String(medium);
+      assetCount.textContent = String(currentReport ? currentReport.assets.length : 0);
+      domainCount.textContent = String(currentReport ? currentReport.domains.length : 0);
+      exportBtn.disabled = !currentReport;
+
+      if (!visible.length) {
+        issueRows.innerHTML = `
+          <tr>
+            <td colspan="4"><div class="empty">No issues in this category.</div></td>
+          </tr>
+        `;
+        renderDetails(null);
+        return;
+      }
+
+      issueRows.innerHTML = visible.map(issue => `
+        <tr data-id="${issue.id}" class="${issue.id === selectedIssueId ? "selected" : ""}">
+          <td><span class="severity ${severityClass(issue.severity)}">${issue.severity}</span></td>
+          <td><span class="category">${escapeHtml(issue.category)}</span></td>
+          <td>${escapeHtml(issue.title)}</td>
+          <td class="where">${escapeHtml(issue.location)}</td>
+        </tr>
+      `).join("");
+
+      const selected = issues.find(issue => issue.id === selectedIssueId) || visible[0];
+      selectedIssueId = selected.id;
+      renderDetails(selected);
+    }
+
+    async function runAudit() {
+      try {
+        scanBtn.disabled = true;
+        setStatus("Loading page source...");
+        const pasted = htmlSourceInput.value.trim();
+        const pageUrl = normalizePageUrl(pageUrlInput.value);
+        if (!pasted && !pageUrl) throw new Error("Enter a page URL or paste HTML source first.");
+        const html = pasted || await fetchText(pageUrl);
+
+        setStatus("Analyzing HTML...");
+        currentReport = analyze(html, pageUrl);
+        issues = currentReport.issues;
+        selectedIssueId = issues[0] ? issues[0].id : "";
+        activeTab = "all";
+        tabs.forEach(tab => tab.classList.toggle("active", tab.dataset.tab === activeTab));
+        render();
+        const issueTotal = issues.filter(issue => issue.severity !== "OK").length;
+        setStatus(issueTotal ? `Audit complete. Found ${issueTotal} issue${issueTotal === 1 ? "" : "s"}.` : "Audit complete. No obvious issues found.", issueTotal ? "warn" : "good");
+      } catch (error) {
+        setStatus(error.message || "Audit failed.", "bad");
+      } finally {
+        scanBtn.disabled = false;
+      }
+    }
+
+    function clearAudit() {
+      pageUrlInput.value = "";
+      htmlSourceInput.value = "";
+      currentReport = null;
+      issues = [];
+      selectedIssueId = "";
+      render();
+      setStatus("Waiting for a page URL or pasted HTML.");
+    }
+
+    function exportReport() {
+      if (!currentReport) return;
+      const blob = new Blob([JSON.stringify(currentReport, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "mq-site-fix-advisor-report.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    scanBtn.addEventListener("click", runAudit);
+    clearBtn.addEventListener("click", clearAudit);
+    exportBtn.addEventListener("click", exportReport);
+    demoBtn.addEventListener("click", () => {
+      pageUrlInput.value = "https://example.com/sample-page";
+      htmlSourceInput.value = sampleHtml;
+      runAudit();
+    });
+
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        activeTab = tab.dataset.tab;
+        tabs.forEach(item => item.classList.toggle("active", item === tab));
+        selectedIssueId = "";
+        render();
+      });
+    });
+
+    issueRows.addEventListener("click", event => {
+      const row = event.target.closest("tr[data-id]");
+      if (!row) return;
+      selectedIssueId = row.dataset.id;
+      render();
+    });
+
+    pageUrlInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") runAudit();
+    });
+
+    render();
+  </script>
+</body>
+</html>
