@@ -56,6 +56,13 @@ Visualizes certificate expiry risk across local macOS data or fleet data.
 Live data: reads from the Fleet Collector (`38766`) and/or macOS Agent (`38764`)
 when available.
 
+### Squarespace Asset Downloader
+
+File: `docs/Squarespace Asset Downloader.html`
+
+Scans a public Squarespace page URL for image assets, shows selectable previews,
+and downloads selected images as a zip archive with a manifest.
+
 Open the landing page:
 
 ```text
@@ -76,6 +83,7 @@ docs/Client Readiness Dashboard.html
 docs/Fleet Command Center.html
 docs/macOS Enterprise Dashboard.html
 docs/Certificate Expiry Timeline.html
+docs/Squarespace Asset Downloader.html
 ```
 
 ### macOS Live Data
@@ -141,6 +149,7 @@ design-prototyp/
 │   ├── Fleet Command Center.html
 │   ├── macOS Enterprise Dashboard.html
 │   ├── Certificate Expiry Timeline.html
+│   ├── Squarespace Asset Downloader.html
 │   ├── README-Client-Readiness-Dashboard.md
 │   ├── README-Fleet-Command-Center.md
 │   ├── README-macOS-Enterprise-Dashboard.md

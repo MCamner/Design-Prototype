@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Squarespace Asset Downloader</title>
+  <meta name="description" content="Find and download image assets from a Squarespace page URL.">
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --surface: #fffdf8;
+      --surface-2: #ece7dc;
+      --ink: #1b1b18;
+      --muted: #6b665d;
+      --line: #d9d1c2;
+      --accent: #126a5c;
+      --accent-2: #d85d35;
+      --good: #167447;
+      --warn: #a15c00;
+      --bad: #b42318;
+      --shadow: 0 18px 50px rgba(58, 43, 20, 0.12);
+      --radius: 8px;
+      --max: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        linear-gradient(90deg, rgba(27,27,24,0.035) 1px, transparent 1px),
+        linear-gradient(rgba(27,27,24,0.035) 1px, transparent 1px),
+        var(--bg);
+      background-size: 28px 28px;
+      line-height: 1.5;
+    }
+
+    a { color: inherit; }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .shell {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(244, 241, 234, 0.86);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .topbar-inner {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      font-weight: 800;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      color: #fffdf8;
+      background: var(--ink);
+      border-radius: 7px;
+      letter-spacing: 0;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .top-actions a {
+      text-decoration: none;
+    }
+
+    .top-actions a:hover {
+      color: var(--ink);
+    }
+
+    main {
+      padding: 44px 0 56px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 34px;
+      align-items: end;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--accent);
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.3rem, 5vw, 5.5rem);
+      line-height: 0.96;
+      letter-spacing: 0;
+      max-width: 10ch;
+    }
+
+    .hero-copy {
+      margin: 0;
+      max-width: 66ch;
+      color: var(--muted);
+      font-size: 1.08rem;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 380px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .panel,
+    .results-panel {
+      background: rgba(255, 253, 248, 0.88);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      position: sticky;
+      top: 84px;
+      padding: 20px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    label,
+    .label {
+      color: var(--ink);
+      font-size: 0.86rem;
+      font-weight: 800;
+    }
+
+    input[type="url"],
+    input[type="text"],
+    select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    input[type="url"]:focus,
+    input[type="text"]:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(18, 106, 92, 0.14);
+    }
+
+    .checks {
+      display: grid;
+      gap: 10px;
+      margin: 14px 0 18px;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .button {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      border-radius: 6px;
+      font-weight: 800;
+      color: var(--ink);
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      text-decoration: none;
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+    }
+
+    .button-primary {
+      color: #fffdf8;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .button-danger {
+      color: #fffdf8;
+      background: var(--accent-2);
+      border-color: var(--accent-2);
+    }
+
+    .button:disabled {
+      opacity: 0.52;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .note {
+      margin: 18px 0 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #faf6ee;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .status {
+      min-height: 38px;
+      margin-top: 16px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .status.good { color: var(--good); border-color: rgba(22, 116, 71, 0.28); }
+    .status.warn { color: var(--warn); border-color: rgba(161, 92, 0, 0.32); }
+    .status.bad { color: var(--bad); border-color: rgba(180, 35, 24, 0.28); }
+
+    .meter {
+      height: 8px;
+      overflow: hidden;
+      background: var(--surface-2);
+      border-radius: 999px;
+      margin-top: 10px;
+    }
+
+    .meter span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.2s ease;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .stat {
+      padding: 12px;
+      border-radius: 6px;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 1.45rem;
+      line-height: 1;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .toolbar-left,
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .search {
+      min-width: min(280px, 100%);
+    }
+
+    .assets {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      padding: 16px;
+      min-height: 360px;
+    }
+
+    .asset {
+      display: grid;
+      grid-template-rows: 150px auto;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .thumb {
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(45deg, #e2ddd1 25%, transparent 25%),
+        linear-gradient(-45deg, #e2ddd1 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e2ddd1 75%),
+        linear-gradient(-45deg, transparent 75%, #e2ddd1 75%),
+        #f7f3eb;
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    }
+
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .asset-badge {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      padding: 4px 7px;
+      color: #fffdf8;
+      background: rgba(27, 27, 24, 0.72);
+      border-radius: 5px;
+      font-size: 0.74rem;
+      font-weight: 800;
+    }
+
+    .asset-body {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+    }
+
+    .asset-title {
+      display: flex;
+      align-items: start;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .asset-title input {
+      flex: 0 0 auto;
+      margin-top: 2px;
+    }
+
+    .asset-name {
+      overflow-wrap: anywhere;
+      font-size: 0.86rem;
+      font-weight: 800;
+    }
+
+    .asset-url {
+      color: var(--muted);
+      font-size: 0.78rem;
+      overflow-wrap: anywhere;
+    }
+
+    .asset-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .asset-actions a {
+      color: var(--accent);
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .empty {
+      grid-column: 1 / -1;
+      display: grid;
+      place-items: center;
+      min-height: 320px;
+      border: 1px dashed var(--line);
+      border-radius: 6px;
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+    }
+
+    .log {
+      max-height: 170px;
+      overflow: auto;
+      padding: 12px 16px 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      background: #faf7ef;
+    }
+
+    .log div + div {
+      margin-top: 5px;
+    }
+
+    @media (max-width: 960px) {
+      .hero,
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .panel {
+        position: static;
+      }
+
+      .assets {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .topbar-inner,
+      .toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .top-actions,
+      .toolbar-left,
+      .toolbar-right,
+      .button-row {
+        width: 100%;
+      }
+
+      .button-row,
+      .summary,
+      .assets {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        max-width: 12ch;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="./index.html">
+        <span class="brand-mark">SA</span>
+        <span>Squarespace Asset Downloader</span>
+      </a>
+      <nav class="top-actions" aria-label="Page links">
+        <a href="./index.html">Docs index</a>
+        <a href="#results">Results</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Image recovery tool</span>
+        <h1>Grab page images faster.</h1>
+      </div>
+      <p class="hero-copy">
+        Paste a public Squarespace page URL, scan the HTML for image assets, select what you want,
+        and export the files as a zip archive directly from the browser.
+      </p>
+    </section>
+
+    <section class="workspace">
+      <aside class="panel" aria-label="Downloader controls">
+        <div class="field">
+          <label for="pageUrl">Page URL</label>
+          <input id="pageUrl" type="url" placeholder="https://example.squarespace.com/gallery" autocomplete="url">
+        </div>
+
+        <div class="field">
+          <label for="proxyMode">Fetch mode</label>
+          <select id="proxyMode">
+            <option value="allorigins">AllOrigins proxy</option>
+            <option value="direct">Direct browser fetch</option>
+            <option value="corsproxy">corsproxy.io proxy</option>
+          </select>
+        </div>
+
+        <div class="checks">
+          <label class="check-row">
+            <input id="squarespaceOnly" type="checkbox">
+            <span>Only Squarespace/static asset URLs</span>
+          </label>
+          <label class="check-row">
+            <input id="preferOriginals" type="checkbox" checked>
+            <span>Prefer original image URL when possible</span>
+          </label>
+          <label class="check-row">
+            <input id="includeCss" type="checkbox" checked>
+            <span>Include CSS background images</span>
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button id="scanBtn" class="button button-primary" type="button">Scan page</button>
+          <button id="zipBtn" class="button button-danger" type="button" disabled>Download zip</button>
+        </div>
+
+        <div class="button-row">
+          <button id="selectAllBtn" class="button" type="button" disabled>Select all</button>
+          <button id="clearBtn" class="button" type="button" disabled>Clear</button>
+        </div>
+
+        <div id="status" class="status">Waiting for a page URL.</div>
+        <div class="meter" aria-hidden="true"><span id="progressBar"></span></div>
+
+        <p class="note">
+          Browser security can block cross-origin pages or files. If direct mode fails, use a proxy mode.
+          Download only assets you own or have permission to archive.
+        </p>
+      </aside>
+
+      <section id="results" class="results-panel" aria-label="Discovered assets">
+        <div class="summary">
+          <div class="stat"><strong id="foundCount">0</strong><span>found</span></div>
+          <div class="stat"><strong id="selectedCount">0</strong><span>selected</span></div>
+          <div class="stat"><strong id="downloadedCount">0</strong><span>downloaded</span></div>
+          <div class="stat"><strong id="failedCount">0</strong><span>failed</span></div>
+        </div>
+
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <input id="filterInput" class="search" type="text" placeholder="Filter by filename or URL" disabled>
+          </div>
+          <div class="toolbar-right">
+            <span id="sourceLabel" class="label">No source loaded</span>
+          </div>
+        </div>
+
+        <div id="assetGrid" class="assets">
+          <div class="empty">
+            <div>
+              <strong>No images yet.</strong><br>
+              Paste a public page URL and scan to build a downloadable asset list.
+            </div>
+          </div>
+        </div>
+
+        <div id="log" class="log" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const pageUrlInput = document.getElementById("pageUrl");
+    const proxyModeInput = document.getElementById("proxyMode");
+    const squarespaceOnlyInput = document.getElementById("squarespaceOnly");
+    const preferOriginalsInput = document.getElementById("preferOriginals");
+    const includeCssInput = document.getElementById("includeCss");
+    const scanBtn = document.getElementById("scanBtn");
+    const zipBtn = document.getElementById("zipBtn");
+    const selectAllBtn = document.getElementById("selectAllBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const filterInput = document.getElementById("filterInput");
+    const assetGrid = document.getElementById("assetGrid");
+    const statusEl = document.getElementById("status");
+    const progressBar = document.getElementById("progressBar");
+    const foundCount = document.getElementById("foundCount");
+    const selectedCount = document.getElementById("selectedCount");
+    const downloadedCount = document.getElementById("downloadedCount");
+    const failedCount = document.getElementById("failedCount");
+    const sourceLabel = document.getElementById("sourceLabel");
+    const logEl = document.getElementById("log");
+
+    const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif", ".svg"];
+    let assets = [];
+    let selected = new Set();
+    let loadedSource = "";
+    let downloadsOk = 0;
+    let downloadsFailed = 0;
+
+    function setStatus(message, kind = "") {
+      statusEl.textContent = message;
+      statusEl.className = `status ${kind}`.trim();
+    }
+
+    function setProgress(done, total) {
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      progressBar.style.width = `${pct}%`;
+    }
+
+    function log(message) {
+      const row = document.createElement("div");
+      row.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logEl.prepend(row);
+    }
+
+    function normalizePageUrl(value) {
+      const trimmed = value.trim();
+      if (!trimmed) throw new Error("Enter a page URL first.");
+      const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+      return new URL(withScheme).toString();
+    }
+
+    function proxiedUrl(url, mode = proxyModeInput.value) {
+      if (mode === "direct") return url;
+      if (mode === "corsproxy") return `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    }
+
+    function cleanSquarespaceUrl(rawUrl) {
+      if (!preferOriginalsInput.checked) return rawUrl;
+      try {
+        const url = new URL(rawUrl);
+        if (url.searchParams.has("format")) url.searchParams.delete("format");
+        if (url.searchParams.has("content-type")) url.searchParams.delete("content-type");
+        return url.toString();
+      } catch {
+        return rawUrl;
+      }
+    }
+
+    function isLikelyImage(url) {
+      const lowered = url.toLowerCase();
+      if (IMAGE_EXTENSIONS.some(ext => lowered.includes(ext))) return true;
+      if (lowered.includes("images.squarespace-cdn.com")) return true;
+      if (lowered.includes("static.squarespace.com")) return true;
+      if (lowered.includes("/static/") || lowered.includes("/s/")) return true;
+      return false;
+    }
+
+    function isSquarespaceAsset(url) {
+      const lowered = url.toLowerCase();
+      return lowered.includes("squarespace") ||
+        lowered.includes("static1.squarespace.com") ||
+        lowered.includes("static.squarespace.com") ||
+        lowered.includes("images.squarespace-cdn.com") ||
+        lowered.includes("/static/") ||
+        lowered.includes("/universal/images-v6/");
+    }
+
+    function absolutize(value, baseUrl) {
+      if (!value) return "";
+      const trimmed = value.trim().replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
+      if (!trimmed || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return "";
+      try {
+        return cleanSquarespaceUrl(new URL(trimmed, baseUrl).toString());
+      } catch {
+        return "";
+      }
+    }
+
+    function parseSrcset(srcset, baseUrl) {
+      return srcset
+        .split(",")
+        .map(part => absolutize(part.trim().split(/\s+/)[0], baseUrl))
+        .filter(Boolean);
+    }
+
+    function collectUrlsFromText(text, baseUrl) {
+      const urls = [];
+      const cssUrlPattern = /url\(([^)]+)\)/gi;
+      const rawUrlPattern = /(?:https?:)?\/\/[^"'\s<>]+?\.(?:jpg|jpeg|png|gif|webp|avif|svg)(?:\?[^"'\s<>]*)?/gi;
+      let match;
+
+      while ((match = cssUrlPattern.exec(text))) {
+        const url = absolutize(match[1].replace(/^["']|["']$/g, ""), baseUrl);
+        if (url) urls.push(url);
+      }
+
+      while ((match = rawUrlPattern.exec(text))) {
+        const candidate = match[0].startsWith("//") ? `https:${match[0]}` : match[0];
+        const url = absolutize(candidate, baseUrl);
+        if (url) urls.push(url);
+      }
+
+      return urls;
+    }
+
+    function filenameFromUrl(url, index) {
+      let filename = `asset-${String(index + 1).padStart(3, "0")}`;
+      try {
+        const parsed = new URL(url);
+        const last = decodeURIComponent(parsed.pathname.split("/").filter(Boolean).pop() || "");
+        filename = last || filename;
+      } catch {
+        return filename;
+      }
+
+      filename = filename
+        .replace(/[?#].*$/, "")
+        .replace(/[^\w.\- ()]/g, "_")
+        .replace(/_+/g, "_")
+        .slice(0, 120);
+
+      if (!/\.(jpg|jpeg|png|gif|webp|avif|svg)$/i.test(filename)) {
+        filename += ".jpg";
+      }
+
+      return filename;
+    }
+
+    function uniqueFilename(name, used) {
+      if (!used.has(name)) {
+        used.add(name);
+        return name;
+      }
+
+      const dot = name.lastIndexOf(".");
+      const base = dot > -1 ? name.slice(0, dot) : name;
+      const ext = dot > -1 ? name.slice(dot) : "";
+      let i = 2;
+      let candidate = `${base}-${i}${ext}`;
+      while (used.has(candidate)) {
+        i += 1;
+        candidate = `${base}-${i}${ext}`;
+      }
+      used.add(candidate);
+      return candidate;
+    }
+
+    function assetType(url) {
+      const lowered = url.toLowerCase();
+      const ext = IMAGE_EXTENSIONS.find(item => lowered.includes(item));
+      if (ext) return ext.slice(1).toUpperCase();
+      if (lowered.includes("squarespace")) return "SQSP";
+      return "IMG";
+    }
+
+    function extractAssets(html, baseUrl) {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const found = [];
+      const add = (url, source) => {
+        if (!url || !isLikelyImage(url)) return;
+        if (squarespaceOnlyInput.checked && !isSquarespaceAsset(url)) return;
+        found.push({ url, source });
+      };
+
+      doc.querySelectorAll("img[src]").forEach(node => add(absolutize(node.getAttribute("src"), baseUrl), "img[src]"));
+      doc.querySelectorAll("img[srcset], source[srcset]").forEach(node => {
+        parseSrcset(node.getAttribute("srcset") || "", baseUrl).forEach(url => add(url, "srcset"));
+      });
+      doc.querySelectorAll("a[href]").forEach(node => add(absolutize(node.getAttribute("href"), baseUrl), "link"));
+      doc.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"], meta[itemprop="image"]').forEach(node => {
+        add(absolutize(node.getAttribute("content"), baseUrl), "metadata");
+      });
+      doc.querySelectorAll('link[href][rel~="image_src"], link[href][as="image"], link[href][rel~="preload"]').forEach(node => {
+        add(absolutize(node.getAttribute("href"), baseUrl), "link[image]");
+      });
+
+      if (includeCssInput.checked) {
+        doc.querySelectorAll("[style]").forEach(node => {
+          collectUrlsFromText(node.getAttribute("style") || "", baseUrl).forEach(url => add(url, "inline css"));
+        });
+        doc.querySelectorAll("style").forEach(node => {
+          collectUrlsFromText(node.textContent || "", baseUrl).forEach(url => add(url, "style tag"));
+        });
+        collectUrlsFromText(html, baseUrl).forEach(url => add(url, "html text"));
+      }
+
+      const seen = new Map();
+      found.forEach(item => {
+        const key = item.url.replace(/([?&])format=\d+w/gi, "$1format=").replace(/[?&]$/, "");
+        if (!seen.has(key)) seen.set(key, item);
+      });
+
+      const usedNames = new Set();
+      return Array.from(seen.values()).map((item, index) => ({
+        id: window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${index}`,
+        url: item.url,
+        source: item.source,
+        type: assetType(item.url),
+        filename: uniqueFilename(filenameFromUrl(item.url, index), usedNames)
+      }));
+    }
+
+    async function fetchText(url) {
+      const response = await fetch(proxiedUrl(url), { cache: "no-store" });
+      if (!response.ok) throw new Error(`Fetch failed: ${response.status} ${response.statusText}`);
+      return response.text();
+    }
+
+    async function fetchBlob(url) {
+      const modes = [proxyModeInput.value];
+      if (!modes.includes("direct")) modes.push("direct");
+      if (!modes.includes("allorigins")) modes.push("allorigins");
+
+      let lastError = null;
+      for (const mode of modes) {
+        try {
+          const response = await fetch(proxiedUrl(url, mode), { cache: "no-store" });
+          if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+          return await response.blob();
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw lastError || new Error("Could not fetch file.");
+    }
+
+    function render() {
+      const query = filterInput.value.trim().toLowerCase();
+      const visible = assets.filter(asset => {
+        if (!query) return true;
+        return asset.filename.toLowerCase().includes(query) || asset.url.toLowerCase().includes(query);
+      });
+
+      foundCount.textContent = String(assets.length);
+      selectedCount.textContent = String(selected.size);
+      downloadedCount.textContent = String(downloadsOk);
+      failedCount.textContent = String(downloadsFailed);
+      zipBtn.disabled = selected.size === 0 || !assets.length;
+      selectAllBtn.disabled = assets.length === 0;
+      clearBtn.disabled = assets.length === 0;
+      filterInput.disabled = assets.length === 0;
+      sourceLabel.textContent = loadedSource ? new URL(loadedSource).hostname : "No source loaded";
+
+      if (!assets.length) {
+        assetGrid.innerHTML = `
+          <div class="empty">
+            <div>
+              <strong>No images yet.</strong><br>
+              Paste a public page URL and scan to build a downloadable asset list.
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      if (!visible.length) {
+        assetGrid.innerHTML = `<div class="empty"><strong>No matches for this filter.</strong></div>`;
+        return;
+      }
+
+      assetGrid.innerHTML = visible.map(asset => `
+        <article class="asset">
+          <div class="thumb">
+            <span class="asset-badge">${asset.type}</span>
+            <img src="${asset.url.replace(/"/g, "&quot;")}" alt="" loading="lazy" referrerpolicy="no-referrer">
+          </div>
+          <div class="asset-body">
+            <label class="asset-title">
+              <input type="checkbox" data-id="${asset.id}" ${selected.has(asset.id) ? "checked" : ""}>
+              <span class="asset-name">${asset.filename}</span>
+            </label>
+            <div class="asset-url">${asset.url}</div>
+            <div class="asset-actions">
+              <span>${asset.source}</span>
+              <a href="${asset.url}" target="_blank" rel="noreferrer">Open</a>
+            </div>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    async function scanPage() {
+      try {
+        downloadsOk = 0;
+        downloadsFailed = 0;
+        setProgress(0, 1);
+        logEl.innerHTML = "";
+        const pageUrl = normalizePageUrl(pageUrlInput.value);
+        loadedSource = pageUrl;
+        scanBtn.disabled = true;
+        setStatus("Fetching page HTML...");
+        log(`Fetching ${pageUrl}`);
+
+        const html = await fetchText(pageUrl);
+        setStatus("Extracting image URLs...");
+        assets = extractAssets(html, pageUrl);
+        selected = new Set(assets.map(asset => asset.id));
+        setProgress(1, 1);
+        render();
+
+        if (assets.length) {
+          setStatus(`Found ${assets.length} image asset${assets.length === 1 ? "" : "s"}.`, "good");
+          log(`Found ${assets.length} image asset${assets.length === 1 ? "" : "s"}.`);
+        } else {
+          setStatus("No image assets were found on that page.", "warn");
+          log("No image assets found.");
+        }
+      } catch (error) {
+        assets = [];
+        selected = new Set();
+        render();
+        setStatus(error.message || "Scan failed.", "bad");
+        log(error.message || "Scan failed.");
+      } finally {
+        scanBtn.disabled = false;
+      }
+    }
+
+    async function downloadZip() {
+      if (!window.JSZip) {
+        setStatus("JSZip could not be loaded. Check your internet connection and reload this page.", "bad");
+        return;
+      }
+
+      const chosen = assets.filter(asset => selected.has(asset.id));
+      if (!chosen.length) return;
+
+      const zip = new JSZip();
+      const manifest = {
+        source: loadedSource,
+        created_at: new Date().toISOString(),
+        assets: []
+      };
+
+      downloadsOk = 0;
+      downloadsFailed = 0;
+      zipBtn.disabled = true;
+      scanBtn.disabled = true;
+      setProgress(0, chosen.length);
+      setStatus(`Downloading 0 of ${chosen.length} files...`);
+
+      for (const [index, asset] of chosen.entries()) {
+        try {
+          const blob = await fetchBlob(asset.url);
+          zip.file(asset.filename, blob);
+          manifest.assets.push({ filename: asset.filename, url: asset.url, source: asset.source, status: "downloaded" });
+          downloadsOk += 1;
+          log(`Downloaded ${asset.filename}`);
+        } catch (error) {
+          downloadsFailed += 1;
+          manifest.assets.push({ filename: asset.filename, url: asset.url, source: asset.source, status: "failed", error: String(error.message || error) });
+          log(`Failed ${asset.filename}: ${error.message || error}`);
+        }
+        setProgress(index + 1, chosen.length);
+        setStatus(`Downloading ${index + 1} of ${chosen.length} files...`);
+        render();
+      }
+
+      zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+
+      if (!downloadsOk) {
+        setStatus("No files could be downloaded. Try another fetch mode.", "bad");
+        scanBtn.disabled = false;
+        render();
+        return;
+      }
+
+      setStatus("Building zip archive...");
+      const blob = await zip.generateAsync({ type: "blob" });
+      const downloadUrl = URL.createObjectURL(blob);
+      const host = loadedSource ? new URL(loadedSource).hostname.replace(/[^\w.-]/g, "_") : "assets";
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = `${host}-images.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+
+      setStatus(`Zip ready. ${downloadsOk} downloaded, ${downloadsFailed} failed.`, downloadsFailed ? "warn" : "good");
+      scanBtn.disabled = false;
+      render();
+    }
+
+    scanBtn.addEventListener("click", scanPage);
+    zipBtn.addEventListener("click", downloadZip);
+    filterInput.addEventListener("input", render);
+    selectAllBtn.addEventListener("click", () => {
+      selected = new Set(assets.map(asset => asset.id));
+      render();
+    });
+    clearBtn.addEventListener("click", () => {
+      selected = new Set();
+      render();
+    });
+    assetGrid.addEventListener("change", event => {
+      const checkbox = event.target.closest('input[type="checkbox"][data-id]');
+      if (!checkbox) return;
+      if (checkbox.checked) selected.add(checkbox.dataset.id);
+      else selected.delete(checkbox.dataset.id);
+      render();
+    });
+
+    pageUrlInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") scanPage();
+    });
+
+    render();
+  </script>
+</body>
+</html>
