@@ -3,9 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>macOS Enterprise</title>
-  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <title>macOS Enterprise Dashboard</title>
+  <meta name="description" content="macOS Enterprise compliance dashboard — monitor security controls, MDM status, software inventory, and network posture in one place.">
+  <link rel="canonical" href="https://mcamner.github.io/Design-Prototype/macOS%20Enterprise%20Dashboard.html">
+  <meta property="og:title" content="macOS Enterprise Dashboard">
+  <meta property="og:description" content="Monitor macOS device compliance, MDM status, security controls, and network posture in one unified dashboard.">
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -34,6 +38,7 @@
   </style>
 </head>
 <body>
+<h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">macOS Enterprise Dashboard</h1>
 <div id="root"></div>
 <script type="text/babel">
 const { useState, useEffect, useCallback, useMemo, useRef, memo } = React;
