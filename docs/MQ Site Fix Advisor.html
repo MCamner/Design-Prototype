@@ -1007,15 +1007,27 @@
         });
       }
 
-      if (!ogTitle || !ogDescription || !ogImage) {
+      if (!ogTitle || !ogDescription) {
         addIssue(list, {
           severity: "Low",
           category: "SEO",
-          title: "Incomplete Open Graph metadata",
+          title: "Missing Open Graph title or description",
           location: locate(headNode, "<head>"),
-          explanation: "Shared links look better when title, description, and image are explicit.",
-          fix: "Add the missing Open Graph tags for social previews.",
-          snippet: '<meta property="og:title" content="Page title">\n<meta property="og:description" content="Short social summary">\n<meta property="og:image" content="https://example.com/social-image.jpg">'
+          explanation: "Shared links need explicit title and description text for clean previews.",
+          fix: "Add Open Graph title and description tags that match the page content.",
+          snippet: '<meta property="og:title" content="Page title">\n<meta property="og:description" content="Short social summary">'
+        });
+      }
+
+      if (!ogImage) {
+        addIssue(list, {
+          severity: "Low",
+          category: "SEO",
+          title: "Missing Open Graph image",
+          location: locate(headNode, "<head>"),
+          explanation: "Shared links look stronger when they include a dedicated preview image.",
+          fix: "Add an absolute og:image URL when you have a stable social preview image. Skip this for internal or purely utility pages if no image asset exists.",
+          snippet: '<meta property="og:image" content="https://example.com/social-image.jpg">'
         });
       }
     }
