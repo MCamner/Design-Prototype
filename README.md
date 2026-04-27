@@ -71,7 +71,7 @@ Squarespace asset filter. It can discover common image sources such as `img`,
 `srcset`, lazy-load data attributes, metadata images, links, and CSS background
 images when present in the fetched or pasted HTML.
 
-### MQ Site Fix Advisor
+### MQ Site Fix Advisor v1.1.0
 
 File: `docs/MQ Site Fix Advisor.html`
 
@@ -82,6 +82,12 @@ severity, location, practical fix guidance, platform notes, and exportable JSON.
 Checks include missing titles/descriptions, H1 problems, Open Graph gaps,
 missing image alt text, insecure HTTP resources, placeholder links, fixed-width
 CSS, removed focus outlines, extreme z-index values, and small font sizes.
+
+**Generate fix** — after a scan, generates a corrected `<head>` block (or full
+HTML) with all automatically fixable issues applied, ready to copy and paste.
+
+**Guide** — in-tool step-by-step guide accessible via the `?` button in the
+top bar.
 
 Open the landing page:
 
