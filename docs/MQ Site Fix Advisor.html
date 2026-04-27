@@ -709,15 +709,27 @@
     async function fetchText(url) {
       const errors = [];
       for (const mode of fetchModes()) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 8000);
         try {
-          const response = await fetch(proxiedUrl(url, mode), { cache: "no-store" });
+          setStatus(`Trying ${mode} fetch...`);
+          const response = await fetch(proxiedUrl(url, mode), {
+            cache: "no-store",
+            signal: controller.signal
+          });
           if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
-          return await response.text();
+          const text = await response.text();
+          if (!text.trim()) throw new Error("empty response");
+          setStatus(`Fetched page with ${mode}. Analyzing HTML...`);
+          return text;
         } catch (error) {
-          errors.push(`${mode}: ${error.message || error}`);
+          const message = error.name === "AbortError" ? "timed out" : (error.message || error);
+          errors.push(`${mode}: ${message}`);
+        } finally {
+          window.clearTimeout(timeout);
         }
       }
-      throw new Error(`Fetch failed. ${errors.join(" | ")}`);
+      throw new Error(`Could not fetch that page from the browser. ${errors.join(" | ")}. Open the page source, paste the HTML into the fallback box, then run the audit again.`);
     }
 
     function absolutize(value, baseUrl) {
@@ -1209,7 +1221,7 @@
         if (!pasted && !pageUrl) throw new Error("Enter a page URL or paste HTML source first.");
         const html = pasted || await fetchText(pageUrl);
 
-        setStatus("Analyzing HTML...");
+        setStatus(pasted ? "Analyzing pasted HTML..." : "Analyzing fetched HTML...");
         currentReport = analyze(html, pageUrl);
         issues = currentReport.issues;
         selectedIssueId = issues[0] ? issues[0].id : "";
