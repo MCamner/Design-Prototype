@@ -557,6 +557,126 @@
         grid-template-columns: 1fr;
       }
     }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(16, 32, 46, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 900;
+      padding: 16px;
+    }
+
+    .modal-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      width: min(780px, 100%);
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-2);
+    }
+
+    .modal-body {
+      padding: 18px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .fix-summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    @media (max-width: 520px) {
+      .fix-summary-grid { grid-template-columns: 1fr; }
+    }
+
+    .fix-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .fix-label.good { color: var(--good); }
+    .fix-label.warn { color: var(--warning); }
+
+    .fix-list {
+      margin: 0;
+      padding: 0 0 0 18px;
+      font-size: 13px;
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .fix-output-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .fix-tab {
+      padding: 5px 12px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .fix-tab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .fix-output {
+      width: 100%;
+      height: 240px;
+      font-family: Consolas, Menlo, ui-monospace, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: var(--panel-2);
+      color: var(--ink);
+      resize: vertical;
+    }
+
+    .fix-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fix-copied {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--good);
+    }
   </style>
 </head>
 <body>
@@ -580,6 +700,7 @@
       <div class="toolbar-actions">
         <button id="demoBtn" class="button" type="button">Load sample</button>
         <button id="exportBtn" class="button" type="button" disabled>Export JSON</button>
+        <button id="fixBtn" class="button button-primary" type="button" disabled>Generate fix</button>
       </div>
     </div>
 
@@ -686,6 +807,7 @@
     const clearBtn = document.getElementById("clearBtn");
     const demoBtn = document.getElementById("demoBtn");
     const exportBtn = document.getElementById("exportBtn");
+    const fixBtn = document.getElementById("fixBtn");
     const statusEl = document.getElementById("status");
     const issueRows = document.getElementById("issueRows");
     const detailsBody = document.getElementById("detailsBody");
@@ -729,6 +851,7 @@
     let issues = [];
     let selectedIssueId = "";
     let currentReport = null;
+    let currentHtml = "";
 
     function setStatus(message, kind = "") {
       statusEl.textContent = message;
@@ -1353,6 +1476,7 @@
       assetCount.textContent = String(currentReport ? currentReport.assets.length : 0);
       domainCount.textContent = String(currentReport ? currentReport.domains.length : 0);
       exportBtn.disabled = !currentReport;
+      fixBtn.disabled = !currentReport;
 
       if (!visible.length) {
         issueRows.innerHTML = `
@@ -1388,6 +1512,7 @@
         const html = pasted || await fetchText(pageUrl);
 
         setStatus(pasted ? "Analyzing pasted HTML..." : "Analyzing fetched HTML...");
+        currentHtml = html;
         currentReport = analyze(html, pageUrl);
         issues = currentReport.issues;
         selectedIssueId = issues[0] ? issues[0].id : "";
@@ -1407,6 +1532,7 @@
       pageUrlInput.value = "";
       htmlSourceInput.value = "";
       currentReport = null;
+      currentHtml = "";
       issues = [];
       selectedIssueId = "";
       render();
@@ -1461,6 +1587,169 @@
     });
 
     render();
+  </script>
+
+  <div id="fixModal" class="modal-overlay" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="fixModalTitle">
+      <div class="modal-header">
+        <span id="fixModalTitle" class="pane-title">Auto-fix preview</span>
+        <button id="fixModalClose" class="button" type="button">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="fix-summary-grid">
+          <div>
+            <strong class="fix-label good">Applied automatically</strong>
+            <ul id="fixAutoList" class="fix-list"></ul>
+          </div>
+          <div>
+            <strong class="fix-label warn">Still needs manual attention</strong>
+            <ul id="fixManualList" class="fix-list"></ul>
+          </div>
+        </div>
+        <div class="fix-output-tabs">
+          <button class="fix-tab active" data-output="head" type="button">Fixed &lt;head&gt;</button>
+          <button class="fix-tab" data-output="full" type="button">Full HTML</button>
+        </div>
+        <textarea id="fixHeadOutput" class="fix-output" readonly spellcheck="false"></textarea>
+        <textarea id="fixFullOutput" class="fix-output" readonly spellcheck="false" hidden></textarea>
+        <div class="fix-actions">
+          <button id="fixCopyBtn" class="button button-primary" type="button">Copy to clipboard</button>
+          <span id="fixCopied" class="fix-copied" hidden>Copied!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fixModal       = document.getElementById("fixModal");
+    const fixModalClose  = document.getElementById("fixModalClose");
+    const fixAutoList    = document.getElementById("fixAutoList");
+    const fixManualList  = document.getElementById("fixManualList");
+    const fixHeadOutput  = document.getElementById("fixHeadOutput");
+    const fixFullOutput  = document.getElementById("fixFullOutput");
+    const fixCopyBtn     = document.getElementById("fixCopyBtn");
+    const fixCopied      = document.getElementById("fixCopied");
+    const fixTabs        = document.querySelectorAll(".fix-tab");
+
+    function generateFix(html, baseUrl, issueList) {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const head = doc.querySelector("head");
+      const autoFixed = [];
+      const manual = [];
+
+      for (const issue of issueList) {
+        if (issue.severity === "OK") continue;
+        let fixed = false;
+
+        if (issue.title === "Missing page title") {
+          const el = doc.createElement("title");
+          el.textContent = "Your page name | Brand";
+          head.appendChild(el);
+          fixed = true;
+        } else if (issue.title === "Missing meta description") {
+          const el = doc.createElement("meta");
+          el.setAttribute("name", "description");
+          el.setAttribute("content", "Describe this page clearly in one useful sentence.");
+          head.appendChild(el);
+          fixed = true;
+        } else if (issue.title === "Missing responsive viewport meta") {
+          const el = doc.createElement("meta");
+          el.setAttribute("name", "viewport");
+          el.setAttribute("content", "width=device-width, initial-scale=1");
+          head.appendChild(el);
+          fixed = true;
+        } else if (issue.title === "Missing canonical URL") {
+          const el = doc.createElement("link");
+          el.setAttribute("rel", "canonical");
+          el.setAttribute("href", baseUrl || "https://example.com/current-page");
+          head.appendChild(el);
+          fixed = true;
+        } else if (issue.title === "Missing Open Graph title or description") {
+          const existingTitle = doc.querySelector("title");
+          const existingDesc  = doc.querySelector('meta[name="description"]');
+          if (!doc.querySelector('meta[property="og:title"]')) {
+            const el = doc.createElement("meta");
+            el.setAttribute("property", "og:title");
+            el.setAttribute("content", existingTitle ? existingTitle.textContent.trim() : "Page Title");
+            head.appendChild(el);
+          }
+          if (!doc.querySelector('meta[property="og:description"]')) {
+            const el = doc.createElement("meta");
+            el.setAttribute("property", "og:description");
+            el.setAttribute("content", existingDesc ? existingDesc.getAttribute("content") : "Short social summary.");
+            head.appendChild(el);
+          }
+          fixed = true;
+        } else if (issue.title === "Focus outline removed") {
+          const styleNodes = Array.from(doc.querySelectorAll("style"));
+          const rule = "\n    :focus-visible { outline: 2px solid #1f6aa5; outline-offset: 2px; }";
+          if (styleNodes.length > 0) {
+            styleNodes[styleNodes.length - 1].textContent += rule;
+          } else {
+            const el = doc.createElement("style");
+            el.textContent = rule.trim();
+            head.appendChild(el);
+          }
+          fixed = true;
+        }
+
+        (fixed ? autoFixed : manual).push(issue.title);
+      }
+
+      return {
+        fixedHead: head.outerHTML,
+        fixedHtml: "<!DOCTYPE html>\n" + doc.documentElement.outerHTML,
+        autoFixed,
+        manual
+      };
+    }
+
+    function showFixModal() {
+      if (!currentReport || !currentHtml) return;
+      const baseUrl = currentReport.source !== "pasted HTML" ? currentReport.source : "";
+      const { fixedHead, fixedHtml, autoFixed, manual } = generateFix(currentHtml, baseUrl, currentReport.issues);
+
+      fixAutoList.innerHTML = autoFixed.length
+        ? autoFixed.map(t => `<li>${escapeHtml(t)}</li>`).join("")
+        : "<li>No automatically fixable issues found.</li>";
+      fixManualList.innerHTML = manual.length
+        ? manual.map(t => `<li>${escapeHtml(t)}</li>`).join("")
+        : "<li>None — all detected issues were applied.</li>";
+
+      fixHeadOutput.value = fixedHead;
+      fixFullOutput.value = fixedHtml;
+      fixHeadOutput.removeAttribute("hidden");
+      fixFullOutput.setAttribute("hidden", "");
+      fixTabs.forEach(tab => tab.classList.toggle("active", tab.dataset.output === "head"));
+      fixCopied.setAttribute("hidden", "");
+      fixModal.removeAttribute("hidden");
+    }
+
+    fixBtn.addEventListener("click", showFixModal);
+
+    fixModalClose.addEventListener("click", () => fixModal.setAttribute("hidden", ""));
+
+    fixModal.addEventListener("click", event => {
+      if (event.target === fixModal) fixModal.setAttribute("hidden", "");
+    });
+
+    fixTabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        fixTabs.forEach(t => t.classList.toggle("active", t === tab));
+        const showFull = tab.dataset.output === "full";
+        fixHeadOutput.toggleAttribute("hidden", showFull);
+        fixFullOutput.toggleAttribute("hidden", !showFull);
+        fixCopied.setAttribute("hidden", "");
+      });
+    });
+
+    fixCopyBtn.addEventListener("click", () => {
+      const active = fixFullOutput.hidden ? fixHeadOutput : fixFullOutput;
+      navigator.clipboard.writeText(active.value).then(() => {
+        fixCopied.removeAttribute("hidden");
+        setTimeout(() => fixCopied.setAttribute("hidden", ""), 2000);
+      });
+    });
   </script>
 </body>
 </html>
