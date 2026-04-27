@@ -7,7 +7,8 @@ Author: Mattias Camner
 ## Overview
 
 This repository contains browser-based prototypes for exploring endpoint
-readiness, macOS compliance, fleet visibility, and certificate expiry risk.
+readiness, macOS compliance, fleet visibility, certificate expiry risk, and
+lightweight asset recovery workflows.
 
 The prototypes are intentionally lightweight:
 
@@ -15,6 +16,7 @@ The prototypes are intentionally lightweight:
 - No build step
 - Demo/sample data when no local helper is available
 - Optional Python helper agents for live local or fleet data
+- Browser-only utility flows where possible
 
 ## Prototypes
 
@@ -60,8 +62,14 @@ when available.
 
 File: `docs/MQ Asset Downloader.html`
 
-Scans a public Squarespace page URL for image assets, shows selectable previews,
-and downloads selected images as a zip archive with a manifest.
+Scans a public page URL for image assets, shows selectable previews in a
+Photoshop-inspired workspace, and downloads selected images as a zip archive
+with a manifest.
+
+Supports a broad "all websites / other builders" mode plus a narrower
+Squarespace asset filter. It can discover common image sources such as `img`,
+`srcset`, lazy-load data attributes, metadata images, links, and CSS background
+images when present in the fetched or pasted HTML.
 
 Open the landing page:
 
@@ -172,6 +180,9 @@ design-prototyp/
 - `docs/README-macOS-Enterprise-Dashboard.md`
 - `docs/README-Certificate-Expiry-Timeline.md`
 - `tools/mqmirror/README.md`
+
+The MQ Asset Downloader is documented inline in the tool UI and runs as a
+standalone browser page.
 
 ## Tools
 
