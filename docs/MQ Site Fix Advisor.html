@@ -134,6 +134,77 @@
       background: rgba(255, 255, 255, 0.13);
     }
 
+    .guide-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 255, 255, 0.45);
+      background: rgba(255, 255, 255, 0.12);
+      color: #dce9f5;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .guide-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.7);
+    }
+
+    .guide-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .guide-step {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: start;
+    }
+
+    .guide-step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .guide-step-body strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 3px;
+      color: var(--ink);
+    }
+
+    .guide-step-body p {
+      margin: 0;
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .guide-divider {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 4px 0;
+    }
+
     .toolbar {
       display: flex;
       align-items: center;
@@ -692,6 +763,7 @@
       <nav class="toplinks" aria-label="Page links">
         <a href="./index.html">Inventory</a>
         <a href="./MQ%20Asset%20Downloader.html">Asset Downloader</a>
+        <button id="guideBtn" class="guide-btn" type="button" aria-label="Open user guide">?</button>
       </nav>
     </header>
 
@@ -1589,6 +1661,66 @@
     render();
   </script>
 
+  <div id="guideModal" class="modal-overlay" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="guideModalTitle" style="max-width:560px">
+      <div class="modal-header">
+        <span id="guideModalTitle" class="pane-title">How to use MQ Site Fix Advisor</span>
+        <button id="guideModalClose" class="button" type="button">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="guide-steps">
+          <div class="guide-step">
+            <div class="guide-step-num">1</div>
+            <div class="guide-step-body">
+              <strong>Enter a URL or paste HTML</strong>
+              <p>Type a public page URL in the URL field and press Enter or click <em>Run audit</em>. If the page blocks browser fetching (CORS), copy the page source and paste it into the HTML textarea instead.</p>
+            </div>
+          </div>
+          <hr class="guide-divider">
+          <div class="guide-step">
+            <div class="guide-step-num">2</div>
+            <div class="guide-step-body">
+              <strong>Pick a fetch mode if needed</strong>
+              <p><em>Auto fallback</em> tries four proxy services in order — it works for most pages. If a specific proxy is more reliable for your site, select it directly from the dropdown.</p>
+            </div>
+          </div>
+          <hr class="guide-divider">
+          <div class="guide-step">
+            <div class="guide-step-num">3</div>
+            <div class="guide-step-body">
+              <strong>Choose which checks to run</strong>
+              <p>Toggle SEO, Images, Links, and CSS checks on or off before scanning. Uncheck categories that are not relevant to your current task to reduce noise.</p>
+            </div>
+          </div>
+          <hr class="guide-divider">
+          <div class="guide-step">
+            <div class="guide-step-num">4</div>
+            <div class="guide-step-body">
+              <strong>Read the results</strong>
+              <p>Click any row in the issue table to see the explanation, recommended fix, code snippet, and platform-specific note in the right panel. Use the tabs (SEO / Images / Links / CSS) to filter by category.</p>
+            </div>
+          </div>
+          <hr class="guide-divider">
+          <div class="guide-step">
+            <div class="guide-step-num">5</div>
+            <div class="guide-step-body">
+              <strong>Generate fix</strong>
+              <p>Click <em>Generate fix</em> to get a corrected version of the page's <code>&lt;head&gt;</code> with all automatically fixable issues already applied — ready to copy and paste. Switch to <em>Full HTML</em> to get the complete fixed page source.</p>
+            </div>
+          </div>
+          <hr class="guide-divider">
+          <div class="guide-step">
+            <div class="guide-step-num">6</div>
+            <div class="guide-step-body">
+              <strong>Export the report</strong>
+              <p>Click <em>Export JSON</em> to download the full audit report as a JSON file — useful for sharing with a developer or keeping a record of the page's state before changes.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="fixModal" class="modal-overlay" hidden>
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="fixModalTitle">
       <div class="modal-header">
@@ -1621,6 +1753,9 @@
   </div>
 
   <script>
+    const guideBtn       = document.getElementById("guideBtn");
+    const guideModal     = document.getElementById("guideModal");
+    const guideModalClose = document.getElementById("guideModalClose");
     const fixModal       = document.getElementById("fixModal");
     const fixModalClose  = document.getElementById("fixModalClose");
     const fixAutoList    = document.getElementById("fixAutoList");
@@ -1724,6 +1859,12 @@
       fixCopied.setAttribute("hidden", "");
       fixModal.removeAttribute("hidden");
     }
+
+    guideBtn.addEventListener("click", () => guideModal.removeAttribute("hidden"));
+    guideModalClose.addEventListener("click", () => guideModal.setAttribute("hidden", ""));
+    guideModal.addEventListener("click", event => {
+      if (event.target === guideModal) guideModal.setAttribute("hidden", "");
+    });
 
     fixBtn.addEventListener("click", showFixModal);
 
