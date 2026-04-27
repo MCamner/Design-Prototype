@@ -7,25 +7,26 @@
   <meta name="description" content="Audit a public page or pasted HTML for SEO, image, link, and CSS issues with practical fix guidance.">
   <style>
     :root {
-      --bg: #d8dde3;
-      --chrome: #365c7f;
-      --chrome-dark: #243f5b;
-      --chrome-light: #4f7fa9;
-      --panel: #f5f7f9;
-      --panel-2: #e9edf2;
-      --panel-3: #dfe5eb;
-      --ink: #1e2b36;
-      --muted: #5f6f7d;
-      --line: #aeb9c4;
-      --line-dark: #738292;
-      --accent: #1f6aa5;
-      --accent-2: #5b8f22;
-      --critical: #a3332b;
-      --warning: #a36a00;
-      --info: #23649c;
-      --good: #38772a;
-      --shadow: 0 14px 38px rgba(35, 55, 73, 0.22);
+      --bg: #eef3f7;
+      --chrome: #244b68;
+      --chrome-dark: #16344d;
+      --chrome-light: #3e759c;
+      --panel: #ffffff;
+      --panel-2: #f6f9fc;
+      --panel-3: #e7eef5;
+      --ink: #172838;
+      --muted: #617383;
+      --line: #d5e0ea;
+      --line-dark: #a8bac9;
+      --accent: #1577b8;
+      --accent-2: #2c946f;
+      --critical: #c2413a;
+      --warning: #b8750a;
+      --info: #286fa7;
+      --good: #2d7c48;
+      --shadow: 0 24px 60px rgba(35, 55, 73, 0.16);
       --max: 1460px;
+      --radius: 12px;
     }
 
     * { box-sizing: border-box; }
@@ -34,7 +35,8 @@
       margin: 0;
       color: var(--ink);
       background:
-        linear-gradient(#eef2f6 0, #d5dce4 160px, #c8d0d9 100%);
+        radial-gradient(circle at 16% 0%, rgba(21, 119, 184, 0.16), transparent 28%),
+        linear-gradient(180deg, #f7fbff 0, #e9f0f6 42%, #dfe7ef 100%);
       font-family: Arial, Helvetica, sans-serif;
       font-size: 14px;
       line-height: 1.45;
@@ -56,54 +58,64 @@
       width: min(var(--max), calc(100% - 24px));
       min-height: calc(100vh - 24px);
       margin: 12px auto;
-      border: 1px solid #7b8da0;
-      background: var(--panel);
+      border: 1px solid rgba(104, 130, 150, 0.38);
+      border-radius: 18px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.82);
       box-shadow: var(--shadow);
     }
 
     .topbar {
-      min-height: 48px;
+      min-height: 58px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 18px;
-      padding: 0 14px;
+      padding: 0 18px;
       color: #fff;
-      background: linear-gradient(#4b7ba5, #2f5478);
-      border-bottom: 1px solid #193650;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 42%),
+        linear-gradient(90deg, var(--chrome-dark), var(--chrome), var(--chrome-light));
+      border-bottom: 1px solid rgba(12, 39, 61, 0.54);
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 12px;
       font-weight: 700;
     }
 
     .brand-mark {
-      width: 30px;
-      height: 30px;
+      width: 34px;
+      height: 34px;
       display: grid;
       place-items: center;
       color: #12324d;
-      background: linear-gradient(#f8fbff, #c8d7e5);
-      border: 1px solid rgba(0, 0, 0, 0.3);
-      border-radius: 3px;
+      background: linear-gradient(#ffffff, #cfe2f0);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 9px;
       font-size: 0.78rem;
       font-weight: 800;
+      box-shadow: inset 0 -1px 0 rgba(12, 39, 61, 0.2);
     }
 
     .toplinks {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
+      gap: 8px;
       color: #dce9f5;
       font-size: 0.86rem;
     }
 
+    .toplinks a {
+      padding: 6px 9px;
+      border-radius: 999px;
+    }
+
     .toplinks a:hover {
       color: #fff;
-      text-decoration: underline;
+      background: rgba(255, 255, 255, 0.13);
     }
 
     .toolbar {
@@ -111,47 +123,48 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 9px 12px;
-      background: linear-gradient(#f8fafc, #dce3ea);
+      padding: 11px 16px;
+      background: rgba(246, 249, 252, 0.94);
       border-bottom: 1px solid var(--line);
     }
 
     .crumbs {
-      color: #304b62;
+      color: #456174;
       font-size: 0.82rem;
       font-weight: 700;
     }
 
     .toolbar-actions {
       display: flex;
-      gap: 8px;
+      gap: 10px;
       flex-wrap: wrap;
     }
 
     .button {
-      min-height: 30px;
-      padding: 5px 12px;
-      border: 1px solid #7b8997;
-      border-radius: 2px;
-      color: #19354d;
-      background: linear-gradient(#fff, #dce5ee);
+      min-height: 34px;
+      padding: 7px 13px;
+      border: 1px solid #bfd0de;
+      border-radius: 9px;
+      color: #234158;
+      background: linear-gradient(#ffffff, #eef4f8);
       cursor: pointer;
       font-weight: 700;
+      box-shadow: 0 1px 2px rgba(35, 55, 73, 0.08);
     }
 
     .button:hover {
-      border-color: #46657f;
-      background: linear-gradient(#fff, #cfdce7);
+      border-color: #8fb0c8;
+      background: linear-gradient(#fff, #e4eef6);
     }
 
     .button-primary {
       color: #fff;
-      background: linear-gradient(#3d8bc6, #1d6096);
-      border-color: #164c77;
+      background: linear-gradient(#2390d5, #126aa7);
+      border-color: #116093;
     }
 
     .button-primary:hover {
-      background: linear-gradient(#4b9bd8, #236ca8);
+      background: linear-gradient(#36a1e5, #1879ba);
     }
 
     .button:disabled {
@@ -161,39 +174,41 @@
 
     .layout {
       display: grid;
-      grid-template-columns: 330px minmax(0, 1fr);
+      grid-template-columns: 340px minmax(0, 1fr);
       min-height: calc(100vh - 132px);
+      gap: 0;
     }
 
     .sidebar {
-      background: #e7ecf1;
-      border-right: 1px solid var(--line-dark);
+      background: linear-gradient(180deg, #f7fafc, #edf3f8);
+      border-right: 1px solid var(--line);
     }
 
     .pane-title {
-      padding: 8px 10px;
-      color: #fff;
-      background: linear-gradient(#557f9f, #345d7f);
-      border-bottom: 1px solid #234763;
+      padding: 10px 14px;
+      color: #244359;
+      background: linear-gradient(#ffffff, #edf4f9);
+      border-bottom: 1px solid var(--line);
       font-size: 0.82rem;
       font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
     .sidebar-body {
-      padding: 12px;
+      padding: 16px;
     }
 
     .field {
       display: grid;
-      gap: 6px;
-      margin-bottom: 12px;
+      gap: 7px;
+      margin-bottom: 14px;
     }
 
     label,
     .label {
       color: #263d51;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       font-weight: 700;
     }
 
@@ -202,17 +217,17 @@
     select,
     textarea {
       width: 100%;
-      min-height: 32px;
-      border: 1px solid #96a5b3;
-      border-radius: 2px;
+      min-height: 38px;
+      border: 1px solid #c5d3df;
+      border-radius: 9px;
       background: #fff;
       color: var(--ink);
-      padding: 6px 8px;
+      padding: 8px 10px;
       outline: none;
     }
 
     textarea {
-      min-height: 160px;
+      min-height: 176px;
       resize: vertical;
       font-family: Consolas, Menlo, ui-monospace, monospace;
       font-size: 0.78rem;
@@ -222,13 +237,13 @@
     select:focus,
     textarea:focus {
       border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(31, 106, 165, 0.16);
+      box-shadow: 0 0 0 3px rgba(21, 119, 184, 0.16);
     }
 
     .checks {
       display: grid;
-      gap: 7px;
-      margin: 12px 0;
+      gap: 8px;
+      margin: 14px 0;
       color: var(--ink);
       font-size: 0.85rem;
     }
@@ -237,6 +252,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      padding: 4px 0;
     }
 
     input[type="checkbox"] {
@@ -246,13 +262,13 @@
     }
 
     .status {
-      min-height: 36px;
-      margin-top: 12px;
-      padding: 8px;
+      min-height: 42px;
+      margin-top: 14px;
+      padding: 10px 11px;
       color: #29445a;
-      background: #f9fbfd;
+      background: #fff;
       border: 1px solid var(--line);
-      border-radius: 2px;
+      border-radius: 10px;
       font-size: 0.84rem;
     }
 
@@ -262,10 +278,11 @@
 
     .note {
       margin: 12px 0 0;
-      padding: 9px;
+      padding: 11px;
       color: var(--muted);
-      background: #f7f9fb;
+      background: rgba(255, 255, 255, 0.72);
       border: 1px solid var(--line);
+      border-radius: 10px;
       font-size: 0.8rem;
     }
 
@@ -273,26 +290,29 @@
       min-width: 0;
       display: grid;
       grid-template-rows: auto auto minmax(0, 1fr);
-      background: #f4f6f8;
+      background: #f4f8fb;
     }
 
     .summary {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 1px;
-      padding: 1px;
-      background: var(--line);
-      border-bottom: 1px solid var(--line-dark);
+      gap: 12px;
+      padding: 16px;
+      background: #f4f8fb;
+      border-bottom: 1px solid var(--line);
     }
 
     .stat {
-      padding: 12px;
-      background: linear-gradient(#fff, #edf2f6);
+      padding: 14px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(35, 55, 73, 0.06);
     }
 
     .stat strong {
       display: block;
-      font-size: 1.55rem;
+      font-size: 1.65rem;
       line-height: 1;
     }
 
@@ -306,47 +326,51 @@
 
     .tabs {
       display: flex;
-      gap: 0;
-      padding: 9px 10px 0;
-      background: #dce3ea;
-      border-bottom: 1px solid #9aa8b6;
+      gap: 8px;
+      padding: 0 16px 13px;
+      background: #f4f8fb;
+      border-bottom: 1px solid var(--line);
       overflow: auto;
     }
 
     .tab {
-      min-height: 32px;
-      padding: 7px 13px;
-      border: 1px solid #9aa8b6;
-      border-bottom: 0;
-      background: linear-gradient(#f8fafc, #cfd9e2);
+      min-height: 34px;
+      padding: 7px 14px;
+      border: 1px solid #c5d3df;
+      border-radius: 999px;
+      background: #fff;
       color: #2d4a63;
       cursor: pointer;
       font-weight: 700;
     }
 
     .tab.active {
-      background: #f4f6f8;
-      color: #142b3f;
-      position: relative;
-      top: 1px;
+      background: #dff0fb;
+      border-color: #90bfdf;
+      color: #0f5f95;
     }
 
     .main-grid {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(0, 1.25fr) 390px;
+      grid-template-columns: minmax(0, 1.25fr) 410px;
+      gap: 16px;
+      padding: 16px;
     }
 
     .table-wrap {
       min-width: 0;
       overflow: auto;
-      border-right: 1px solid var(--line);
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 26px rgba(35, 55, 73, 0.07);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      background: #fff;
+      background: transparent;
       font-size: 0.84rem;
     }
 
@@ -354,19 +378,19 @@
       position: sticky;
       top: 0;
       z-index: 1;
-      padding: 8px 9px;
+      padding: 10px 11px;
       color: #243c50;
-      background: linear-gradient(#eef3f7, #cfd9e2);
-      border-bottom: 1px solid var(--line-dark);
-      border-right: 1px solid var(--line);
+      background: #f3f7fa;
+      border-bottom: 1px solid var(--line);
+      border-right: 0;
       text-align: left;
       white-space: nowrap;
     }
 
     td {
-      padding: 8px 9px;
-      border-bottom: 1px solid #e1e6eb;
-      border-right: 1px solid #edf1f4;
+      padding: 10px 11px;
+      border-bottom: 1px solid #edf2f6;
+      border-right: 0;
       vertical-align: top;
     }
 
@@ -379,14 +403,14 @@
     }
 
     tr.selected td {
-      background: #dceeff;
+      background: #e2f2ff;
     }
 
     .severity {
       display: inline-flex;
       min-width: 68px;
       justify-content: center;
-      padding: 2px 7px;
+      padding: 3px 8px;
       border-radius: 999px;
       color: #fff;
       font-size: 0.72rem;
@@ -414,16 +438,20 @@
 
     .details {
       min-width: 0;
-      background: #eef2f5;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 26px rgba(35, 55, 73, 0.07);
+      overflow: hidden;
     }
 
     .details-body {
-      padding: 12px;
+      padding: 14px;
     }
 
     .details h2 {
       margin: 0 0 8px;
-      font-size: 1.05rem;
+      font-size: 1.1rem;
       color: #1d3f5a;
     }
 
@@ -434,9 +462,10 @@
 
     .fix-box {
       margin-top: 10px;
-      padding: 10px;
+      padding: 12px;
       background: #fff;
       border: 1px solid var(--line);
+      border-radius: 11px;
     }
 
     .fix-box h3 {
@@ -450,8 +479,9 @@
       padding: 10px;
       overflow: auto;
       color: #14324a;
-      background: #f0f4f8;
-      border: 1px solid #c6d1dc;
+      background: #f5f8fb;
+      border: 1px solid #d3e0ea;
+      border-radius: 9px;
       font-family: Consolas, Menlo, ui-monospace, monospace;
       font-size: 0.78rem;
       white-space: pre-wrap;
@@ -464,6 +494,7 @@
       padding: 24px;
       color: var(--muted);
       text-align: center;
+      background: #fff;
     }
 
     @media (max-width: 1040px) {
@@ -478,7 +509,7 @@
       }
 
       .table-wrap {
-        border-right: 0;
+        border-right: 1px solid var(--line);
       }
 
       .summary {
@@ -761,6 +792,90 @@
       });
     }
 
+    function lineStarts(html) {
+      const starts = [0];
+      for (let i = 0; i < html.length; i += 1) {
+        if (html[i] === "\n") starts.push(i + 1);
+      }
+      return starts;
+    }
+
+    function lineNumberForIndex(starts, index) {
+      if (index < 0) return "";
+      let low = 0;
+      let high = starts.length - 1;
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        if (starts[mid] <= index) low = mid + 1;
+        else high = mid - 1;
+      }
+      return high + 1;
+    }
+
+    function compactHtml(value) {
+      return String(value || "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 180);
+    }
+
+    function nodePath(node) {
+      if (!node || !node.tagName) return "document";
+      const parts = [];
+      let current = node;
+      while (current && current.tagName && current.tagName.toLowerCase() !== "html") {
+        let part = current.tagName.toLowerCase();
+        if (current.id) {
+          part += `#${current.id}`;
+          parts.unshift(part);
+          break;
+        }
+        const classNames = String(current.className || "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 2);
+        if (classNames.length) part += `.${classNames.join(".")}`;
+        const parent = current.parentElement;
+        if (parent) {
+          const siblings = Array.from(parent.children).filter(item => item.tagName === current.tagName);
+          if (siblings.length > 1) part += `:nth-of-type(${siblings.indexOf(current) + 1})`;
+        }
+        parts.unshift(part);
+        current = parent;
+      }
+      return parts.join(" > ") || "document";
+    }
+
+    function makeLocator(html, starts) {
+      const usedIndexes = new Set();
+      return function locate(node, fallback = "document") {
+        if (!node) return fallback;
+        const outer = node.outerHTML || "";
+        let index = -1;
+        if (outer) {
+          index = html.indexOf(outer);
+          if (index > -1 && usedIndexes.has(index)) {
+            index = html.indexOf(outer, index + outer.length);
+          }
+          if (index > -1) usedIndexes.add(index);
+        }
+        const line = lineNumberForIndex(starts, index);
+        const prefix = line ? `line ${line}` : fallback;
+        const path = nodePath(node);
+        const excerpt = compactHtml(outer);
+        return excerpt ? `${prefix} · ${path} · ${excerpt}` : `${prefix} · ${path}`;
+      };
+    }
+
+    function cssRuleLocation(styleText, styleNodes, locate, pattern, fallback) {
+      const match = styleText.match(pattern);
+      const excerpt = match ? compactHtml(styleText.slice(Math.max(0, match.index - 70), match.index + 120)) : "";
+      const styleNode = styleNodes[0];
+      const base = styleNode ? locate(styleNode, fallback) : fallback;
+      return excerpt ? `${base} · rule: ${excerpt}` : base;
+    }
+
     function textOf(node) {
       return (node ? node.textContent : "").trim();
     }
@@ -769,22 +884,31 @@
       return node ? (node.getAttribute(name) || "").trim() : "";
     }
 
-    function analyzeSeo(doc, list) {
-      const title = textOf(doc.querySelector("title"));
-      const description = attr(doc.querySelector('meta[name="description"]'), "content");
+    function analyzeSeo(doc, list, locate) {
+      const titleNode = doc.querySelector("title");
+      const descriptionNode = doc.querySelector('meta[name="description"]');
+      const canonicalNode = doc.querySelector('link[rel="canonical"]');
+      const viewportNode = doc.querySelector('meta[name="viewport"]');
+      const ogTitleNode = doc.querySelector('meta[property="og:title"]');
+      const ogDescriptionNode = doc.querySelector('meta[property="og:description"]');
+      const ogImageNode = doc.querySelector('meta[property="og:image"]');
+      const headNode = doc.querySelector("head");
+      const bodyNode = doc.querySelector("body");
+      const title = textOf(titleNode);
+      const description = attr(descriptionNode, "content");
       const h1s = Array.from(doc.querySelectorAll("h1"));
-      const canonical = attr(doc.querySelector('link[rel="canonical"]'), "href");
-      const ogTitle = attr(doc.querySelector('meta[property="og:title"]'), "content");
-      const ogDescription = attr(doc.querySelector('meta[property="og:description"]'), "content");
-      const ogImage = attr(doc.querySelector('meta[property="og:image"]'), "content");
-      const viewport = attr(doc.querySelector('meta[name="viewport"]'), "content");
+      const canonical = attr(canonicalNode, "href");
+      const ogTitle = attr(ogTitleNode, "content");
+      const ogDescription = attr(ogDescriptionNode, "content");
+      const ogImage = attr(ogImageNode, "content");
+      const viewport = attr(viewportNode, "content");
 
       if (!title) {
         addIssue(list, {
           severity: "High",
           category: "SEO",
           title: "Missing page title",
-          location: "<head>",
+          location: locate(headNode, "<head>"),
           explanation: "Search engines and browser tabs need a unique page title.",
           fix: "Add a concise, unique title that describes the page. Aim for roughly 50-60 characters.",
           snippet: "<title>Your page name | Brand</title>"
@@ -794,7 +918,7 @@
           severity: "Medium",
           category: "SEO",
           title: "Page title length needs review",
-          location: `<title>${title}</title>`,
+          location: locate(titleNode, `<title>${title}</title>`),
           explanation: "Very short or very long titles are harder to scan in search results.",
           fix: "Rewrite the title so the primary topic appears first and the brand appears last.",
           snippet: `<title>${title.length < 10 ? "Specific service or product | Brand" : title.slice(0, 58)}</title>`
@@ -806,7 +930,7 @@
           severity: "High",
           category: "SEO",
           title: "Missing meta description",
-          location: '<meta name="description">',
+          location: locate(headNode, '<meta name="description">'),
           explanation: "A missing description gives search engines less useful summary text.",
           fix: "Add a clear 140-160 character summary with the page value and main keyword.",
           snippet: '<meta name="description" content="Describe the page clearly in one useful sentence.">'
@@ -816,7 +940,7 @@
           severity: "Medium",
           category: "SEO",
           title: "Meta description length needs review",
-          location: description,
+          location: locate(descriptionNode, description),
           explanation: "Descriptions that are too short or too long often perform poorly in snippets.",
           fix: "Rewrite the description as one natural sentence, roughly 140-160 characters.",
           snippet: '<meta name="description" content="A specific, human-readable summary of this page and why it matters.">'
@@ -828,7 +952,7 @@
           severity: "High",
           category: "SEO",
           title: "Missing H1 heading",
-          location: "<body>",
+          location: locate(bodyNode, "<body>"),
           explanation: "A page should have a clear primary heading.",
           fix: "Add one visible H1 that matches the page topic.",
           snippet: "<h1>Main page topic</h1>"
@@ -838,7 +962,7 @@
           severity: "Medium",
           category: "SEO",
           title: "Multiple H1 headings",
-          location: h1s.map(item => textOf(item)).join(" | "),
+          location: h1s.map(item => locate(item, textOf(item))).join(" | "),
           explanation: "Multiple H1s can blur page hierarchy.",
           fix: "Keep one H1. Change secondary major headings to H2 or H3.",
           snippet: "<h1>Main page topic</h1>\n<h2>Secondary section</h2>"
@@ -850,7 +974,7 @@
           severity: "Low",
           category: "SEO",
           title: "Missing canonical URL",
-          location: "<head>",
+          location: locate(headNode, "<head>"),
           explanation: "Canonical URLs help avoid duplicate-content ambiguity.",
           fix: "Add a canonical link for important public pages.",
           snippet: '<link rel="canonical" href="https://example.com/current-page">'
@@ -862,7 +986,7 @@
           severity: "High",
           category: "SEO",
           title: "Missing responsive viewport meta",
-          location: "<head>",
+          location: locate(headNode, "<head>"),
           explanation: "Without viewport meta, mobile rendering can be broken.",
           fix: "Add the standard responsive viewport tag.",
           snippet: '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -874,7 +998,7 @@
           severity: "Low",
           category: "SEO",
           title: "Incomplete Open Graph metadata",
-          location: "<head>",
+          location: locate(headNode, "<head>"),
           explanation: "Shared links look better when title, description, and image are explicit.",
           fix: "Add the missing Open Graph tags for social previews.",
           snippet: '<meta property="og:title" content="Page title">\n<meta property="og:description" content="Short social summary">\n<meta property="og:image" content="https://example.com/social-image.jpg">'
@@ -891,7 +1015,7 @@
       return "";
     }
 
-    function analyzeImages(doc, baseUrl, list, inventory) {
+    function analyzeImages(doc, baseUrl, list, inventory, locate) {
       const images = Array.from(doc.querySelectorAll("img"));
       images.forEach((img, index) => {
         const url = imageUrlFrom(img, baseUrl);
@@ -903,7 +1027,7 @@
             severity: "High",
             category: "Images",
             title: "Image has no usable source",
-            location: `img #${index + 1}`,
+            location: locate(img, `img #${index + 1}`),
             explanation: "An image without src or a known lazy-load source cannot reliably render.",
             fix: "Set a valid src, or ensure the lazy-load attribute is populated by the builder.",
             snippet: '<img src="/path/image.jpg" alt="Describe the image">'
@@ -915,7 +1039,7 @@
             severity: "Medium",
             category: "Images",
             title: "Image missing alt attribute",
-            location: url || `img #${index + 1}`,
+            location: locate(img, url || `img #${index + 1}`),
             explanation: "Screen readers and search engines need alt text for meaningful images.",
             fix: "Add descriptive alt text. Use empty alt only when the image is purely decorative.",
             snippet: '<img src="/path/image.jpg" alt="Short description of the image">'
@@ -925,7 +1049,7 @@
             severity: "Low",
             category: "Images",
             title: "Image has empty alt text",
-            location: url || `img #${index + 1}`,
+            location: locate(img, url || `img #${index + 1}`),
             explanation: "Empty alt is correct for decorative images, but should be reviewed for content images.",
             fix: "If the image communicates information, replace empty alt with a useful description.",
             snippet: '<img src="/path/image.jpg" alt="Product dashboard showing renewal status">'
@@ -937,7 +1061,7 @@
             severity: "High",
             category: "Images",
             title: "Image uses insecure HTTP",
-            location: url,
+            location: locate(img, url),
             explanation: "HTTP image resources can be blocked on HTTPS pages and weaken trust.",
             fix: "Replace the image URL with HTTPS or re-upload it to the site's asset library.",
             snippet: url.replace(/^http:\/\//, "https://")
@@ -951,7 +1075,7 @@
             severity: "Medium",
             category: "Images",
             title: "Large image dimensions",
-            location: url || `img #${index + 1}`,
+            location: locate(img, url || `img #${index + 1}`),
             explanation: "Oversized images can slow down page rendering.",
             fix: "Export a smaller version and use responsive image variants with srcset.",
             snippet: '<img src="/image-1200.webp" srcset="/image-800.webp 800w, /image-1200.webp 1200w" sizes="100vw" alt="Description">'
@@ -960,7 +1084,7 @@
       });
     }
 
-    function analyzeLinks(doc, baseUrl, list, inventory) {
+    function analyzeLinks(doc, baseUrl, list, inventory, locate) {
       const links = Array.from(doc.querySelectorAll("a[href], script[src], link[href]"));
       links.forEach((node, index) => {
         const raw = attr(node, node.tagName.toLowerCase() === "script" ? "src" : "href");
@@ -979,7 +1103,7 @@
             severity: "Medium",
             category: "Links",
             title: "Empty or placeholder link",
-            location: node.outerHTML.slice(0, 120),
+            location: locate(node, node.outerHTML.slice(0, 120)),
             explanation: "Placeholder links create dead navigation and poor accessibility.",
             fix: "Replace the href with a real destination or remove the link until it is ready.",
             snippet: '<a href="/contact">Contact</a>'
@@ -991,7 +1115,7 @@
             severity: "High",
             category: "Links",
             title: "Insecure HTTP resource or link",
-            location: url,
+            location: locate(node, url),
             explanation: "HTTP resources can create mixed-content warnings or blocked requests.",
             fix: "Use HTTPS where available. If the target has no HTTPS, replace the provider or host the asset securely.",
             snippet: url.replace(/^http:\/\//, "https://")
@@ -1003,7 +1127,7 @@
             severity: "Medium",
             category: "Links",
             title: "Link has no accessible text",
-            location: url || `link #${index + 1}`,
+            location: locate(node, url || `link #${index + 1}`),
             explanation: "Icon-only or empty links need readable text or an aria-label.",
             fix: "Add visible text or an aria-label that names the destination.",
             snippet: '<a href="/pricing" aria-label="Open pricing page">...</a>'
@@ -1012,7 +1136,7 @@
       });
     }
 
-    function analyzeCss(doc, baseUrl, list, inventory) {
+    function analyzeCss(doc, baseUrl, list, inventory, locate) {
       const stylesheets = Array.from(doc.querySelectorAll('link[rel~="stylesheet"][href]'));
       stylesheets.forEach(link => {
         const url = absolutize(attr(link, "href"), baseUrl);
@@ -1022,7 +1146,7 @@
             severity: "High",
             category: "CSS",
             title: "Stylesheet uses insecure HTTP",
-            location: url,
+            location: locate(link, url),
             explanation: "HTTP CSS can be blocked on HTTPS pages and break the layout.",
             fix: "Load the stylesheet over HTTPS or move the CSS into the site's secure asset system.",
             snippet: `<link rel="stylesheet" href="${url.replace(/^http:\/\//, "https://")}">`
@@ -1030,14 +1154,16 @@
         }
       });
 
-      const styleText = Array.from(doc.querySelectorAll("style")).map(node => node.textContent || "").join("\n");
+      const styleNodes = Array.from(doc.querySelectorAll("style"));
+      const styleText = styleNodes.map(node => node.textContent || "").join("\n");
+      const styleLocation = styleNodes[0] ? locate(styleNodes[0], "style tag") : "style tag";
       const inlineStyled = Array.from(doc.querySelectorAll("[style]"));
       if (inlineStyled.length > 20) {
         addIssue(list, {
           severity: "Low",
           category: "CSS",
           title: "Many inline styles",
-          location: `${inlineStyled.length} inline style attributes`,
+          location: `${inlineStyled.length} inline style attributes · first: ${locate(inlineStyled[0], "inline style")}`,
           explanation: "Heavy inline styling is hard to maintain and override.",
           fix: "Move repeated styling into reusable CSS classes or builder-level style settings.",
           snippet: '.feature-card { padding: 16px; border: 1px solid #d6dde5; }'
@@ -1049,7 +1175,7 @@
           severity: "Medium",
           category: "CSS",
           title: "Focus outline removed",
-          location: "style tag",
+          location: styleLocation,
           explanation: "Removing focus outlines can make keyboard navigation inaccessible.",
           fix: "Keep a visible focus style when removing the browser default.",
           snippet: ':focus-visible { outline: 2px solid #1f6aa5; outline-offset: 2px; }'
@@ -1061,7 +1187,7 @@
           severity: "Medium",
           category: "CSS",
           title: "Fixed desktop-width layout",
-          location: "CSS width rule",
+          location: cssRuleLocation(styleText, styleNodes, locate, /\bwidth\s*:\s*(?:9\d\d|[1-9]\d{3,})px/i, "CSS width rule"),
           explanation: "Large fixed pixel widths commonly cause mobile overflow.",
           fix: "Use fluid sizing with max-width instead of hard desktop widths.",
           snippet: '.container { width: min(100%, 1200px); max-width: 1200px; }'
@@ -1073,7 +1199,7 @@
           severity: "Low",
           category: "CSS",
           title: "Large fixed height",
-          location: "CSS height rule",
+          location: cssRuleLocation(styleText, styleNodes, locate, /\bheight\s*:\s*(?:6\d\d|[7-9]\d\d|[1-9]\d{3,})px/i, "CSS height rule"),
           explanation: "Large fixed heights can clip content on small screens.",
           fix: "Prefer min-height, content-driven layout, or responsive aspect-ratio.",
           snippet: '.hero-media { min-height: 420px; height: auto; aspect-ratio: 16 / 9; }'
@@ -1085,7 +1211,7 @@
           severity: "Low",
           category: "CSS",
           title: "Extreme z-index value",
-          location: "CSS z-index rule",
+          location: cssRuleLocation(styleText, styleNodes, locate, /\bz-index\s*:\s*[1-9]\d{4,}/i, "CSS z-index rule"),
           explanation: "Very high z-index values often signal stacking conflicts.",
           fix: "Create a small z-index scale and use it consistently.",
           snippet: ':root { --z-header: 10; --z-modal: 100; --z-toast: 200; }'
@@ -1097,7 +1223,7 @@
           severity: "Medium",
           category: "CSS",
           title: "Small font size",
-          location: "CSS font-size rule",
+          location: cssRuleLocation(styleText, styleNodes, locate, /\bfont-size\s*:\s*(?:[0-9]|10|11)px/i, "CSS font-size rule"),
           explanation: "Very small text is hard to read, especially on mobile.",
           fix: "Use at least 14-16px for body text and reserve smaller sizes for metadata.",
           snippet: 'body { font-size: 16px; line-height: 1.5; }'
@@ -1107,16 +1233,18 @@
 
     function analyze(html, baseUrl) {
       const doc = new DOMParser().parseFromString(html, "text/html");
+      const starts = lineStarts(html);
+      const locate = makeLocator(html, starts);
       const found = [];
       const inventory = {
         assets: new Set(),
         domains: new Set()
       };
 
-      if (checks.seo.checked) analyzeSeo(doc, found);
-      if (checks.images.checked) analyzeImages(doc, baseUrl, found, inventory);
-      if (checks.links.checked) analyzeLinks(doc, baseUrl, found, inventory);
-      if (checks.css.checked) analyzeCss(doc, baseUrl, found, inventory);
+      if (checks.seo.checked) analyzeSeo(doc, found, locate);
+      if (checks.images.checked) analyzeImages(doc, baseUrl, found, inventory, locate);
+      if (checks.links.checked) analyzeLinks(doc, baseUrl, found, inventory, locate);
+      if (checks.css.checked) analyzeCss(doc, baseUrl, found, inventory, locate);
 
       if (!found.length) {
         addIssue(found, {
@@ -1155,6 +1283,10 @@
       detailsBody.innerHTML = `
         <span class="severity ${severityClass(issue.severity)}">${issue.severity}</span>
         <h2>${escapeHtml(issue.title)}</h2>
+        <div class="fix-box">
+          <h3>Found at</h3>
+          <pre>${escapeHtml(issue.location)}</pre>
+        </div>
         <p>${escapeHtml(issue.explanation)}</p>
         <div class="fix-box">
           <h3>Fix</h3>
