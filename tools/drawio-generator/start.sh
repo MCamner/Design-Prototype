@@ -14,10 +14,24 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+set -a
+. ./.env
+set +a
+
+PYTHON_BIN="${PYTHON_BIN:-}"
+if [ -z "$PYTHON_BIN" ]; then
+  if [ -x /opt/homebrew/opt/python@3.11/libexec/bin/python3 ]; then
+    PYTHON_BIN=/opt/homebrew/opt/python@3.11/libexec/bin/python3
+  else
+    PYTHON_BIN=python3
+  fi
+fi
+
 echo "◈ Startar draw.io Diagramgenerator..."
-echo "  → OpenAI-modell: ${OPENAI_MODEL:-gpt-4o}"
+echo "  → OpenAI-modell: ${OPENAI_MODEL:-gpt-5-mini}"
+echo "  → Python: $("$PYTHON_BIN" --version 2>&1)"
 echo "  → http://localhost:${PORT:-5000}"
 echo "  (Ctrl+C för att stoppa)"
 echo ""
 
-python3 server.py
+"$PYTHON_BIN" server.py

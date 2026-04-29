@@ -500,7 +500,7 @@
       errorEl.classList.remove('visible');
       btn.disabled = true;
       btn.classList.add('loading');
-      document.getElementById('btn-text') && (document.getElementById('btn-text').textContent = 'Genererar...');
+      btn.querySelector('.btn-text').textContent = 'Genererar...';
 
       try {
         const response = await fetch('/generate', {
@@ -527,6 +527,7 @@
       } finally {
         btn.disabled = false;
         btn.classList.remove('loading');
+        btn.querySelector('.btn-text').textContent = 'Generera diagram-XML';
       }
     }
 
