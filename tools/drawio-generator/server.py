@@ -2,15 +2,25 @@ import os
 import re
 import xml.etree.ElementTree as ET
 from flask import Flask, request, jsonify, render_template
-from openai import OpenAI
-from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv:
+    load_dotenv()
 
 app = Flask(__name__)
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
+client = None
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5-mini")
 USE_OPENAI = os.environ.get("USE_OPENAI", "true").lower() not in {"0", "false", "no", "off"}
+
+if USE_OPENAI and OPENAI_API_KEY:
+    from openai import OpenAI
+
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
 COMPONENT_PATTERNS = [
     r"\b[A-Za-zÅÄÖåäö0-9.+#]+-(?:frontend|backend|api|server|cache)\b",
@@ -487,7 +497,7 @@ def generate():
     if diagram_type not in DIAGRAM_TYPES:
         return jsonify({"error": "Okänd diagramtyp"}), 400
 
-    if not USE_OPENAI or not os.environ.get("OPENAI_API_KEY"):
+    if not USE_OPENAI or client is None:
         return jsonify({
             "xml": local_diagram_xml(description, diagram_type),
             "source": "local",
