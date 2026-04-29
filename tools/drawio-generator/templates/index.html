@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>draw.io Diagramgenerator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #21263a;
+      --border: #2e3350;
+      --accent: #5b8af5;
+      --accent-hover: #7aa0ff;
+      --text: #e2e8f0;
+      --text-muted: #8892a4;
+      --success: #4ade80;
+      --error: #f87171;
+      --yellow: #fbbf24;
+      --radius: 12px;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 24px 40px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+    }
+
+    .logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    header p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      height: calc(100vh - 73px);
+    }
+
+    .panel {
+      padding: 32px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .panel-left {
+      border-right: 1px solid var(--border);
+    }
+
+    .panel-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    textarea {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 16px;
+      resize: vertical;
+      min-height: 200px;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      padding: 10px 14px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238892a4' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      cursor: pointer;
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .example-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 5px 12px;
+      transition: all 0.15s;
+    }
+
+    .example-chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-generate {
+      align-items: center;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: white;
+      cursor: pointer;
+      display: flex;
+      font-family: var(--font);
+      font-size: 15px;
+      font-weight: 600;
+      gap: 10px;
+      justify-content: center;
+      padding: 14px 24px;
+      transition: background 0.15s, transform 0.1s;
+      width: 100%;
+    }
+
+    .btn-generate:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-generate:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    .btn-generate:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading .spinner { display: block; }
+    .loading .btn-icon { display: none; }
+
+    /* Right panel */
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .output-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-action {
+      align-items: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 500;
+      gap: 6px;
+      padding: 7px 12px;
+      transition: all 0.15s;
+    }
+
+    .btn-action:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-action.success {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .xml-output {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: #a8c4e0;
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.6;
+      min-height: 300px;
+      overflow: auto;
+      padding: 20px;
+      position: relative;
+      white-space: pre;
+    }
+
+    .xml-output.empty {
+      align-items: center;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      justify-content: center;
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: 14px;
+      white-space: normal;
+      text-align: center;
+    }
+
+    .empty-icon {
+      font-size: 40px;
+      opacity: 0.4;
+    }
+
+    .drawio-link {
+      align-items: center;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      display: flex;
+      font-size: 12px;
+      gap: 8px;
+      padding: 10px 14px;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+
+    .drawio-link:hover {
+      border-color: var(--yellow);
+      color: var(--yellow);
+    }
+
+    .instructions {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+    }
+
+    .instructions h3 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .instructions ol {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.8;
+      padding-left: 18px;
+    }
+
+    .instructions ol li strong {
+      color: var(--text);
+    }
+
+    .error-msg {
+      background: rgba(248, 113, 113, 0.1);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+      border-radius: 8px;
+      color: var(--error);
+      font-size: 13px;
+      padding: 12px 16px;
+      display: none;
+    }
+
+    .error-msg.visible { display: block; }
+
+    /* XML syntax highlight */
+    .xml-tag { color: #7dd3fc; }
+    .xml-attr { color: #a5b4fc; }
+    .xml-value { color: #86efac; }
+    .xml-comment { color: #6b7280; font-style: italic; }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .panel-left { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">◈</div>
+    <h1>draw.io Diagramgenerator</h1>
+    <p>Beskriv → Generera → Kopiera → Rita</p>
+  </header>
+
+  <main>
+    <!-- Left: Input -->
+    <div class="panel panel-left">
+      <div class="panel-label">Indata</div>
+
+      <div class="field-group">
+        <label for="description">Beskriv din tekniska lösning</label>
+        <textarea
+          id="description"
+          placeholder="T.ex: Vi har en React-frontend som pratar med en Node.js API-server. API:t hämtar data från en PostgreSQL-databas och en Redis-cache. Externa tjänster inkluderar Stripe för betalningar och SendGrid för e-post..."
+          rows="8"
+        ></textarea>
+      </div>
+
+      <div class="field-group">
+        <label for="diagram-type">Diagramtyp</label>
+        <select id="diagram-type">
+          {% for key, label in diagram_types.items() %}
+          <option value="{{ key }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>Snabbexempel</label>
+        <div class="examples">
+          <button class="example-chip" onclick="setExample('microservices')">Microservices</button>
+          <button class="example-chip" onclick="setExample('auth')">Inloggningsflöde</button>
+          <button class="example-chip" onclick="setExample('ecommerce')">E-handel</button>
+          <button class="example-chip" onclick="setExample('cicd')">CI/CD Pipeline</button>
+          <button class="example-chip" onclick="setExample('class')">UML Klasser</button>
+          <button class="example-chip" onclick="setExample('er')">Databas ER</button>
+        </div>
+      </div>
+
+      <div id="error-msg" class="error-msg"></div>
+
+      <button class="btn-generate" id="generate-btn" onclick="generate()">
+        <span class="btn-icon">✦</span>
+        <span class="spinner"></span>
+        <span class="btn-text">Generera diagram-XML</span>
+      </button>
+    </div>
+
+    <!-- Right: Output -->
+    <div class="panel">
+      <div class="panel-label">Resultat</div>
+
+      <div class="output-header">
+        <label>draw.io XML</label>
+        <div class="output-actions">
+          <button class="btn-action" id="copy-btn" onclick="copyXml()" style="display:none">
+            <span>⧉</span> Kopiera XML
+          </button>
+          <a href="https://app.diagrams.net/" target="_blank" class="drawio-link" id="drawio-link" style="display:none">
+            <span>↗</span> Öppna draw.io
+          </a>
+        </div>
+      </div>
+
+      <div class="xml-output empty" id="xml-output">
+        <div class="empty-icon">◈</div>
+        <div>Beskriv din lösning och klicka på <strong>Generera</strong></div>
+        <div style="font-size:12px; opacity:0.6">XML:en klistrar du in i draw.io via<br>Extras → Edit Diagram</div>
+      </div>
+
+      <div class="instructions" id="instructions">
+        <h3>Hur du använder XML:en</h3>
+        <ol>
+          <li>Klicka <strong>Kopiera XML</strong> ovan</li>
+          <li>Öppna <strong>draw.io</strong> (app.diagrams.net)</li>
+          <li>Gå till <strong>Extras → Edit Diagram...</strong></li>
+          <li>Klistra in XML:en och klicka <strong>OK</strong></li>
+          <li>Diagrammet ritas upp automatiskt ✓</li>
+        </ol>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const EXAMPLES = {
+      microservices: {
+        type: 'architecture',
+        text: 'Vi har ett microservice-system med en API Gateway framför. Bakom den finns tre services: User Service, Order Service och Payment Service. Alla services kommunicerar asynkront via RabbitMQ. User Service och Order Service har egna PostgreSQL-databaser. Payment Service pratar med Stripe API. En Redis-cache delar sessions mellan services.'
+      },
+      auth: {
+        type: 'flowchart',
+        text: 'Inloggningsflöde: Användaren skickar användarnamn och lösenord. Systemet kollar om användaren finns i databasen. Om inte, returnera felmeddelande. Om ja, verifiera lösenordet med bcrypt. Om fel lösenord, öka felräknaren. Efter 5 försök, lås kontot i 30 minuter. Om rätt lösenord, generera JWT-token och returnera till klienten.'
+      },
+      ecommerce: {
+        type: 'architecture',
+        text: 'E-handelsplattform: React Next.js frontend med SSR. Backend i Node.js/Express. PostgreSQL för produkter och ordrar. Elasticsearch för produktsök. Redis för sessioner och cache. Stripe för betalningar. SendGrid för orderbekräftelser via e-post. AWS S3 för produktbilder. CloudFront CDN framför allt.'
+      },
+      cicd: {
+        type: 'flowchart',
+        text: 'CI/CD pipeline: Utvecklaren pushar kod till GitHub. GitHub Actions triggar. Steg 1: kör enhetstester. Steg 2: bygg Docker-image. Steg 3: push till ECR. Steg 4: kör integrationstester mot staging-miljö. Om allt går grönt: automatisk deploy till prod via Kubernetes rolling update. Vid fel: skicka Slack-notis till teamet.'
+      },
+      class: {
+        type: 'uml_class',
+        text: 'UML-diagram för ett bokningssystem: Klass User med attributen id, name, email, passwordHash och metoderna login(), logout(), updateProfile(). Klass Booking med id, userId, serviceId, startTime, endTime, status och metoderna confirm(), cancel(), reschedule(). Klass Service med id, name, duration, price och metoden getAvailability(). User har många Bookings. Booking refererar till en Service.'
+      },
+      er: {
+        type: 'er',
+        text: 'ER-diagram för ett projekthanteringssystem: Entitet Project med fälten id (PK), name, description, startDate, endDate, status. Entitet Task med id (PK), title, description, dueDate, priority, status, projectId (FK). Entitet User med id (PK), name, email, role. Entitet Comment med id (PK), text, createdAt, userId (FK), taskId (FK). User kan ha många Tasks (assignment). Task tillhör ett Project.'
+      }
+    };
+
+    function setExample(key) {
+      const ex = EXAMPLES[key];
+      document.getElementById('description').value = ex.text;
+      document.getElementById('diagram-type').value = ex.type;
+    }
+
+    let generatedXml = '';
+
+    async function generate() {
+      const description = document.getElementById('description').value.trim();
+      if (!description) {
+        showError('Ange en beskrivning av din tekniska lösning.');
+        return;
+      }
+
+      const btn = document.getElementById('generate-btn');
+      const errorEl = document.getElementById('error-msg');
+      errorEl.classList.remove('visible');
+      btn.disabled = true;
+      btn.classList.add('loading');
+      document.getElementById('btn-text') && (document.getElementById('btn-text').textContent = 'Genererar...');
+
+      try {
+        const response = await fetch('/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            description,
+            diagram_type: document.getElementById('diagram-type').value
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+          showError(data.error || 'Något gick fel. Försök igen.');
+          return;
+        }
+
+        generatedXml = data.xml;
+        displayXml(data.xml);
+
+      } catch (err) {
+        showError('Nätverksfel: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+
+    function displayXml(xml) {
+      const el = document.getElementById('xml-output');
+      el.classList.remove('empty');
+      el.innerHTML = syntaxHighlight(xml);
+
+      document.getElementById('copy-btn').style.display = 'flex';
+      document.getElementById('drawio-link').style.display = 'flex';
+    }
+
+    function syntaxHighlight(xml) {
+      return xml
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/&lt;!--[\s\S]*?--&gt;/g, m => `<span class="xml-comment">${m}</span>`)
+        .replace(/(&lt;\/?)([\w:]+)/g, (_, lt, tag) => `${lt}<span class="xml-tag">${tag}</span>`)
+        .replace(/([\w:]+)(=)("(?:[^"\\]|\\.)*")/g, (_, attr, eq, val) =>
+          `<span class="xml-attr">${attr}</span>${eq}<span class="xml-value">${val}</span>`
+        );
+    }
+
+    async function copyXml() {
+      if (!generatedXml) return;
+      try {
+        await navigator.clipboard.writeText(generatedXml);
+        const btn = document.getElementById('copy-btn');
+        btn.classList.add('success');
+        btn.innerHTML = '<span>✓</span> Kopierat!';
+        setTimeout(() => {
+          btn.classList.remove('success');
+          btn.innerHTML = '<span>⧉</span> Kopiera XML';
+        }, 2000);
+      } catch (e) {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = generatedXml;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+    }
+
+    // Generate on Ctrl+Enter
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate();
+    });
+  </script>
+</body>
+</html>
