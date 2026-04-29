@@ -1,13 +1,13 @@
 import os
-import json
 from flask import Flask, request, jsonify, render_template
-from anthropic import Anthropic
+from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = Flask(__name__)
-client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
 
 SYSTEM_PROMPT = """You are an expert at generating draw.io (diagrams.net) XML diagrams from natural language descriptions.
 
@@ -76,6 +76,9 @@ def generate():
     if not description:
         return jsonify({"error": "Beskrivning saknas"}), 400
 
+    if not os.environ.get("OPENAI_API_KEY"):
+        return jsonify({"error": "OPENAI_API_KEY saknas i .env"}), 500
+
     type_hint = ""
     if diagram_type != "auto":
         type_hint = f"\n\nDiagramtyp att använda: {DIAGRAM_TYPES[diagram_type]}"
@@ -83,16 +86,18 @@ def generate():
     user_message = f"{description}{type_hint}"
 
     try:
-        message = client.messages.create(
-            model="claude-sonnet-4-6",
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL,
             max_tokens=8096,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_message}],
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_message},
+            ],
         )
 
-        xml_content = message.content[0].text.strip()
+        xml_content = (response.choices[0].message.content or "").strip()
 
-        # Strip markdown code fences if Claude included them anyway
+        # Strip markdown code fences if the model included them anyway.
         if xml_content.startswith("```"):
             lines = xml_content.split("\n")
             xml_content = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
