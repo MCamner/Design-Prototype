@@ -775,7 +775,119 @@ function downloadHtml() {
   if (!currentReport) return showError("Run an analysis first.");
   const rows = currentReport.results.map(r => `<tr><td>${esc(r.status)}</td><td>${esc(r.severity)}</td><td>${esc(r.id)}</td><td>${esc(r.title)}</td><td>${esc(r.evidence)}</td><td>${esc(r.remediation)}</td></tr>`).join("");
   const s = currentReport.summary;
-  const doc = `<!doctype html><html><head><meta charset="utf-8"><title>MQ Client Optimizer Report</title><style>body{font-family:system-ui;margin:32px;color:#17202a}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #d8dee4;padding:8px;text-align:left;vertical-align:top}th{background:#f6f8fa}</style></head><body><h1>MQ Client Optimizer v1</h1><p>Baseline: ${esc(currentReport.baseline.id)} - ${esc(currentReport.baseline.name)}</p><h2>Score ${s.score}</h2><p>Pass: ${s.pass} Warn: ${s.warn} Fail: ${s.fail} Unknown: ${s.unknown} Unsupported: ${s.unsupported}</p><table><thead><tr><th>Status</th><th>Severity</th><th>ID</th><th>Check</th><th>Evidence</th><th>Remediation</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+  const doc = `<!doctype html><html><head><meta charset="utf-8"><title>MQ Client Optimizer Report</title><style>body{font-family:system-ui;margin:32px;color:#17202a}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #d8dee4;padding:8px;text-align:left;vertical-align:top}th{background:#f6f8fa}</style></head><body><h1>MQ Client Optimizer v1</h1><p>Baseline: ${esc(currentReport.baseline.id)} - ${esc(currentReport.baseline.name)}</p><h2>Score ${s.score}</h2><p>Pass: ${s.pass} Warn: ${s.warn} Fail: ${s.fail} Unknown: ${s.unknown} Unsupported: ${s.unsupported}</p><table><thead><tr><th>Status</th><th>Severity</th><th>ID</th><th>Check</th><th>Evidence</th><th>Remediation</th></tr></thead><tbody>${rows}</tbody></table>
+<script>
+/* MQ_LOAD_SAMPLE_FALLBACK_PATCH
+   Ensures the "Load Sample" button fills Client JSON even if the main handler
+   misses the selected baseline/sample mapping.
+*/
+(function () {
+  function nativeSetTextareaValue(textarea, value) {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      "value"
+    ).set;
+
+    setter.call(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function getFallbackSample() {
+    return {
+      meta: {
+        profile: "igel-os12-enterprise",
+        platform: "IGEL OS 12",
+        hostname: "IGEL-CLIENT-01",
+        baseline_version: "2026.04.30",
+        agent_version: "sample",
+        capabilities: [
+          "certificates.installed",
+          "certificates.details",
+          "citrix.installed",
+          "citrix.version",
+          "network.online",
+          "network.hostname",
+          "network.local_ips",
+          "processes.running"
+        ]
+      },
+      network: {
+        online: true,
+        hostname: "IGEL-CLIENT-01",
+        local_ips: ["10.10.4.87"]
+      },
+      certificates: {
+        installed: ["Company Root CA"],
+        details: [
+          {
+            name: "Company Root CA",
+            subject: "CN=Company Root CA",
+            issuer: "CN=Company Root CA",
+            not_after: "2030-12-31T23:59:59Z"
+          }
+        ]
+      },
+      citrix: {
+        installed: true,
+        version: "24.2.0"
+      },
+      processes: {
+        running: [],
+        missing: []
+      }
+    };
+  }
+
+  function resolveSample() {
+    const selects = Array.from(document.querySelectorAll("select"));
+    const baselineKey = selects[0] ? selects[0].value : "";
+
+    try {
+      if (typeof SAMPLES !== "undefined") {
+        return (
+          SAMPLES[baselineKey] ||
+          SAMPLES[baselineKey.replaceAll("-", "_")] ||
+          SAMPLES["igel-os12-enterprise"] ||
+          Object.values(SAMPLES)[0] ||
+          getFallbackSample()
+        );
+      }
+    } catch (error) {
+      console.warn("Could not read SAMPLES object:", error);
+    }
+
+    return getFallbackSample();
+  }
+
+  function attachLoadSampleFallback() {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const loadButton = buttons.find((button) =>
+      button.textContent.trim().toLowerCase() === "load sample"
+    );
+
+    const textarea = document.querySelector("textarea");
+
+    if (!loadButton || !textarea) {
+      return;
+    }
+
+    loadButton.addEventListener("click", function () {
+      const sample = resolveSample();
+      nativeSetTextareaValue(textarea, JSON.stringify(sample, null, 2));
+      console.info("Sample data loaded into Client JSON.");
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", attachLoadSampleFallback);
+  } else {
+    attachLoadSampleFallback();
+  }
+})();
+</script>
+
+</body></html>`;
   download(`mq-client-optimizer-${currentReport.baseline.id}.html`, doc, "text/html");
 }
 
@@ -807,5 +919,117 @@ function esc(value) {
 
 init();
   </script>
+
+<script>
+/* MQ_LOAD_SAMPLE_FALLBACK_PATCH
+   Ensures the "Load Sample" button fills Client JSON even if the main handler
+   misses the selected baseline/sample mapping.
+*/
+(function () {
+  function nativeSetTextareaValue(textarea, value) {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      "value"
+    ).set;
+
+    setter.call(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function getFallbackSample() {
+    return {
+      meta: {
+        profile: "igel-os12-enterprise",
+        platform: "IGEL OS 12",
+        hostname: "IGEL-CLIENT-01",
+        baseline_version: "2026.04.30",
+        agent_version: "sample",
+        capabilities: [
+          "certificates.installed",
+          "certificates.details",
+          "citrix.installed",
+          "citrix.version",
+          "network.online",
+          "network.hostname",
+          "network.local_ips",
+          "processes.running"
+        ]
+      },
+      network: {
+        online: true,
+        hostname: "IGEL-CLIENT-01",
+        local_ips: ["10.10.4.87"]
+      },
+      certificates: {
+        installed: ["Company Root CA"],
+        details: [
+          {
+            name: "Company Root CA",
+            subject: "CN=Company Root CA",
+            issuer: "CN=Company Root CA",
+            not_after: "2030-12-31T23:59:59Z"
+          }
+        ]
+      },
+      citrix: {
+        installed: true,
+        version: "24.2.0"
+      },
+      processes: {
+        running: [],
+        missing: []
+      }
+    };
+  }
+
+  function resolveSample() {
+    const selects = Array.from(document.querySelectorAll("select"));
+    const baselineKey = selects[0] ? selects[0].value : "";
+
+    try {
+      if (typeof SAMPLES !== "undefined") {
+        return (
+          SAMPLES[baselineKey] ||
+          SAMPLES[baselineKey.replaceAll("-", "_")] ||
+          SAMPLES["igel-os12-enterprise"] ||
+          Object.values(SAMPLES)[0] ||
+          getFallbackSample()
+        );
+      }
+    } catch (error) {
+      console.warn("Could not read SAMPLES object:", error);
+    }
+
+    return getFallbackSample();
+  }
+
+  function attachLoadSampleFallback() {
+    const buttons = Array.from(document.querySelectorAll("button"));
+    const loadButton = buttons.find((button) =>
+      button.textContent.trim().toLowerCase() === "load sample"
+    );
+
+    const textarea = document.querySelector("textarea");
+
+    if (!loadButton || !textarea) {
+      return;
+    }
+
+    loadButton.addEventListener("click", function () {
+      const sample = resolveSample();
+      nativeSetTextareaValue(textarea, JSON.stringify(sample, null, 2));
+      console.info("Sample data loaded into Client JSON.");
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", attachLoadSampleFallback);
+  } else {
+    attachLoadSampleFallback();
+  }
+})();
+</script>
+
 </body>
 </html>
