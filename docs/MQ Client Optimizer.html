@@ -1029,6 +1029,63 @@ init();
     attachLoadSampleFallback();
   }
 })();
+
+
+/* MQ_AUTO_LOAD_SAMPLE_PATCH
+   Auto-load sample JSON when Input = Sample data and Client JSON is empty.
+   Does not overwrite manually pasted JSON.
+*/
+(function () {
+  function isEmptyClientJson(textarea) {
+    const value = textarea.value.trim();
+    return value === "" || value === "{}";
+  }
+
+  function findLoadSampleButton() {
+    return Array.from(document.querySelectorAll("button")).find((button) =>
+      button.textContent.trim().toLowerCase() === "load sample"
+    );
+  }
+
+  function getInputModeSelect() {
+    return Array.from(document.querySelectorAll("select")).find((select) =>
+      Array.from(select.options).some((option) => option.value === "sample")
+    );
+  }
+
+  function autoLoadSampleIfNeeded() {
+    const textarea = document.querySelector("textarea");
+    const loadButton = findLoadSampleButton();
+    const inputMode = getInputModeSelect();
+
+    if (!textarea || !loadButton || !inputMode) {
+      return;
+    }
+
+    if (inputMode.value !== "sample") {
+      return;
+    }
+
+    if (!isEmptyClientJson(textarea)) {
+      return;
+    }
+
+    loadButton.click();
+    console.info("Auto-loaded sample Client JSON.");
+  }
+
+  window.addEventListener("load", function () {
+    setTimeout(autoLoadSampleIfNeeded, 100);
+
+    const selects = Array.from(document.querySelectorAll("select"));
+    selects.forEach((select) => {
+      select.addEventListener("change", function () {
+        setTimeout(autoLoadSampleIfNeeded, 100);
+      });
+    });
+  });
+})();
+
 </script>
 
 </body>
