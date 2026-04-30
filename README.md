@@ -98,66 +98,98 @@ Or open any prototype HTML file directly in a browser.
 
 ## Quick Start
 
-### Demo Mode
+Demo Mode
 
-All dashboards can be opened directly from `docs/` and will fall back to
+All dashboards can be opened directly from docs/ and will fall back to
 embedded demo/sample data when live data is unavailable.
 
-```text
 docs/Client Readiness Dashboard.html
 docs/Fleet Command Center.html
 docs/macOS Enterprise Dashboard.html
 docs/Certificate Expiry Timeline.html
 docs/MQ Asset Downloader.html
 docs/MQ Site Fix Advisor.html
-```
 
-### macOS Live Data
+Client Readiness Live Data
 
-Run the local macOS agent from the project root:
+Use this agent for:
 
-```bash
+docs/Client Readiness Dashboard.html
+
+Start the Client Readiness Agent from the project root:
+
+python3 helper/client_readiness_agent.py
+
+It exposes live readiness data on:
+
+http://127.0.0.1:38765/status
+
+Test it:
+
+curl -s http://127.0.0.1:38765/status | python3 -m json.tool
+
+If the dashboard shows IGEL-CLIENT-01, it is using demo/sample data.
+That usually means the Client Readiness Agent is not running, the browser cannot
+reach it, or the dashboard has fallen back to embedded sample data.
+
+macOS Live Data
+
+Use this agent for:
+
+docs/macOS Enterprise Dashboard.html
+docs/Certificate Expiry Timeline.html
+
+Start the macOS Enterprise Agent from the project root:
+
 python3 helper/macos_agent.py
-```
+
+It exposes live macOS data on:
+
+http://127.0.0.1:38764/status
 
 For fuller MDM/profile/user data:
 
-```bash
 sudo python3 helper/macos_agent.py
-```
 
-Then open:
+Test it:
 
-```text
-docs/macOS Enterprise Dashboard.html
-docs/Certificate Expiry Timeline.html
-```
+curl -s http://127.0.0.1:38764/status | python3 -m json.tool
 
-### Fleet Live Data
+Fleet Live Data
+
+Use this collector for:
+
+docs/Fleet Command Center.html
 
 Edit:
 
-```text
 helper/fleet_clients.json
-```
 
 Start the collector:
 
-```bash
 python3 helper/fleet_collector.py
-```
 
 Open:
 
-```text
 http://localhost:38766
-```
 
 Live fleet data requires each configured client to expose a Client Readiness
-Agent on port `38765`. The included `helper/client_readiness_agent.py` provides
+Agent on port 38765. The included helper/client_readiness_agent.py provides
 that endpoint for local testing and supported macOS/Linux clients.
 
-## Ports
+Safe Sharing
+
+Agent output may include hostname, serial number, local IP addresses, user names,
+certificate subjects, or other local machine details.
+
+Before sharing status output publicly, redact it:
+
+curl -s http://127.0.0.1:38764/status | python3 tools/redact-macos-agent-status.py
+
+Do not paste raw agent output into public GitHub issues, README files,
+screenshots, or discussions.
+
+Ports
 
 | Port | Component |
 | --- | --- |
