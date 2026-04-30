@@ -25,6 +25,29 @@ docs/MQ Client Optimizer.html
 The HTML app can run with embedded sample data, pasted JSON, or a reachable
 agent URL such as `http://127.0.0.1:38764/status`.
 
+Run it as a local web app with API endpoints:
+
+```bash
+python3 tools/mq-client-optimizer/mq_client_optimizer.py serve
+```
+
+Then open:
+
+```text
+http://127.0.0.1:38865/
+```
+
+Available API endpoints:
+
+| Endpoint | Description |
+| --- | --- |
+| `/` | Serves the MQ Client Optimizer HTML app |
+| `/healthz` | Health check |
+| `/api/baselines` | Lists bundled baselines |
+| `/api/baselines/<id>` | Returns one baseline |
+| `/api/sample/<id>` | Returns sample data for a baseline |
+| `/api/analyze` | POST `{ "baseline": "...", "data": {...} }` and returns a report |
+
 List baselines:
 
 ```bash
@@ -91,6 +114,7 @@ Included:
 
 - Baseline-driven evaluator
 - Standalone HTML analyzer app
+- Local web app server and JSON API
 - IGEL OS 12 + Citrix readiness baseline
 - macOS + Citrix readiness baseline
 - macOS enterprise CIS-lite baseline

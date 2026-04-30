@@ -242,6 +242,7 @@ console, JSON, or HTML reports. A browser app is available at
 ```bash
 python3 tools/mq-client-optimizer/mq_client_optimizer.py list-baselines
 python3 tools/mq-client-optimizer/mq_client_optimizer.py analyze --baseline macos-enterprise-cis-lite --sample
+python3 tools/mq-client-optimizer/mq_client_optimizer.py serve
 ```
 
 ## Notes

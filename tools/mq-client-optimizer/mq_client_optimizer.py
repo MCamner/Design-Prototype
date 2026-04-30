@@ -12,10 +12,12 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import html
+import http.server
 import json
 import os
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -25,6 +27,8 @@ APP_NAME = "MQ Client Optimizer"
 APP_VERSION = "v1"
 BASE_DIR = Path(__file__).resolve().parent
 BASELINES_DIR = BASE_DIR / "baselines"
+DOCS_DIR = BASE_DIR.parent.parent / "docs"
+APP_HTML = DOCS_DIR / "MQ Client Optimizer.html"
 
 
 SAMPLES: dict[str, dict[str, Any]] = {
@@ -115,6 +119,10 @@ def main() -> int:
     sample = sub.add_parser("sample-data", help="Print sample input data for a baseline")
     sample.add_argument("--baseline", required=True, help="Baseline id")
 
+    serve = sub.add_parser("serve", help="Serve the HTML app and optimizer API")
+    serve.add_argument("--host", default="127.0.0.1", help="Bind host, default 127.0.0.1")
+    serve.add_argument("--port", type=int, default=38865, help="Bind port, default 38865")
+
     args = parser.parse_args()
 
     if args.command == "list-baselines":
@@ -127,6 +135,9 @@ def main() -> int:
             die(f"No built-in sample exists for baseline: {args.baseline}")
         print(json.dumps(data, indent=2, sort_keys=True))
         return 0
+
+    if args.command == "serve":
+        return serve_app(args.host, args.port)
 
     baseline = load_baseline(resolve_baseline(args.baseline))
     data = load_data(args, baseline)
@@ -324,6 +335,113 @@ def print_baselines(baselines: list[dict[str, Any]], as_json: bool) -> int:
             f"({baseline['platform']}, {len(baseline.get('checks', []))} checks)"
         )
     return 0
+
+
+def list_baselines() -> list[dict[str, Any]]:
+    return [load_baseline(path) for path in sorted(BASELINES_DIR.glob("*.json"))]
+
+
+def serve_app(host: str, port: int) -> int:
+    if not APP_HTML.exists():
+        die(f"HTML app not found: {APP_HTML}")
+
+    class OptimizerHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            path = urllib.parse.urlparse(self.path).path
+            if path in ("/", "/index.html", "/mq-client-opt"):
+                self.send_file(APP_HTML, "text/html; charset=utf-8")
+            elif path == "/api/baselines":
+                self.send_json(200, list_baselines())
+            elif path.startswith("/api/baselines/"):
+                baseline_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
+                self.handle_baseline(baseline_id)
+            elif path.startswith("/api/sample/"):
+                baseline_id = urllib.parse.unquote(path.rsplit("/", 1)[-1])
+                self.handle_sample(baseline_id)
+            elif path == "/healthz":
+                self.send_json(200, {"status": "ok", "tool": APP_NAME, "version": APP_VERSION})
+            else:
+                self.send_json(404, {"error": "not found"})
+
+        def do_POST(self) -> None:
+            path = urllib.parse.urlparse(self.path).path
+            if path == "/api/analyze":
+                self.handle_analyze()
+            else:
+                self.send_json(404, {"error": "not found"})
+
+        def handle_baseline(self, baseline_id: str) -> None:
+            try:
+                baseline = load_baseline(resolve_baseline(baseline_id))
+            except SystemExit:
+                self.send_json(404, {"error": f"baseline not found: {baseline_id}"})
+                return
+            self.send_json(200, baseline)
+
+        def handle_sample(self, baseline_id: str) -> None:
+            sample = SAMPLES.get(baseline_id)
+            if sample is None:
+                self.send_json(404, {"error": f"sample not found: {baseline_id}"})
+                return
+            self.send_json(200, sample)
+
+        def handle_analyze(self) -> None:
+            try:
+                payload = self.read_json_body()
+                baseline_id = payload.get("baseline") or payload.get("baseline_id")
+                data = payload.get("data")
+                if not baseline_id or not isinstance(data, dict):
+                    self.send_json(400, {"error": "expected JSON body with baseline and data object"})
+                    return
+                baseline = load_baseline(resolve_baseline(str(baseline_id)))
+                self.send_json(200, analyze_data(baseline, data))
+            except SystemExit:
+                self.send_json(404, {"error": "baseline not found"})
+            except json.JSONDecodeError:
+                self.send_json(400, {"error": "invalid JSON body"})
+
+        def read_json_body(self) -> dict[str, Any]:
+            length = int(self.headers.get("Content-Length", "0") or "0")
+            raw = self.rfile.read(length).decode("utf-8")
+            payload = json.loads(raw or "{}")
+            if not isinstance(payload, dict):
+                raise json.JSONDecodeError("expected object", raw, 0)
+            return payload
+
+        def send_file(self, path: Path, content_type: str) -> None:
+            body = path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def send_json(self, status: int, payload: Any) -> None:
+            body = json.dumps(payload, default=str).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, fmt: str, *args: Any) -> None:
+            print(f"[web] {self.address_string()} - {fmt % args}")
+
+    http.server.ThreadingHTTPServer.allow_reuse_address = True
+    try:
+        with http.server.ThreadingHTTPServer((host, port), OptimizerHandler) as server:
+            print(f"{APP_NAME} {APP_VERSION}")
+            print(f"App: http://{host}:{port}/")
+            print(f"API: http://{host}:{port}/api/baselines")
+            server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping.")
+        return 0
+    except OSError as exc:
+        print(f"error: failed to start server: {exc}", file=sys.stderr)
+        return 1
 
 
 def print_text_report(report: dict[str, Any]) -> None:
