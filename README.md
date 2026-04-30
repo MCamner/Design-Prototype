@@ -231,6 +231,18 @@ More details:
 - `tools/mqmirror/gui_to_cli.py`
 - `tools/mqmirror/mqmirror`
 
+### MQ Client Optimizer v1
+
+`tools/mq-client-optimizer/` contains a safe, template-based optimizer analyzer
+for IGEL and macOS clients. It evaluates bundled baselines for IGEL OS 12 +
+Citrix, macOS + Citrix, and macOS enterprise CIS-style compliance, then writes
+console, JSON, or HTML reports.
+
+```bash
+python3 tools/mq-client-optimizer/mq_client_optimizer.py list-baselines
+python3 tools/mq-client-optimizer/mq_client_optimizer.py analyze --baseline macos-enterprise-cis-lite --sample
+```
+
 ## Notes
 
 This is a design and architecture exploration, not a finished product. Some

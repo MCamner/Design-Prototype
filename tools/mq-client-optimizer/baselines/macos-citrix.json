@@ -1,0 +1,31 @@
+{
+  "id": "macos-citrix",
+  "name": "macOS + Citrix readiness",
+  "platform": "macOS",
+  "version": "2026.04.30",
+  "description": "Readiness baseline for macOS endpoints used with Citrix Workspace.",
+  "checks": [
+    {
+      "id": "CTX-001",
+      "title": "Citrix Workspace must be installed",
+      "severity": "high",
+      "category": "application",
+      "source": "citrix.installed",
+      "operator": "equals",
+      "expected": true,
+      "required_capability": "citrix.installed",
+      "remediation": "Install Citrix Workspace for macOS."
+    },
+    {
+      "id": "CTX-002",
+      "title": "Citrix Workspace must meet minimum version",
+      "severity": "medium",
+      "category": "application",
+      "source": "citrix.version",
+      "operator": "min_version",
+      "expected": "23.11.0",
+      "required_capability": "citrix.version",
+      "remediation": "Upgrade Citrix Workspace to the approved version."
+    }
+  ]
+}

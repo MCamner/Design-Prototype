@@ -1,0 +1,136 @@
+{
+  "id": "macos-enterprise-cis-lite",
+  "name": "macOS enterprise CIS-lite compliance",
+  "platform": "macOS",
+  "version": "2026.04.30",
+  "description": "CIS-style Level 1 baseline derived from the macOS Enterprise Dashboard.",
+  "checks": [
+    {
+      "id": "SEC-001",
+      "title": "FileVault disk encryption",
+      "severity": "critical",
+      "category": "security",
+      "source": "security.filevault.enabled",
+      "operator": "eq_true",
+      "remediation": "Enable FileVault in System Settings > Privacy & Security."
+    },
+    {
+      "id": "SEC-002",
+      "title": "System Integrity Protection",
+      "severity": "critical",
+      "category": "security",
+      "source": "security.sip.enabled",
+      "operator": "eq_true",
+      "remediation": "Do not disable SIP. Boot to Recovery and run: csrutil enable."
+    },
+    {
+      "id": "SEC-003",
+      "title": "Gatekeeper enabled",
+      "severity": "high",
+      "category": "security",
+      "source": "security.gatekeeper.enabled",
+      "operator": "eq_true",
+      "remediation": "Run: sudo spctl --master-enable."
+    },
+    {
+      "id": "SEC-004",
+      "title": "Application Firewall enabled",
+      "severity": "high",
+      "category": "security",
+      "source": "security.firewall.enabled",
+      "operator": "eq_true",
+      "remediation": "Enable Firewall in System Settings > Network > Firewall."
+    },
+    {
+      "id": "SEC-005",
+      "title": "Firewall stealth mode",
+      "severity": "medium",
+      "category": "security",
+      "source": "security.firewall.stealth_mode",
+      "operator": "eq_true",
+      "remediation": "Run: sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on."
+    },
+    {
+      "id": "SEC-006",
+      "title": "Automatic security updates",
+      "severity": "high",
+      "category": "security",
+      "source": "security.auto_updates.automatic_install_security",
+      "operator": "eq_true",
+      "remediation": "Enable automatic security updates in Software Update settings."
+    },
+    {
+      "id": "SEC-007",
+      "title": "Critical updates auto-install",
+      "severity": "high",
+      "category": "security",
+      "source": "security.auto_updates.critical_updates",
+      "operator": "eq_true",
+      "remediation": "Enable critical update installation in Software Update settings."
+    },
+    {
+      "id": "SEC-008",
+      "title": "Automatic update check",
+      "severity": "medium",
+      "category": "security",
+      "source": "security.auto_updates.automatic_check",
+      "operator": "eq_true",
+      "remediation": "Enable automatic update checks in Software Update settings."
+    },
+    {
+      "id": "ID-001",
+      "title": "Remote Login SSH disabled",
+      "severity": "high",
+      "category": "identity",
+      "source": "identity.ssh_enabled",
+      "operator": "eq_false",
+      "remediation": "Run: sudo systemsetup -setremotelogin off."
+    },
+    {
+      "id": "ID-002",
+      "title": "Auto-login disabled",
+      "severity": "critical",
+      "category": "identity",
+      "source": "identity.autologin",
+      "operator": "eq_false",
+      "remediation": "Disable auto-login in System Settings > Users & Groups."
+    },
+    {
+      "id": "ID-003",
+      "title": "Screen lock with password",
+      "severity": "high",
+      "category": "identity",
+      "source": "identity.screen_lock.require_password",
+      "operator": "eq_true",
+      "remediation": "Enable password requirement after screen saver or display sleep."
+    },
+    {
+      "id": "ID-004",
+      "title": "Screen lock delay max 5 minutes",
+      "severity": "medium",
+      "category": "identity",
+      "source": "identity.screen_lock.idle_minutes",
+      "operator": "lte",
+      "threshold": 5,
+      "remediation": "Set display sleep or screen lock timeout to 5 minutes or less."
+    },
+    {
+      "id": "MDM-001",
+      "title": "MDM enrolled",
+      "severity": "high",
+      "category": "management",
+      "source": "mdm.enrolled",
+      "operator": "eq_true",
+      "remediation": "Enroll the device via Apple Business Manager or your MDM server."
+    },
+    {
+      "id": "MDM-002",
+      "title": "Device supervised",
+      "severity": "medium",
+      "category": "management",
+      "source": "mdm.supervised",
+      "operator": "eq_true",
+      "remediation": "Re-enroll via Apple Business Manager DEP for supervision."
+    }
+  ]
+}

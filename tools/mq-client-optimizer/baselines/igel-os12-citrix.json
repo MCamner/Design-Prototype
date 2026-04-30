@@ -1,0 +1,66 @@
+{
+  "id": "igel-os12-citrix",
+  "name": "IGEL OS 12 + Citrix readiness",
+  "platform": "IGEL OS 12",
+  "version": "2026.04.30",
+  "description": "Readiness baseline for IGEL endpoints used with Citrix Workspace.",
+  "checks": [
+    {
+      "id": "CERT-ROOT-001",
+      "title": "Root CA must be present",
+      "severity": "critical",
+      "category": "security",
+      "source": "certificates.installed",
+      "operator": "contains",
+      "expected": ["Company Root CA"],
+      "required_capability": "certificates.installed",
+      "remediation": "Install approved root certificate bundle via UMS."
+    },
+    {
+      "id": "CERT-ROOT-DETAIL",
+      "title": "Root CA must exist in certificate details",
+      "severity": "critical",
+      "category": "security",
+      "source": "certificates.details",
+      "operator": "cert_name_exists",
+      "expected": "Company Root CA",
+      "required_capability": "certificates.details",
+      "remediation": "Verify the root CA is present in the expected trust store."
+    },
+    {
+      "id": "CERT-EXP-001",
+      "title": "Root CA must not expire soon",
+      "severity": "high",
+      "category": "security",
+      "source": "certificates.details",
+      "operator": "cert_expiry_days",
+      "match": "Company Root CA",
+      "warn_days": 60,
+      "fail_days": 0,
+      "required_capability": "certificates.details",
+      "remediation": "Renew or replace the certificate before expiry."
+    },
+    {
+      "id": "CTX-001",
+      "title": "Citrix Workspace must be installed",
+      "severity": "high",
+      "category": "application",
+      "source": "citrix.installed",
+      "operator": "equals",
+      "expected": true,
+      "required_capability": "citrix.installed",
+      "remediation": "Install Citrix Workspace for the target platform."
+    },
+    {
+      "id": "CTX-002",
+      "title": "Citrix Workspace must meet minimum version",
+      "severity": "medium",
+      "category": "application",
+      "source": "citrix.version",
+      "operator": "min_version",
+      "expected": "23.11.0",
+      "required_capability": "citrix.version",
+      "remediation": "Upgrade Citrix Workspace to the approved baseline."
+    }
+  ]
+}
