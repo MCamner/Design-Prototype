@@ -442,6 +442,26 @@ const BASELINES = [
     ]
   },
   {
+    id: "igel-os12-enterprise",
+    name: "IGEL OS 12 enterprise security baseline",
+    platform: "IGEL OS 12",
+    version: "2026.04.30",
+    checks: [
+      { id:"FW-001", title:"IGEL OS minimum firmware version", severity:"high", category:"firmware", source:"firmware.version", operator:"min_version", expected:"12.3.0", required_capability:"firmware.version", remediation:"Update IGEL OS firmware via UMS to at least version 12.3.0." },
+      { id:"MGT-001", title:"Device managed by UMS", severity:"critical", category:"management", source:"management.ums_managed", operator:"eq_true", required_capability:"management.ums_managed", remediation:"Register the device in IGEL Universal Management Suite." },
+      { id:"MGT-002", title:"UMS profile applied", severity:"high", category:"management", source:"management.profile_applied", operator:"eq_true", required_capability:"management.profile_applied", remediation:"Assign and apply an approved configuration profile via UMS." },
+      { id:"SEC-001", title:"Screen lock enabled", severity:"high", category:"security", source:"security.screen_lock.enabled", operator:"eq_true", required_capability:"security.screen_lock.enabled", remediation:"Enable screen lock in UMS profile under Sessions > Screen Lock." },
+      { id:"SEC-002", title:"Screen lock timeout max 10 minutes", severity:"medium", category:"security", source:"security.screen_lock.timeout_minutes", operator:"lte", threshold:10, required_capability:"security.screen_lock.timeout_minutes", remediation:"Set screen lock timeout to 10 minutes or less in UMS profile." },
+      { id:"SEC-003", title:"USB mass storage disabled", severity:"high", category:"security", source:"security.usb_storage_disabled", operator:"eq_true", required_capability:"security.usb_storage_disabled", remediation:"Disable USB mass storage in UMS profile under System > Firmware Customization > Features." },
+      { id:"SEC-004", title:"Auto-login disabled", severity:"critical", category:"security", source:"security.autologin", operator:"eq_false", required_capability:"security.autologin", remediation:"Disable auto-login in UMS profile under Security > Logon." },
+      { id:"SEC-005", title:"Firewall enabled", severity:"high", category:"security", source:"security.firewall.enabled", operator:"eq_true", required_capability:"security.firewall.enabled", remediation:"Enable the IGEL OS firewall in UMS profile under Network > Firewall." },
+      { id:"NET-001", title:"Network online", severity:"medium", category:"network", source:"network.online", operator:"eq_true", required_capability:"network.online", remediation:"Verify network connectivity and DHCP/DNS configuration." },
+      { id:"CERT-ROOT-001", title:"Root CA must be present", severity:"critical", category:"security", source:"certificates.installed", operator:"contains", expected:["Company Root CA"], required_capability:"certificates.installed", remediation:"Install approved root certificate bundle via UMS." },
+      { id:"CERT-ROOT-DETAIL", title:"Root CA must exist in certificate details", severity:"critical", category:"security", source:"certificates.details", operator:"cert_name_exists", expected:"Company Root CA", required_capability:"certificates.details", remediation:"Verify the root CA is present in the expected trust store." },
+      { id:"CERT-EXP-001", title:"Root CA must not expire soon", severity:"high", category:"security", source:"certificates.details", operator:"cert_expiry_days", match:"Company Root CA", warn_days:60, fail_days:0, required_capability:"certificates.details", remediation:"Renew or replace the certificate before expiry." }
+    ]
+  },
+  {
     id: "macos-citrix",
     name: "macOS + Citrix readiness",
     platform: "macOS",
