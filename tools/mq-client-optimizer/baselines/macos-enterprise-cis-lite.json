@@ -115,6 +115,60 @@
       "remediation": "Set display sleep or screen lock timeout to 5 minutes or less."
     },
     {
+      "id": "ID-005",
+      "title": "Guest account disabled",
+      "severity": "critical",
+      "category": "identity",
+      "source": "users.guest_enabled",
+      "operator": "eq_false",
+      "remediation": "Disable the Guest account in System Settings > Users & Groups."
+    },
+    {
+      "id": "ID-006",
+      "title": "Login window shows name and password fields",
+      "severity": "medium",
+      "category": "identity",
+      "source": "identity.login_window_user_list",
+      "operator": "eq_false",
+      "remediation": "Run: sudo defaults write /Library/Preferences/com.apple.loginwindow SHOWFULLNAME -bool true."
+    },
+    {
+      "id": "SHR-001",
+      "title": "File Sharing disabled",
+      "severity": "high",
+      "category": "sharing",
+      "source": "sharing.file_sharing",
+      "operator": "eq_false",
+      "remediation": "Disable File Sharing in System Settings > General > Sharing."
+    },
+    {
+      "id": "SHR-002",
+      "title": "Screen Sharing disabled",
+      "severity": "high",
+      "category": "sharing",
+      "source": "sharing.screen_sharing",
+      "operator": "eq_false",
+      "remediation": "Disable Screen Sharing in System Settings > General > Sharing."
+    },
+    {
+      "id": "SHR-003",
+      "title": "Remote Management disabled",
+      "severity": "high",
+      "category": "sharing",
+      "source": "sharing.remote_management",
+      "operator": "eq_false",
+      "remediation": "Disable Remote Management in System Settings > General > Sharing."
+    },
+    {
+      "id": "SHR-004",
+      "title": "AirDrop disabled",
+      "severity": "medium",
+      "category": "sharing",
+      "source": "sharing.airdrop_enabled",
+      "operator": "eq_false",
+      "remediation": "Set AirDrop to No One in Finder > Go > AirDrop, or enforce via MDM."
+    },
+    {
       "id": "MDM-001",
       "title": "MDM enrolled",
       "severity": "high",

@@ -57,6 +57,44 @@ SAMPLES: dict[str, dict[str, Any]] = {
         },
         "citrix": {"installed": True, "version": "24.2.0"},
     },
+    "igel-os12-enterprise": {
+        "meta": {
+            "agent_version": "2.3.0",
+            "baseline_version": "2026.04.30",
+            "profile": "igel-os12-enterprise",
+            "capabilities": [
+                "firmware.version",
+                "management.ums_managed",
+                "management.profile_applied",
+                "security.screen_lock.enabled",
+                "security.screen_lock.timeout_minutes",
+                "security.usb_storage_disabled",
+                "security.autologin",
+                "security.firewall.enabled",
+                "network.online",
+                "certificates.installed",
+                "certificates.details",
+            ],
+        },
+        "firmware": {"version": "12.4.1"},
+        "management": {"ums_managed": True, "profile_applied": True},
+        "security": {
+            "screen_lock": {"enabled": True, "timeout_minutes": 5},
+            "usb_storage_disabled": True,
+            "autologin": False,
+            "firewall": {"enabled": True},
+        },
+        "network": {"online": True, "hostname": "IGEL-CLIENT-02"},
+        "certificates": {
+            "installed": ["Company Root CA", "DigiCert Global Root CA"],
+            "details": [
+                {
+                    "name": "Company Root CA",
+                    "not_after": "2027-12-31T23:59:59Z",
+                }
+            ],
+        },
+    },
     "macos-citrix": {
         "meta": {
             "agent_version": "1.0.0",
@@ -86,10 +124,18 @@ SAMPLES: dict[str, dict[str, Any]] = {
         "identity": {
             "ssh_enabled": False,
             "autologin": False,
+            "login_window_user_list": False,
             "screen_lock": {
                 "require_password": True,
                 "idle_minutes": 5,
             },
+        },
+        "users": {"guest_enabled": False},
+        "sharing": {
+            "file_sharing": False,
+            "screen_sharing": False,
+            "remote_management": False,
+            "airdrop_enabled": False,
         },
         "mdm": {"enrolled": True, "supervised": True},
     },
