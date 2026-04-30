@@ -200,7 +200,11 @@ async function loadClientData() {
     { key:'saved-live',  url:'live-client-data.json',         ms:1500, opts:{ cache:'no-store' } },
   ];
   for (const s of sources) {
-    try { return { source:s.key, data:await fetchWithTimeout(s.url, s.ms, s.opts) }; } catch(e) {}
+    try {
+      return { source:s.key, data:await fetchWithTimeout(s.url, s.ms, s.opts) };
+    } catch(e) {
+      console.warn("Live helper fetch failed:", s.url, e);
+    }
   }
   return { source:'sample-data', data:SAMPLE_DATA };
 }
