@@ -236,7 +236,8 @@ More details:
 `tools/mq-client-optimizer/` contains a safe, template-based optimizer analyzer
 for IGEL and macOS clients. It evaluates bundled baselines for IGEL OS 12 +
 Citrix, macOS + Citrix, and macOS enterprise CIS-style compliance, then writes
-console, JSON, or HTML reports.
+console, JSON, or HTML reports. A browser app is available at
+`docs/MQ Client Optimizer.html`.
 
 ```bash
 python3 tools/mq-client-optimizer/mq_client_optimizer.py list-baselines

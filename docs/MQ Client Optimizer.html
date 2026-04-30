@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MQ Client Optimizer v1</title>
+  <meta name="description" content="Browser-based IGEL and macOS baseline analyzer for MQ Client Optimizer v1.">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fa;
+      --panel: #ffffff;
+      --panel-2: #f0f4f8;
+      --text: #17202a;
+      --muted: #5d6b7a;
+      --line: #d7dee7;
+      --blue: #2563eb;
+      --green: #15803d;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --gray: #64748b;
+      --shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    header {
+      min-height: 86px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 18px clamp(18px, 4vw, 40px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      background: #111827;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
+      gap: 18px;
+      padding: 18px clamp(18px, 4vw, 40px) 32px;
+    }
+
+    section, aside {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    aside {
+      padding: 16px;
+      align-self: start;
+      position: sticky;
+      top: 18px;
+    }
+
+    .workspace { min-width: 0; }
+
+    .panel-head {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .panel-body { padding: 16px 18px 18px; }
+
+    label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      margin: 14px 0 6px;
+      text-transform: uppercase;
+    }
+
+    select, textarea, input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 11px;
+      font: inherit;
+      background: #fff;
+      color: var(--text);
+    }
+
+    textarea {
+      min-height: 240px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: var(--panel-2);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(110px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .metric .value {
+      font-size: 26px;
+      font-weight: 850;
+      line-height: 1;
+    }
+
+    .metric .label {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .score {
+      display: grid;
+      grid-template-columns: 148px minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+    }
+
+    .gauge {
+      width: 132px;
+      height: 132px;
+      border-radius: 50%;
+      background: conic-gradient(var(--blue) calc(var(--score) * 1%), #e5eaf0 0);
+      display: grid;
+      place-items: center;
+      margin: auto;
+    }
+
+    .gauge-inner {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 26px;
+      font-weight: 850;
+    }
+
+    .target-lines {
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .target-lines span { color: var(--muted); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      background: var(--panel-2);
+    }
+
+    .tag {
+      display: inline-block;
+      min-width: 82px;
+      text-align: center;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 850;
+      color: #fff;
+    }
+
+    .PASS { background: var(--green); }
+    .WARN { background: var(--amber); }
+    .FAIL { background: var(--red); }
+    .UNKNOWN, .UNSUPPORTED { background: var(--gray); }
+
+    .error {
+      color: var(--red);
+      background: #fff1f2;
+      border: 1px solid #fecdd3;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+
+    .empty {
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      background: #fff;
+    }
+
+    .small { color: var(--muted); font-size: 12px; }
+
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+      aside { position: static; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .score { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      header { align-items: flex-start; flex-direction: column; }
+      .header-actions { justify-content: flex-start; }
+      .grid { grid-template-columns: 1fr; }
+      th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">MQ</div>
+      <div>
+        <h1>MQ Client Optimizer v1</h1>
+        <div class="sub">IGEL and macOS baseline analyzer</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="copyJsonBtn">Copy JSON</button>
+      <button id="downloadJsonBtn">Export JSON</button>
+      <button id="downloadHtmlBtn">Export HTML</button>
+    </div>
+  </header>
+
+  <main>
+    <aside>
+      <div class="panel-title">Analyze</div>
+      <label for="baselineSelect">Baseline</label>
+      <select id="baselineSelect"></select>
+
+      <label for="inputMode">Input</label>
+      <select id="inputMode">
+        <option value="sample">Sample data</option>
+        <option value="json">Pasted JSON</option>
+        <option value="agent">Agent URL</option>
+      </select>
+
+      <div id="agentBox" hidden>
+        <label for="agentUrl">Agent URL</label>
+        <input id="agentUrl" value="http://127.0.0.1:38764/status">
+      </div>
+
+      <label for="jsonInput">Client JSON</label>
+      <textarea id="jsonInput" spellcheck="false"></textarea>
+
+      <div class="button-row">
+        <button class="primary" id="analyzeBtn">Analyze</button>
+        <button id="loadSampleBtn">Load Sample</button>
+      </div>
+      <div id="message"></div>
+    </aside>
+
+    <div class="workspace">
+      <section>
+        <div class="panel-head">
+          <div class="panel-title">Summary</div>
+          <span class="status-pill" id="generatedAt">Not analyzed</span>
+        </div>
+        <div class="panel-body">
+          <div id="summaryEmpty" class="empty">Choose a baseline and run an analysis.</div>
+          <div id="summaryContent" hidden>
+            <div class="score">
+              <div class="gauge" id="scoreGauge" style="--score:0">
+                <div class="gauge-inner" id="scoreText">0</div>
+              </div>
+              <div>
+                <div class="grid">
+                  <div class="metric"><div class="value" id="passCount">0</div><div class="label">Pass</div></div>
+                  <div class="metric"><div class="value" id="warnCount">0</div><div class="label">Warn</div></div>
+                  <div class="metric"><div class="value" id="failCount">0</div><div class="label">Fail</div></div>
+                  <div class="metric"><div class="value" id="unknownCount">0</div><div class="label">Unknown</div></div>
+                  <div class="metric"><div class="value" id="unsupportedCount">0</div><div class="label">Unsupported</div></div>
+                </div>
+                <div class="target-lines">
+                  <div><span>Baseline</span> <strong id="targetBaseline"></strong></div>
+                  <div><span>Target</span> <strong id="targetName"></strong></div>
+                  <div><span>Platform</span> <strong id="targetPlatform"></strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section style="margin-top:18px">
+        <div class="panel-head">
+          <div class="panel-title">Checks</div>
+          <span class="small" id="checkCount">0 checks</span>
+        </div>
+        <div class="panel-body">
+          <table>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Check</th>
+                <th>Severity</th>
+                <th>Category</th>
+                <th>Evidence</th>
+                <th>Remediation</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+const APP_NAME = "MQ Client Optimizer";
+const APP_VERSION = "v1";
+
+const BASELINES = [
+  {
+    id: "igel-os12-citrix",
+    name: "IGEL OS 12 + Citrix readiness",
+    platform: "IGEL OS 12",
+    version: "2026.04.30",
+    checks: [
+      { id:"CERT-ROOT-001", title:"Root CA must be present", severity:"critical", category:"security", source:"certificates.installed", operator:"contains", expected:["Company Root CA"], required_capability:"certificates.installed", remediation:"Install approved root certificate bundle via UMS." },
+      { id:"CERT-ROOT-DETAIL", title:"Root CA must exist in certificate details", severity:"critical", category:"security", source:"certificates.details", operator:"cert_name_exists", expected:"Company Root CA", required_capability:"certificates.details", remediation:"Verify the root CA is present in the expected trust store." },
+      { id:"CERT-EXP-001", title:"Root CA must not expire soon", severity:"high", category:"security", source:"certificates.details", operator:"cert_expiry_days", match:"Company Root CA", warn_days:60, fail_days:0, required_capability:"certificates.details", remediation:"Renew or replace the certificate before expiry." },
+      { id:"CTX-001", title:"Citrix Workspace must be installed", severity:"high", category:"application", source:"citrix.installed", operator:"equals", expected:true, required_capability:"citrix.installed", remediation:"Install Citrix Workspace for the target platform." },
+      { id:"CTX-002", title:"Citrix Workspace must meet minimum version", severity:"medium", category:"application", source:"citrix.version", operator:"min_version", expected:"23.11.0", required_capability:"citrix.version", remediation:"Upgrade Citrix Workspace to the approved baseline." }
+    ]
+  },
+  {
+    id: "macos-citrix",
+    name: "macOS + Citrix readiness",
+    platform: "macOS",
+    version: "2026.04.30",
+    checks: [
+      { id:"CTX-001", title:"Citrix Workspace must be installed", severity:"high", category:"application", source:"citrix.installed", operator:"equals", expected:true, required_capability:"citrix.installed", remediation:"Install Citrix Workspace for macOS." },
+      { id:"CTX-002", title:"Citrix Workspace must meet minimum version", severity:"medium", category:"application", source:"citrix.version", operator:"min_version", expected:"23.11.0", required_capability:"citrix.version", remediation:"Upgrade Citrix Workspace to the approved version." }
+    ]
+  },
+  {
+    id: "macos-enterprise-cis-lite",
+    name: "macOS enterprise CIS-lite compliance",
+    platform: "macOS",
+    version: "2026.04.30",
+    checks: [
+      { id:"SEC-001", title:"FileVault disk encryption", severity:"critical", category:"security", source:"security.filevault.enabled", operator:"eq_true", remediation:"Enable FileVault in System Settings > Privacy & Security." },
+      { id:"SEC-002", title:"System Integrity Protection", severity:"critical", category:"security", source:"security.sip.enabled", operator:"eq_true", remediation:"Do not disable SIP. Boot to Recovery and run: csrutil enable." },
+      { id:"SEC-003", title:"Gatekeeper enabled", severity:"high", category:"security", source:"security.gatekeeper.enabled", operator:"eq_true", remediation:"Run: sudo spctl --master-enable." },
+      { id:"SEC-004", title:"Application Firewall enabled", severity:"high", category:"security", source:"security.firewall.enabled", operator:"eq_true", remediation:"Enable Firewall in System Settings > Network > Firewall." },
+      { id:"SEC-005", title:"Firewall stealth mode", severity:"medium", category:"security", source:"security.firewall.stealth_mode", operator:"eq_true", remediation:"Run: sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on." },
+      { id:"SEC-006", title:"Automatic security updates", severity:"high", category:"security", source:"security.auto_updates.automatic_install_security", operator:"eq_true", remediation:"Enable automatic security updates in Software Update settings." },
+      { id:"SEC-007", title:"Critical updates auto-install", severity:"high", category:"security", source:"security.auto_updates.critical_updates", operator:"eq_true", remediation:"Enable critical update installation in Software Update settings." },
+      { id:"SEC-008", title:"Automatic update check", severity:"medium", category:"security", source:"security.auto_updates.automatic_check", operator:"eq_true", remediation:"Enable automatic update checks in Software Update settings." },
+      { id:"ID-001", title:"Remote Login SSH disabled", severity:"high", category:"identity", source:"identity.ssh_enabled", operator:"eq_false", remediation:"Run: sudo systemsetup -setremotelogin off." },
+      { id:"ID-002", title:"Auto-login disabled", severity:"critical", category:"identity", source:"identity.autologin", operator:"eq_false", remediation:"Disable auto-login in System Settings > Users & Groups." },
+      { id:"ID-003", title:"Screen lock with password", severity:"high", category:"identity", source:"identity.screen_lock.require_password", operator:"eq_true", remediation:"Enable password requirement after screen saver or display sleep." },
+      { id:"ID-004", title:"Screen lock delay max 5 minutes", severity:"medium", category:"identity", source:"identity.screen_lock.idle_minutes", operator:"lte", threshold:5, remediation:"Set display sleep or screen lock timeout to 5 minutes or less." },
+      { id:"MDM-001", title:"MDM enrolled", severity:"high", category:"management", source:"mdm.enrolled", operator:"eq_true", remediation:"Enroll the device via Apple Business Manager or your MDM server." },
+      { id:"MDM-002", title:"Device supervised", severity:"medium", category:"management", source:"mdm.supervised", operator:"eq_true", remediation:"Re-enroll via Apple Business Manager DEP for supervision." }
+    ]
+  }
+];
+
+const SAMPLES = {
+  "igel-os12-citrix": {
+    meta: { agent_version:"2.3.0", baseline_version:"2026.04.30", profile:"igel-os12-citrix", capabilities:["certificates.installed","certificates.details","citrix.installed","citrix.version","network.online"] },
+    network: { online:true, hostname:"IGEL-CLIENT-01" },
+    certificates: { installed:["Company Root CA","DigiCert Global Root CA"], details:[{ name:"Company Root CA", not_after:"2027-12-31T23:59:59Z" }] },
+    citrix: { installed:true, version:"24.2.0" }
+  },
+  "macos-citrix": {
+    meta: { agent_version:"1.0.0", profile:"macos-citrix", capabilities:["citrix.installed","citrix.version","network.online"] },
+    network: { online:true, hostname:"MAC-001" },
+    citrix: { installed:true, version:"24.2.0" }
+  },
+  "macos-enterprise-cis-lite": {
+    meta: { agent_version:"1.0.0", profile:"macos-enterprise-cis-lite", hostname:"MacBook-Pro-Enterprise", macos_name:"macOS", macos_version:"14.4.1" },
+    security: {
+      filevault:{ enabled:true }, sip:{ enabled:true }, gatekeeper:{ enabled:true },
+      firewall:{ enabled:true, stealth_mode:false },
+      auto_updates:{ automatic_check:true, automatic_install_security:true, critical_updates:true }
+    },
+    identity: { ssh_enabled:false, autologin:false, screen_lock:{ require_password:true, idle_minutes:5 } },
+    mdm: { enrolled:true, supervised:true }
+  }
+};
+
+let currentReport = null;
+
+const el = id => document.getElementById(id);
+const baselineSelect = el("baselineSelect");
+const inputMode = el("inputMode");
+const jsonInput = el("jsonInput");
+const message = el("message");
+
+function init() {
+  baselineSelect.innerHTML = BASELINES.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join("");
+  baselineSelect.value = "macos-enterprise-cis-lite";
+  loadSample();
+  renderEmptyResults();
+  baselineSelect.addEventListener("change", loadSample);
+  inputMode.addEventListener("change", syncInputMode);
+  el("loadSampleBtn").addEventListener("click", loadSample);
+  el("analyzeBtn").addEventListener("click", runAnalyze);
+  el("copyJsonBtn").addEventListener("click", copyReport);
+  el("downloadJsonBtn").addEventListener("click", downloadJson);
+  el("downloadHtmlBtn").addEventListener("click", downloadHtml);
+  syncInputMode();
+}
+
+function selectedBaseline() {
+  return BASELINES.find(b => b.id === baselineSelect.value) || BASELINES[0];
+}
+
+function loadSample() {
+  const sample = SAMPLES[selectedBaseline().id] || {};
+  jsonInput.value = JSON.stringify(sample, null, 2);
+  clearMessage();
+}
+
+function syncInputMode() {
+  const mode = inputMode.value;
+  el("agentBox").hidden = mode !== "agent";
+  jsonInput.disabled = mode === "agent";
+  if (mode === "sample") loadSample();
+}
+
+async function runAnalyze() {
+  clearMessage();
+  try {
+    let data;
+    if (inputMode.value === "agent") {
+      const response = await fetch(el("agentUrl").value, { cache:"no-store" });
+      if (!response.ok) throw new Error(`Agent returned HTTP ${response.status}`);
+      data = await response.json();
+    } else {
+      data = JSON.parse(jsonInput.value);
+    }
+    currentReport = analyzeData(selectedBaseline(), data);
+    renderReport(currentReport);
+  } catch (error) {
+    showError(error.message || String(error));
+  }
+}
+
+function analyzeData(baseline, data) {
+  const results = baseline.checks.map(check => evaluateCheck(check, data));
+  const summary = {
+    total: results.length,
+    pass: count(results, "PASS"),
+    warn: count(results, "WARN"),
+    fail: count(results, "FAIL"),
+    unknown: count(results, "UNKNOWN"),
+    unsupported: count(results, "UNSUPPORTED")
+  };
+  const active = results.filter(r => !["UNKNOWN","UNSUPPORTED"].includes(r.status));
+  summary.score = active.length ? Math.round(count(active, "PASS") / active.length * 100) : 0;
+  return {
+    tool: { name:APP_NAME, version:APP_VERSION },
+    generated_at: new Date().toISOString(),
+    baseline: { id:baseline.id, name:baseline.name, platform:baseline.platform, version:baseline.version, mode:"analyze" },
+    target: targetSummary(data),
+    summary,
+    results
+  };
+}
+
+function evaluateCheck(check, data) {
+  const required = check.required_capability;
+  const caps = getPath(data, "meta.capabilities");
+  if (required && (!Array.isArray(caps) || !caps.includes(required))) {
+    return makeResult(check, "UNSUPPORTED", null, `Missing capability: ${required}`);
+  }
+  const actual = getPath(data, check.source || check.path || "");
+  const op = check.operator || check.op;
+  if (actual === undefined || actual === null || actual === "" || actual === -1) {
+    return makeResult(check, "UNKNOWN", actual, "Value is not available");
+  }
+  if (op === "eq_true" || op === "eq_false") {
+    const expected = op === "eq_true";
+    return makeResult(check, actual === expected ? "PASS" : "FAIL", actual, `Expected ${expected}, got ${actual}`);
+  }
+  if (op === "equals") {
+    const ok = String(actual) === String(check.expected);
+    return makeResult(check, ok ? "PASS" : "FAIL", actual, `Expected ${check.expected}, got ${actual}`);
+  }
+  if (op === "contains") {
+    const actualValues = normalizeList(actual);
+    const expectedValues = normalizeList(check.expected);
+    const missing = expectedValues.filter(x => !actualValues.includes(x));
+    return makeResult(check, missing.length ? "FAIL" : "PASS", actualValues, missing.length ? `Missing: ${missing.join(", ")}` : "All expected values found");
+  }
+  if (op === "min_version") {
+    const ok = compareVersions(String(actual), String(check.expected)) >= 0;
+    return makeResult(check, ok ? "PASS" : "FAIL", actual, ok ? `Version ${actual} satisfies minimum ${check.expected}` : `Version ${actual} is below minimum ${check.expected}`);
+  }
+  if (op === "lte") {
+    const ok = typeof actual === "number" && actual <= check.threshold;
+    return makeResult(check, ok ? "PASS" : "FAIL", actual, `Expected <= ${check.threshold}, got ${actual}`);
+  }
+  if (op === "cert_name_exists") {
+    const cert = findCert(actual, check.expected);
+    return makeResult(check, cert ? "PASS" : "FAIL", cert, cert ? `Found certificate: ${cert.name}` : `Certificate not found: ${check.expected}`);
+  }
+  if (op === "cert_expiry_days") {
+    const cert = findCert(actual, check.match);
+    if (!cert) return makeResult(check, "FAIL", null, `Certificate not found: ${check.match}`);
+    const days = daysUntil(cert.not_after || cert.expiry);
+    if (days === null) return makeResult(check, "FAIL", cert, "Invalid or missing expiry date");
+    if (days < (check.fail_days || 0)) return makeResult(check, "FAIL", days, `Expired ${Math.abs(days)} days ago`);
+    if (days <= (check.warn_days || 30)) return makeResult(check, "WARN", days, `Expires in ${days} days`);
+    return makeResult(check, "PASS", days, `Valid for ${days} days`);
+  }
+  return makeResult(check, "UNKNOWN", actual, `Unsupported operator: ${op}`);
+}
+
+function makeResult(check, status, actual, evidence) {
+  return {
+    id: check.id || "",
+    title: check.title || "",
+    category: check.category || "general",
+    severity: check.severity || "medium",
+    status,
+    expected: check.expected ?? check.match ?? check.threshold ?? null,
+    actual,
+    evidence,
+    remediation: check.remediation || ""
+  };
+}
+
+function renderReport(report) {
+  const s = report.summary;
+  el("summaryEmpty").hidden = true;
+  el("summaryContent").hidden = false;
+  el("generatedAt").textContent = new Date(report.generated_at).toLocaleString();
+  el("scoreGauge").style.setProperty("--score", s.score);
+  el("scoreText").textContent = s.score;
+  el("passCount").textContent = s.pass;
+  el("warnCount").textContent = s.warn;
+  el("failCount").textContent = s.fail;
+  el("unknownCount").textContent = s.unknown;
+  el("unsupportedCount").textContent = s.unsupported;
+  el("targetBaseline").textContent = `${report.baseline.id} (${report.baseline.platform})`;
+  el("targetName").textContent = report.target.hostname || "unknown";
+  el("targetPlatform").textContent = [report.target.platform, report.target.os_version].filter(Boolean).join(" ") || report.baseline.platform;
+  el("checkCount").textContent = `${s.total} checks`;
+  el("resultsBody").innerHTML = report.results.map(row => `
+    <tr>
+      <td><span class="tag ${esc(row.status)}">${esc(row.status)}</span></td>
+      <td><strong>${esc(row.id)}</strong><br>${esc(row.title)}</td>
+      <td>${esc(row.severity)}</td>
+      <td>${esc(row.category)}</td>
+      <td>${esc(row.evidence)}</td>
+      <td>${esc(row.remediation)}</td>
+    </tr>
+  `).join("");
+}
+
+function renderEmptyResults() {
+  el("resultsBody").innerHTML = "";
+  el("checkCount").textContent = "0 checks";
+}
+
+function targetSummary(data) {
+  const meta = data.meta || {};
+  const network = data.network || {};
+  return {
+    hostname: meta.hostname || network.hostname || "",
+    profile: meta.profile || "",
+    agent_version: meta.agent_version || "",
+    platform: meta.macos_name || meta.platform || "",
+    os_version: meta.macos_version || meta.os_version || ""
+  };
+}
+
+function getPath(obj, path) {
+  return String(path || "").split(".").reduce((current, part) => {
+    if (current && Object.prototype.hasOwnProperty.call(current, part)) return current[part];
+    return undefined;
+  }, obj);
+}
+
+function normalizeList(value) {
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function compareVersions(actual, expected) {
+  const parse = value => String(value).split(".").map(part => parseInt(String(part).replace(/\D/g, "") || "0", 10));
+  const a = parse(actual);
+  const e = parse(expected);
+  for (let i = 0; i < Math.max(a.length, e.length); i++) {
+    const av = a[i] || 0;
+    const ev = e[i] || 0;
+    if (av > ev) return 1;
+    if (av < ev) return -1;
+  }
+  return 0;
+}
+
+function findCert(certs, wanted) {
+  if (!Array.isArray(certs)) return null;
+  const needle = String(wanted || "").toLowerCase();
+  return certs.find(cert => String(cert?.name || "").toLowerCase().includes(needle)) || null;
+}
+
+function daysUntil(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return Math.floor((parsed.getTime() - Date.now()) / 86400000);
+}
+
+function count(results, status) {
+  return results.filter(row => row.status === status).length;
+}
+
+function copyReport() {
+  if (!currentReport) return showError("Run an analysis first.");
+  navigator.clipboard?.writeText(JSON.stringify(currentReport, null, 2))
+    .then(() => showMessage("Report copied."))
+    .catch(() => showError("Clipboard is unavailable in this browser."));
+}
+
+function downloadJson() {
+  if (!currentReport) return showError("Run an analysis first.");
+  download(`mq-client-optimizer-${currentReport.baseline.id}.json`, JSON.stringify(currentReport, null, 2), "application/json");
+}
+
+function downloadHtml() {
+  if (!currentReport) return showError("Run an analysis first.");
+  const rows = currentReport.results.map(r => `<tr><td>${esc(r.status)}</td><td>${esc(r.severity)}</td><td>${esc(r.id)}</td><td>${esc(r.title)}</td><td>${esc(r.evidence)}</td><td>${esc(r.remediation)}</td></tr>`).join("");
+  const s = currentReport.summary;
+  const doc = `<!doctype html><html><head><meta charset="utf-8"><title>MQ Client Optimizer Report</title><style>body{font-family:system-ui;margin:32px;color:#17202a}table{width:100%;border-collapse:collapse}th,td{border-bottom:1px solid #d8dee4;padding:8px;text-align:left;vertical-align:top}th{background:#f6f8fa}</style></head><body><h1>MQ Client Optimizer v1</h1><p>Baseline: ${esc(currentReport.baseline.id)} - ${esc(currentReport.baseline.name)}</p><h2>Score ${s.score}</h2><p>Pass: ${s.pass} Warn: ${s.warn} Fail: ${s.fail} Unknown: ${s.unknown} Unsupported: ${s.unsupported}</p><table><thead><tr><th>Status</th><th>Severity</th><th>ID</th><th>Check</th><th>Evidence</th><th>Remediation</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+  download(`mq-client-optimizer-${currentReport.baseline.id}.html`, doc, "text/html");
+}
+
+function download(name, content, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function showError(text) {
+  message.innerHTML = `<div class="error">${esc(text)}</div>`;
+}
+
+function showMessage(text) {
+  message.innerHTML = `<div class="small" style="margin-top:12px">${esc(text)}</div>`;
+}
+
+function clearMessage() {
+  message.innerHTML = "";
+}
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
+}
+
+init();
+  </script>
+</body>
+</html>

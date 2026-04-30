@@ -2,9 +2,9 @@
 
 Template-based optimizer and readiness analyzer for IGEL and macOS clients.
 
-This first version is intentionally safe. It supports `analyze`, JSON/HTML
-reports, bundled baselines, sample data, local JSON input, and agent URLs. It
-does not yet apply endpoint changes.
+This first version is intentionally safe. It supports a CLI and a standalone
+HTML app, `analyze`, JSON/HTML reports, bundled baselines, sample data, local
+JSON input, and agent URLs. It does not yet apply endpoint changes.
 
 ## Baselines
 
@@ -15,6 +15,15 @@ does not yet apply endpoint changes.
 | `macos-enterprise-cis-lite` | macOS | CIS-style enterprise compliance |
 
 ## Usage
+
+Open the HTML app directly:
+
+```text
+docs/MQ Client Optimizer.html
+```
+
+The HTML app can run with embedded sample data, pasted JSON, or a reachable
+agent URL such as `http://127.0.0.1:38764/status`.
 
 List baselines:
 
@@ -72,6 +81,7 @@ python3 tools/mq-client-optimizer/mq_client_optimizer.py sample-data \
 Included:
 
 - Baseline-driven evaluator
+- Standalone HTML analyzer app
 - IGEL OS 12 + Citrix readiness baseline
 - macOS + Citrix readiness baseline
 - macOS enterprise CIS-lite baseline
@@ -84,4 +94,3 @@ Not included yet:
 - macOS remediation execution
 - Rollback history
 - Per-client readiness agent implementation
-
