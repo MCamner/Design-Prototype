@@ -27,8 +27,7 @@ File: `docs/Client Readiness Dashboard.html`
 Validates a single client against readiness profiles for Citrix and thin-client
 scenarios.
 
-Live data: expects a Client Readiness Agent on port `38765`. That agent is
-referenced by the UI but is not currently included in this repo.
+Live data: uses `helper/client_readiness_agent.py` on port `38765`.
 
 ### Fleet Command Center
 
@@ -155,8 +154,8 @@ http://localhost:38766
 ```
 
 Live fleet data requires each configured client to expose a Client Readiness
-Agent on port `38765`. The collector is included in this repo; the per-client
-readiness agent is currently not included.
+Agent on port `38765`. The included `helper/client_readiness_agent.py` provides
+that endpoint for local testing and supported macOS/Linux clients.
 
 ## Ports
 
@@ -183,6 +182,7 @@ design-prototyp/
 │   ├── README-macOS-Enterprise-Dashboard.md
 │   └── README-Certificate-Expiry-Timeline.md
 ├── helper/
+│   ├── client_readiness_agent.py
 │   ├── fleet_collector.py
 │   ├── fleet_clients.json
 │   └── macos_agent.py
@@ -250,8 +250,8 @@ This is a design and architecture exploration, not a finished product. Some
 live modes depend on helper agents that may be local-only, external, or future
 work.
 
-Known gap: `helper/client_readiness_agent.py` is referenced by the Client
-Readiness and Fleet prototypes but is not currently present in this repository.
+The Client Readiness Agent is intentionally lightweight; IGEL UMS integration
+and managed remediation flows are future work.
 
 ## License
 

@@ -50,6 +50,15 @@ python3 tools/mq-client-optimizer/mq_client_optimizer.py analyze \
   --output-html reports/macos-optimizer-report.html
 ```
 
+Analyze live Citrix readiness data from the Client Readiness Agent:
+
+```bash
+python3 helper/client_readiness_agent.py --profile macos-citrix
+python3 tools/mq-client-optimizer/mq_client_optimizer.py analyze \
+  --baseline macos-citrix \
+  --agent-url http://127.0.0.1:38765/status
+```
+
 Analyze an IGEL/readiness JSON export:
 
 ```bash

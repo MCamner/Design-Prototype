@@ -529,6 +529,7 @@ function selectedBaseline() {
 function loadSample() {
   const sample = SAMPLES[selectedBaseline().id] || {};
   jsonInput.value = JSON.stringify(sample, null, 2);
+  syncAgentUrl();
   clearMessage();
 }
 
@@ -537,6 +538,15 @@ function syncInputMode() {
   el("agentBox").hidden = mode !== "agent";
   jsonInput.disabled = mode === "agent";
   if (mode === "sample") loadSample();
+  syncAgentUrl();
+}
+
+function syncAgentUrl() {
+  const baseline = selectedBaseline().id;
+  const url = baseline === "macos-enterprise-cis-lite"
+    ? "http://127.0.0.1:38764/status"
+    : "http://127.0.0.1:38765/status";
+  el("agentUrl").value = url;
 }
 
 async function runAnalyze() {

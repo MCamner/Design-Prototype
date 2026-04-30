@@ -31,10 +31,9 @@ The dashboard detects that no collector is running and switches to demo mode.
 - No external Python packages
 - Client Readiness Agent on each client at `http://<client-ip>:38765/status`
 
-The fleet collector is included in this repo. The per-client
-`helper/client_readiness_agent.py` is referenced by the dashboard but is not
-currently present. Use demo mode, provide a compatible external agent, or add
-that helper before expecting live client data.
+The fleet collector and `helper/client_readiness_agent.py` are included in this
+repo. Start the readiness agent on each client you want to poll, or provide a
+compatible external agent with the same JSON shape.
 
 ### Configure Clients
 
@@ -188,11 +187,10 @@ docs/
   Fleet Command Center.html
   Client Readiness Dashboard.html
 helper/
+  client_readiness_agent.py
   fleet_collector.py
   fleet_clients.json
 ```
-
-Missing from the current repo: `helper/client_readiness_agent.py`.
 
 ## Ports
 
