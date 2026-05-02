@@ -211,6 +211,37 @@ tr:last-child td { border-bottom: none; }
   .toc { padding: 0 20px; }
   .edit-banner { padding: 10px 20px; }
 }
+
+/* ── Live Commands ── */
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; transition: background .4s; }
+.live-dot.on { background: var(--green); box-shadow: 0 0 7px var(--green); animation: lv-pulse 2s infinite; }
+@keyframes lv-pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+.live-status-text { font-size: 12px; color: var(--muted); }
+.live-list { display: flex; flex-direction: column; gap: 8px; }
+.live-empty { font-size: 13px; color: var(--muted); padding: 24px 0; }
+.live-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 11px 15px;
+  animation: lv-in .2s ease;
+}
+@keyframes lv-in { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:none; } }
+.live-card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+.live-ts { font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.live-cat { font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; padding: 1px 7px; border-radius: 3px; }
+.cat-Finder   { background: rgba(63,185,80,.12);  color: var(--green); }
+.cat-System   { background: rgba(88,166,255,.12); color: var(--accent); }
+.cat-App      { background: rgba(163,113,247,.12); color: var(--purple); }
+.cat-Nätverk  { background: rgba(210,153,34,.15); color: var(--amber); }
+.cat-Git      { background: rgba(163,113,247,.12); color: var(--purple); }
+.cat-Homebrew { background: rgba(87,240,210,.1); color: #56e0c8; }
+.live-gui { font-size: 11px; color: var(--muted); }
+.live-cmd-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #010409; border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 11px;
+}
+.live-cmd-text { font-family: var(--mono); font-size: 12px; color: var(--green); flex: 1; word-break: break-all; }
+.live-expl { font-size: 11px; color: var(--muted); margin-top: 5px; }
 </style>
 </head>
 <body>
@@ -238,6 +269,7 @@ tr:last-child td { border-bottom: none; }
 
 <!-- ── TOC ───────────────────────────────────────────────────────────────── -->
 <nav class="toc">
+  <a href="#live">Live</a>
   <a href="#arch">Architecture</a>
   <a href="#apis">macOS APIs</a>
   <a href="#permissions">Permissions</a>
@@ -249,6 +281,20 @@ tr:last-child td { border-bottom: none; }
 </nav>
 
 <div class="container">
+
+<!-- ── 0. Live Commands ──────────────────────────────────────────────────── -->
+<section id="live">
+  <h2><span class="num">00 /</span> Live Commands</h2>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+    <div class="live-dot" id="live-dot"></div>
+    <span class="live-status-text" id="live-status">Ansluter till gui_to_cli.py på port 7070…</span>
+  </div>
+  <div id="live-list" class="live-list">
+    <div class="live-empty" id="live-empty">
+      Inga händelser ännu — kör <code style="font-family:var(--mono);font-size:11px;color:var(--accent)">python3 tools/mqmirror/gui_to_cli.py</code> och gör saker i macOS GUI.
+    </div>
+  </div>
+</section>
 
 <!-- ── 1. Architecture ───────────────────────────────────────────────────── -->
 <section id="arch">
@@ -817,6 +863,101 @@ function copyCode(btn) {
     setTimeout(() => btn.textContent = orig, 1800);
   });
 }
+
+// ── Live Commands ─────────────────────────────────────────────────────────
+(function() {
+  const BASE = 'http://127.0.0.1:7070';
+  const dot  = document.getElementById('live-dot');
+  const statusEl = document.getElementById('live-status');
+  const list = document.getElementById('live-list');
+  const empty = document.getElementById('live-empty');
+  const seen = new Set();
+  let es = null;
+  let pollTimer = null;
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function setConnected(on) {
+    dot.className = 'live-dot' + (on ? ' on' : '');
+    statusEl.textContent = on ? 'Ansluten — lyssnar på GUI-händelser (port 7070)' : 'Ej ansluten — försöker igen…';
+  }
+
+  function addCommand(cmd) {
+    if (seen.has(cmd.id)) return;
+    seen.add(cmd.id);
+    if (empty) empty.style.display = 'none';
+    const catCls = 'cat-' + (cmd.category || 'System');
+    const card = document.createElement('div');
+    card.className = 'live-card';
+    card.innerHTML =
+      '<div class="live-card-top">' +
+        '<span class="live-ts">' + esc(cmd.ts) + '</span>' +
+        '<span class="live-cat ' + catCls + '">' + esc(cmd.category) + '</span>' +
+        '<span class="live-gui">' + esc(cmd.gui_action) + '</span>' +
+      '</div>' +
+      '<div class="live-cmd-row">' +
+        '<span class="live-cmd-text">❯ ' + esc(cmd.command) + '</span>' +
+        '<button class="copy-btn" data-cmd="' + esc(cmd.command) + '">Copy</button>' +
+      '</div>' +
+      (cmd.explanation ? '<div class="live-expl">' + esc(cmd.explanation) + '</div>' : '');
+    list.insertBefore(card, list.firstChild);
+    while (list.children.length > 21) list.removeChild(list.lastChild);
+  }
+
+  list.addEventListener('click', function(e) {
+    if (!e.target.classList.contains('copy-btn')) return;
+    navigator.clipboard.writeText(e.target.dataset.cmd).then(function() {
+      e.target.textContent = '✓ Copied';
+      setTimeout(function() { e.target.textContent = 'Copy'; }, 1800);
+    });
+  });
+
+  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(function() {
+      fetch(BASE + '/api/commands')
+        .then(function(r) { return r.json(); })
+        .then(function(cmds) {
+          setConnected(true);
+          cmds.forEach(addCommand);
+          stopPolling();
+          connectSSE();
+        })
+        .catch(function() { setConnected(false); });
+    }, 2000);
+  }
+
+  function connectSSE() {
+    if (es) { es.close(); es = null; }
+    es = new EventSource(BASE + '/events');
+    es.onopen = function() { setConnected(true); stopPolling(); };
+    es.onmessage = function(e) {
+      try { addCommand(JSON.parse(e.data)); } catch (_) {}
+    };
+    es.onerror = function() {
+      setConnected(false);
+      if (es) { es.close(); es = null; }
+      startPolling();
+    };
+  }
+
+  // Bootstrap: first try to fetch existing commands, then switch to SSE
+  fetch(BASE + '/api/commands')
+    .then(function(r) { return r.json(); })
+    .then(function(cmds) {
+      setConnected(true);
+      cmds.forEach(addCommand);
+      connectSSE();
+    })
+    .catch(function() {
+      setConnected(false);
+      startPolling();
+    });
+})();
 
 // Sticky TOC active state
 const sections = document.querySelectorAll('section[id]');

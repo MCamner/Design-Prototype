@@ -19,6 +19,12 @@ Kör:
 import sys
 import os
 import subprocess
+import threading
+import json
+import queue as _queue
+from collections import deque
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from datetime import datetime
 
 # ── Dependency check ──────────────────────────────────────────────────────────
@@ -50,6 +56,94 @@ except ImportError:
     HAS_WATCHDOG = False
     print("⚠️  watchdog saknas — filsystemshändelser inaktiverade.")
     print("   Kör: pip install watchdog\n")
+
+
+# ── Live HTTP/SSE server ──────────────────────────────────────────────────
+LIVE_PORT = 7070
+_cmd_id = 0
+_cmd_lock = threading.Lock()
+_cmd_history = deque(maxlen=100)
+_sse_queues = []
+_sse_lock = threading.Lock()
+
+
+def _emit(category, gui_action, cmd, explanation=""):
+    global _cmd_id
+    with _cmd_lock:
+        _cmd_id += 1
+        entry = {
+            "id": _cmd_id,
+            "ts": datetime.now().strftime("%H:%M:%S"),
+            "category": category,
+            "gui_action": gui_action,
+            "command": cmd,
+            "explanation": explanation,
+        }
+        _cmd_history.append(entry)
+    payload = json.dumps(entry)
+    with _sse_lock:
+        dead = []
+        for q in _sse_queues:
+            try:
+                q.put_nowait(payload)
+            except _queue.Full:
+                dead.append(q)
+        for q in dead:
+            _sse_queues.remove(q)
+
+
+class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+
+
+class _LiveHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/api/commands":
+            with _cmd_lock:
+                body = json.dumps(list(_cmd_history)).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        elif self.path == "/events":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            q = _queue.Queue(maxsize=50)
+            with _sse_lock:
+                _sse_queues.append(q)
+            try:
+                while True:
+                    try:
+                        data = q.get(timeout=15)
+                        self.wfile.write(f"data: {data}\n\n".encode())
+                        self.wfile.flush()
+                    except _queue.Empty:
+                        self.wfile.write(b": ka\n\n")
+                        self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
+            finally:
+                with _sse_lock:
+                    if q in _sse_queues:
+                        _sse_queues.remove(q)
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def log_message(self, *_):
+        pass
+
+
+def _start_live_server():
+    server = _ThreadedHTTPServer(("127.0.0.1", LIVE_PORT), _LiveHandler)
+    server.serve_forever()
 
 
 # ── Terminal output helpers ───────────────────────────────────────────────────
@@ -84,6 +178,7 @@ def print_command(category, gui_action, cmd, explanation=""):
     print(f"  {GREEN}❯{RESET} {BOLD}{cmd}{RESET}")
     if explanation:
         print(f"  {MUTED}{explanation}{RESET}")
+    _emit(category, gui_action, cmd, explanation)
 
 def print_separator():
     print(f"\n{MUTED}{'─' * 60}{RESET}")
@@ -292,6 +387,11 @@ def start_fs_watcher():
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
     print_header()
+
+    # Live HTTP/SSE server
+    t = threading.Thread(target=_start_live_server, daemon=True)
+    t.start()
+    print(f"{GREEN}✓{RESET} Live-server aktiv → öppna handoff.html (port {LIVE_PORT})")
 
     # Workspace-observer
     workspace_observer = WorkspaceObserver.alloc().init()
