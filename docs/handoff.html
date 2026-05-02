@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GUI→CLI Companion — Swift Developer Handoff</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:wght@400;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117; --panel: #161b22; --border: #21262d;
+  --text: #e6edf3; --muted: #7d8590; --accent: #58a6ff;
+  --green: #3fb950; --amber: #d29922; --red: #f85149; --purple: #a371f7;
+  --mono: 'Berkeley Mono', 'Courier New', monospace;
+  --sans: 'Space Grotesk', system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; scroll-behavior: smooth; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: var(--sans); line-height: 1.7;
+  padding: 0 0 80px;
+}
+
+/* ── Hero ── */
+.hero {
+  padding: 56px 48px 44px;
+  border-bottom: 1px solid var(--border);
+  display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 12px; font-size: 11px;
+  color: var(--muted); letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 18px;
+}
+.hero h1 {
+  font-size: clamp(26px, 4vw, 44px); font-weight: 700; letter-spacing: -.02em;
+  line-height: 1.1; margin-bottom: 10px;
+}
+.hero h1 span { color: var(--accent); }
+.hero p { font-size: 15px; color: var(--muted); max-width: 520px; }
+.meta-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px 18px; min-width: 180px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.meta-row .label { font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.meta-row .value { font-size: 13px; font-weight: 600; color: var(--text); font-family: var(--mono); }
+
+/* ── Edit banner ── */
+.edit-banner {
+  background: rgba(88,166,255,.07); border-bottom: 1px solid rgba(88,166,255,.2);
+  padding: 10px 48px; font-size: 12px; color: var(--muted);
+  display: flex; align-items: center; gap: 10px;
+}
+.edit-banner strong { color: var(--accent); }
+.edit-banner code {
+  font-family: var(--mono); font-size: 11px; color: var(--accent);
+  background: rgba(88,166,255,.1); padding: 1px 6px; border-radius: 3px;
+}
+
+/* ── TOC ── */
+.toc {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(13,17,23,0.92); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 48px; display: flex; gap: 0; overflow-x: auto;
+}
+.toc a {
+  display: flex; align-items: center; gap: 6px;
+  padding: 13px 15px; font-size: 12px; color: var(--muted);
+  text-decoration: none; border-bottom: 2px solid transparent;
+  transition: all .15s; white-space: nowrap; letter-spacing: .04em;
+}
+.toc a:hover { color: var(--text); }
+.toc a.active { color: var(--accent); border-color: var(--accent); }
+.toc-updated {
+  margin-left: auto; display: flex; align-items: center;
+  font-size: 11px; color: var(--muted); padding-right: 4px;
+  white-space: nowrap;
+}
+
+/* ── Layout ── */
+.container { max-width: 1080px; margin: 0 auto; padding: 0 48px; }
+section { padding: 52px 0 0; }
+h2 {
+  font-size: 20px; font-weight: 700; letter-spacing: -.01em;
+  margin-bottom: 28px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+h2 .num { color: var(--muted); font-weight: 400; font-size: 13px; }
+h3 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; letter-spacing: .02em; }
+
+/* ── Cards ── */
+.grid { display: grid; gap: 14px; }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px;
+}
+.card-icon { font-size: 20px; margin-bottom: 10px; }
+.card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+.badge {
+  display: inline-block; font-size: 10px; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 4px; margin-bottom: 8px;
+}
+.badge-required    { background: rgba(248,81,73,.15); color: var(--red); }
+.badge-optional    { background: rgba(61,185,80,.12); color: var(--green); }
+.badge-entitlement { background: rgba(88,166,255,.12); color: var(--accent); }
+
+/* ── Code ── */
+pre {
+  background: #010409; border: 1px solid var(--border);
+  border-radius: 0 0 8px 8px; padding: 18px 20px;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.75;
+  overflow-x: auto; margin-bottom: 20px; tab-size: 4;
+}
+.code-header {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px 8px 0 0; padding: 7px 14px; margin-top: 20px;
+}
+.code-lang { font-size: 10px; color: var(--muted); font-family: var(--mono); letter-spacing: .06em; }
+.code-file { font-size: 11px; color: var(--accent); font-family: var(--mono); }
+.copy-btn {
+  font-size: 10px; color: var(--muted); background: transparent;
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 2px 8px; cursor: pointer; font-family: var(--sans);
+  transition: all .15s; letter-spacing: .04em;
+}
+.copy-btn:hover { color: var(--text); border-color: var(--muted); }
+/* Syntax */
+.kw { color: #ff7b72; } .ty { color: #79c0ff; } .fn { color: #d2a8ff; }
+.st { color: #a5d6ff; } .cm { color: #8b949e; font-style: italic; }
+.nm { color: #ffa657; } .op { color: #7ee787; }
+
+/* ── Architecture ── */
+.arch {
+  background: #010409; border: 1px solid var(--border);
+  border-radius: 10px; padding: 28px; overflow-x: auto;
+  font-family: var(--mono); font-size: 12px; line-height: 1.8;
+}
+.arch-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0; margin: 4px 0; }
+.arch-box {
+  border: 1px solid; border-radius: 6px; padding: 5px 12px;
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; white-space: nowrap;
+}
+.box-blue   { border-color: #58a6ff; color: #58a6ff; background: rgba(88,166,255,.08); }
+.box-green  { border-color: #3fb950; color: #3fb950; background: rgba(63,185,80,.08); }
+.box-amber  { border-color: #d29922; color: #d29922; background: rgba(210,153,34,.08); }
+.box-purple { border-color: #a371f7; color: #a371f7; background: rgba(163,113,247,.08); }
+.box-muted  { border-color: var(--border); color: var(--muted); }
+.arch-arrow { color: var(--muted); padding: 0 10px; font-size: 15px; }
+.arch-label { font-size: 10px; color: var(--muted); margin-left: 10px; }
+
+/* ── Table ── */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left; padding: 9px 14px; font-size: 10px;
+  text-transform: uppercase; letter-spacing: .08em;
+  color: var(--muted); border-bottom: 1px solid var(--border);
+}
+td { padding: 11px 14px; border-bottom: 1px solid rgba(48,54,61,.5); vertical-align: top; }
+td:first-child { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+tr:last-child td { border-bottom: none; }
+
+/* ── Checklist ── */
+.checklist { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.checklist li { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; color: var(--muted); }
+.checklist li::before { content: "○"; color: var(--border); flex-shrink: 0; margin-top: 2px; }
+.checklist li.done { color: var(--text); }
+.checklist li.done::before { content: "●"; color: var(--green); }
+.checklist code { font-family: var(--mono); font-size: 11px; color: var(--accent); background: rgba(88,166,255,.1); padding: 1px 5px; border-radius: 3px; }
+
+/* ── Roadmap ── */
+.phases { display: flex; flex-direction: column; gap: 2px; }
+.phase { display: grid; grid-template-columns: 110px 1fr; gap: 20px; padding: 20px 0; border-bottom: 1px solid var(--border); align-items: start; }
+.phase:last-child { border-bottom: none; }
+.phase-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; padding-top: 2px; }
+.phase-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.phase-items { font-size: 13px; color: var(--muted); padding-left: 16px; }
+.phase-items li { margin-top: 4px; }
+.phase-tag { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 3px; font-weight: 600; margin-left: 6px; vertical-align: middle; }
+.tag-mvp { background: rgba(63,185,80,.15); color: var(--green); }
+.tag-v2  { background: rgba(88,166,255,.12); color: var(--accent); }
+.tag-v3  { background: rgba(163,113,247,.12); color: var(--purple); }
+
+/* ── Pills ── */
+.pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.pill { font-size: 11px; padding: 2px 9px; border-radius: 20px; background: var(--panel); border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); }
+
+/* ── Changelog ── */
+.changelog { display: flex; flex-direction: column; gap: 2px; }
+.cl-entry { display: grid; grid-template-columns: 110px 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.cl-entry:last-child { border-bottom: none; }
+.cl-date { color: var(--muted); font-family: var(--mono); font-size: 11px; padding-top: 1px; }
+.cl-msg  { color: var(--text); }
+.cl-tag  { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 3px; font-weight: 600; margin-right: 6px; }
+.cl-added   { background: rgba(63,185,80,.15); color: var(--green); }
+.cl-changed { background: rgba(88,166,255,.12); color: var(--accent); }
+.cl-fixed   { background: rgba(210,153,34,.15); color: var(--amber); }
+
+@media (max-width: 700px) {
+  .hero, .container { padding-left: 20px; padding-right: 20px; }
+  .hero { grid-template-columns: 1fr; }
+  .toc { padding: 0 20px; }
+  .edit-banner { padding: 10px 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+<div class="hero">
+  <div>
+    <div class="hero-badge">🛠 Developer Handoff</div>
+    <h1>GUI → CLI <span>Companion</span></h1>
+    <p>A macOS menu bar app that shows the terminal equivalent of what you're doing in the GUI — in real time. Technical spec for the Swift implementation.</p>
+  </div>
+  <div class="meta-card">
+    <div class="meta-row"><div class="label">Target OS</div><div class="value">macOS 14+</div></div>
+    <div class="meta-row"><div class="label">Language</div><div class="value">Swift 5.9</div></div>
+    <div class="meta-row"><div class="label">Frameworks</div><div class="value">SwiftUI + AppKit</div></div>
+    <div class="meta-row"><div class="label">Updated</div><div class="value" id="updated-date">2026-05-02</div></div>
+  </div>
+</div>
+
+<!-- ── Edit note ─────────────────────────────────────────────────────────── -->
+<div class="edit-banner">
+  📄 This file lives at <code>docs/handoff.html</code> — edit it directly in your repo to keep the spec up to date.
+  Code snippets can be copy-pasted straight into Xcode.
+</div>
+
+<!-- ── TOC ───────────────────────────────────────────────────────────────── -->
+<nav class="toc">
+  <a href="#arch">Architecture</a>
+  <a href="#apis">macOS APIs</a>
+  <a href="#permissions">Permissions</a>
+  <a href="#code">Code</a>
+  <a href="#ui">UI Spec</a>
+  <a href="#roadmap">Roadmap</a>
+  <a href="#changelog">Changelog</a>
+  <span class="toc-updated">Last updated: <span id="toc-date">2026-05-02</span></span>
+</nav>
+
+<div class="container">
+
+<!-- ── 1. Architecture ───────────────────────────────────────────────────── -->
+<section id="arch">
+  <h2><span class="num">01 /</span> Architecture</h2>
+
+  <div class="arch" style="margin-bottom:28px">
+    <div style="color:var(--muted);font-size:10px;margin-bottom:18px;letter-spacing:.1em;text-transform:uppercase">Data flow</div>
+    <div class="arch-row">
+      <div class="arch-box box-muted">macOS GUI</div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box box-blue">Event Sources</div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box box-amber">EventBus</div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box box-purple">CommandMapper</div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-box box-green">SwiftUI UI</div>
+    </div>
+    <div style="margin-top:22px;color:var(--muted);font-size:10px;margin-bottom:10px;letter-spacing:.1em;text-transform:uppercase">Event sources</div>
+    <div class="arch-row" style="gap:8px"><div class="arch-box box-blue">NSWorkspace</div><div class="arch-label">app switches, launches, disk mounts — no permission needed</div></div>
+    <div class="arch-row" style="gap:8px;margin-top:7px"><div class="arch-box box-blue">AXObserver</div><div class="arch-label">button presses, menu selections, focus changes — requires Accessibility</div></div>
+    <div class="arch-row" style="gap:8px;margin-top:7px"><div class="arch-box box-blue">FSEvents</div><div class="arch-label">file create / delete / rename — requires Full Disk Access</div></div>
+    <div class="arch-row" style="gap:8px;margin-top:7px"><div class="arch-box box-blue">CGEventTap</div><div class="arch-label">global keyboard shortcuts (Cmd+C, Cmd+N…) — requires Input Monitoring</div></div>
+  </div>
+
+  <div class="grid grid-3">
+    <div class="card">
+      <div class="card-icon">📦</div>
+      <h3>App type</h3>
+      <p><code style="font-family:var(--mono);font-size:11px;color:var(--accent)">LSUIElement = true</code> — no Dock icon. Lives as <code style="font-family:var(--mono);font-size:11px;color:var(--accent)">NSStatusItem</code> in the menu bar.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔄</div>
+      <h3>State</h3>
+      <p><code style="font-family:var(--mono);font-size:11px;color:var(--accent)">@Observable CommandStore</code> holds history. SwiftUI views subscribe via <code style="font-family:var(--mono);font-size:11px;color:var(--accent)">@Environment</code>.</p>
+    </div>
+    <div class="card">
+      <div class="card-icon">🗺</div>
+      <h3>CommandMapper</h3>
+      <p>Static dictionary + plugin architecture. Each app (Finder, Safari…) is its own <code style="font-family:var(--mono);font-size:11px;color:var(--accent)">Mapper</code> struct.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── 2. APIs ───────────────────────────────────────────────────────────── -->
+<section id="apis">
+  <h2><span class="num">02 /</span> macOS APIs</h2>
+  <div class="grid grid-2">
+
+    <div class="card">
+      <span class="badge badge-required">Core</span>
+      <h3>NSWorkspace Notifications</h3>
+      <p>Catches app launch, activation, disk mount, sleep/wake. No extra permission needed.</p>
+      <div class="pills">
+        <span class="pill">didActivateApplicationNotification</span>
+        <span class="pill">didLaunchApplicationNotification</span>
+        <span class="pill">didMountNotification</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="badge badge-required">Core</span>
+      <h3>AXObserver (Accessibility API)</h3>
+      <p>Listens to UI elements in all apps: button presses, menu selections, focus changes. Requires Accessibility permission.</p>
+      <div class="pills">
+        <span class="pill">AXUIElementCreateApplication</span>
+        <span class="pill">AXObserverCreate</span>
+        <span class="pill">kAXPressedNotification</span>
+        <span class="pill">kAXFocusedUIElementChangedNotification</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="badge badge-required">Core</span>
+      <h3>FSEvents</h3>
+      <p>Real-time filesystem events for chosen directories. Catches create, delete, move, rename.</p>
+      <div class="pills">
+        <span class="pill">FSEventStreamCreate</span>
+        <span class="pill">kFSEventStreamEventFlagItemCreated</span>
+        <span class="pill">kFSEventStreamEventFlagItemRenamed</span>
+        <span class="pill">kFSEventStreamEventFlagItemRemoved</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="badge badge-optional">Optional</span>
+      <h3>CGEventTap</h3>
+      <p>Global keyboard and mouse events. Catches Cmd+C, Cmd+N, Cmd+Z and other shortcuts. Requires Input Monitoring.</p>
+      <div class="pills">
+        <span class="pill">CGEvent.tapCreate</span>
+        <span class="pill">kCGEventKeyDown</span>
+        <span class="pill">CGEventFlags</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="badge badge-optional">Optional — v2</span>
+      <h3>NSAppleScript / JXA</h3>
+      <p>Query Finder directly: selected files, current directory, Trash contents. Gives rich context for the command mapper.</p>
+      <div class="pills">
+        <span class="pill">NSAppleScript.executeAndReturnError</span>
+        <span class="pill">com.apple.security.automation.apple-events</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="badge badge-optional">Optional — v2</span>
+      <h3>NSStatusItem (Menu Bar)</h3>
+      <p>App lives in the menu bar. SwiftUI popover shown on click. No Dock icon.</p>
+      <div class="pills">
+        <span class="pill">NSStatusBar.system.statusItem</span>
+        <span class="pill">NSPopover</span>
+        <span class="pill">LSUIElement = true</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── 3. Permissions ────────────────────────────────────────────────────── -->
+<section id="permissions">
+  <h2><span class="num">03 /</span> Permissions &amp; Entitlements</h2>
+
+  <div class="card" style="margin-bottom:20px">
+    <table>
+      <thead>
+        <tr>
+          <th>Entitlement / Permission</th>
+          <th>Why</th>
+          <th>When to request</th>
+          <th>Required</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Accessibility (AX)</td>
+          <td>Read UI elements in other apps via AXObserver</td>
+          <td>First launch</td>
+          <td><span class="badge badge-required">Required</span></td>
+        </tr>
+        <tr>
+          <td>Full Disk Access</td>
+          <td>FSEvents in protected directories (Desktop, Downloads)</td>
+          <td>First launch</td>
+          <td><span class="badge badge-required">Required</span></td>
+        </tr>
+        <tr>
+          <td>Input Monitoring</td>
+          <td>CGEventTap for global keyboard shortcuts</td>
+          <td>On feature enable</td>
+          <td><span class="badge badge-optional">Optional</span></td>
+        </tr>
+        <tr>
+          <td>com.apple.security.automation.apple-events</td>
+          <td>NSAppleScript to query Finder for context</td>
+          <td>On feature enable</td>
+          <td><span class="badge badge-optional">Optional</span></td>
+        </tr>
+        <tr>
+          <td>App Sandbox</td>
+          <td>Disable for full system access (distribute outside App Store)</td>
+          <td>Build config</td>
+          <td><span class="badge badge-entitlement">Build setting</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Onboarding strategy</h3>
+    <p style="color:var(--muted);margin-bottom:14px;font-size:13px">Request permissions progressively — explain each one right before asking for it.</p>
+    <ul class="checklist">
+      <li class="done">Launch → explain the app, show onboarding view</li>
+      <li class="done">Step 1: Accessibility → open System Settings automatically with <code>AXIsProcessTrustedWithOptions</code></li>
+      <li class="done">Step 2: Full Disk Access → deep-link to the correct System Settings pane</li>
+      <li>Step 3 (opt): Input Monitoring → expose as toggle in Settings view</li>
+      <li>Step 4 (opt): Apple Events → expose as toggle in Settings view</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ── 4. Code ────────────────────────────────────────────────────────────── -->
+<section id="code">
+  <h2><span class="num">04 /</span> Code</h2>
+
+  <div class="code-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="code-lang">Swift</span>
+      <span class="code-file">AppDelegate.swift</span>
+    </div>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+  <pre><span class="op">@main</span>
+<span class="kw">struct</span> <span class="ty">GUItoCLIApp</span>: <span class="ty">App</span> {
+    <span class="op">@NSApplicationDelegateAdaptor</span>(<span class="ty">AppDelegate</span>.<span class="kw">self</span>) <span class="kw">var</span> delegate
+    <span class="kw">var</span> body: <span class="kw">some</span> <span class="ty">Scene</span> {
+        <span class="cm">// No main window — app lives in the menu bar</span>
+        <span class="ty">Settings</span> { <span class="ty">SettingsView</span>() }
+    }
+}
+
+<span class="kw">class</span> <span class="ty">AppDelegate</span>: <span class="ty">NSObject</span>, <span class="ty">NSApplicationDelegate</span> {
+    <span class="kw">var</span> statusItem: <span class="ty">NSStatusItem</span>!
+    <span class="kw">var</span> popover = <span class="ty">NSPopover</span>()
+    <span class="kw">let</span> store = <span class="ty">CommandStore</span>()
+
+    <span class="kw">func</span> <span class="fn">applicationDidFinishLaunching</span>(_ notification: <span class="ty">Notification</span>) {
+        statusItem = <span class="ty">NSStatusBar</span>.system.<span class="fn">statusItem</span>(
+            withLength: <span class="ty">NSStatusItem</span>.squareLength)
+        statusItem.button?.image = <span class="ty">NSImage</span>(
+            systemSymbolName: <span class="st">"terminal"</span>,
+            accessibilityDescription: <span class="st">"GUI→CLI"</span>)
+        statusItem.button?.action = <span class="op">#selector</span>(<span class="fn">togglePopover</span>)
+
+        popover.contentSize = <span class="ty">NSSize</span>(width: <span class="nm">420</span>, height: <span class="nm">560</span>)
+        popover.behavior = .transient
+        popover.contentViewController = <span class="ty">NSHostingController</span>(
+            rootView: <span class="ty">CompanionView</span>().<span class="fn">environmentObject</span>(store))
+
+        <span class="ty">WorkspaceMonitor</span>(store: store).<span class="fn">start</span>()
+        <span class="ty">AccessibilityMonitor</span>(store: store).<span class="fn">start</span>()
+        <span class="ty">FileSystemMonitor</span>(store: store).<span class="fn">start</span>()
+    }
+
+    <span class="op">@objc</span> <span class="kw">func</span> <span class="fn">togglePopover</span>() {
+        <span class="kw">if</span> popover.isShown { popover.<span class="fn">close</span>() }
+        <span class="kw">else if let</span> btn = statusItem.button {
+            popover.<span class="fn">show</span>(relativeTo: btn.bounds, of: btn,
+                preferredEdge: .minY)
+        }
+    }
+}</pre>
+
+  <div class="code-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="code-lang">Swift</span>
+      <span class="code-file">CommandStore.swift</span>
+    </div>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+  <pre><span class="kw">struct</span> <span class="ty">CLICommand</span>: <span class="ty">Identifiable</span> {
+    <span class="kw">let</span> id        = <span class="ty">UUID</span>()
+    <span class="kw">let</span> timestamp:  <span class="ty">Date</span>
+    <span class="kw">let</span> guiAction:  <span class="ty">String</span>    <span class="cm">// "Created folder on Desktop"</span>
+    <span class="kw">let</span> command:    <span class="ty">String</span>    <span class="cm">// "mkdir ~/Desktop/folder"</span>
+    <span class="kw">let</span> category:   <span class="ty">String</span>    <span class="cm">// "Finder" | "System" | …</span>
+    <span class="kw">let</span> flags:      [<span class="ty">Flag</span>]    <span class="cm">// token + explanation pairs</span>
+    <span class="kw">let</span> related:    [<span class="ty">String</span>]  <span class="cm">// related commands</span>
+}
+
+<span class="kw">struct</span> <span class="ty">Flag</span> {
+    <span class="kw">let</span> token: <span class="ty">String</span>
+    <span class="kw">let</span> kind:  <span class="ty">FlagKind</span>  <span class="cm">// .cmd | .flag | .path | .arg</span>
+    <span class="kw">let</span> desc:  <span class="ty">String</span>
+}
+
+<span class="op">@Observable</span>
+<span class="kw">class</span> <span class="ty">CommandStore</span> {
+    <span class="kw">var</span> history:  [<span class="ty">CLICommand</span>] = []
+    <span class="kw">var</span> current:  <span class="ty">CLICommand</span>?
+    <span class="kw">var</span> isFrozen: <span class="ty">Bool</span> = <span class="kw">false</span>
+
+    <span class="kw">func</span> <span class="fn">push</span>(_ cmd: <span class="ty">CLICommand</span>) {
+        <span class="kw">guard</span> !isFrozen <span class="kw">else</span> { <span class="kw">return</span> }
+        <span class="ty">Task</span> { <span class="op">@MainActor</span> <span class="kw">in</span>
+            current = cmd
+            history.<span class="fn">insert</span>(cmd, at: <span class="nm">0</span>)
+            <span class="kw">if</span> history.count > <span class="nm">100</span> { history.<span class="fn">removeLast</span>() }
+        }
+    }
+}</pre>
+
+  <div class="code-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="code-lang">Swift</span>
+      <span class="code-file">WorkspaceMonitor.swift</span>
+    </div>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+  <pre><span class="kw">class</span> <span class="ty">WorkspaceMonitor</span> {
+    <span class="kw">let</span> store: <span class="ty">CommandStore</span>
+    <span class="kw">let</span> mapper = <span class="ty">AppLaunchMapper</span>()
+
+    <span class="kw">func</span> <span class="fn">start</span>() {
+        <span class="kw">let</span> nc = <span class="ty">NSWorkspace</span>.shared.notificationCenter
+        nc.<span class="fn">addObserver</span>(<span class="kw">self</span>,
+            selector: <span class="op">#selector</span>(<span class="fn">appActivated</span>(_:)),
+            name: <span class="ty">NSWorkspace</span>.didActivateApplicationNotification,
+            object: <span class="kw">nil</span>)
+        nc.<span class="fn">addObserver</span>(<span class="kw">self</span>,
+            selector: <span class="op">#selector</span>(<span class="fn">diskMounted</span>(_:)),
+            name: <span class="ty">NSWorkspace</span>.didMountNotification,
+            object: <span class="kw">nil</span>)
+    }
+
+    <span class="op">@objc</span> <span class="kw">func</span> <span class="fn">appActivated</span>(_ n: <span class="ty">Notification</span>) {
+        <span class="kw">guard let</span> app = n.userInfo?[<span class="ty">NSWorkspace</span>.applicationUserInfoKey]
+            <span class="kw">as</span>? <span class="ty">NSRunningApplication</span>,
+            <span class="kw">let</span> name = app.localizedName,
+            <span class="kw">let</span> cmd = mapper.<span class="fn">command</span>(forApp: name)
+        <span class="kw">else</span> { <span class="kw">return</span> }
+        store.<span class="fn">push</span>(cmd)
+    }
+
+    <span class="op">@objc</span> <span class="kw">func</span> <span class="fn">diskMounted</span>(_ n: <span class="ty">Notification</span>) {
+        <span class="kw">guard let</span> name = n.userInfo?[<span class="st">"NSWorkspaceVolumeLocalizedNameKey"</span>]
+            <span class="kw">as</span>? <span class="ty">String</span> <span class="kw">else</span> { <span class="kw">return</span> }
+        store.<span class="fn">push</span>(<span class="ty">CLICommand</span>(
+            timestamp: .<span class="fn">now</span>(),
+            guiAction: <span class="st">"Mount disk: \(name)"</span>,
+            command:   <span class="st">"diskutil mount /Volumes/\(name)"</span>,
+            category:  <span class="st">"System"</span>, flags: [],
+            related:   [<span class="st">"hdiutil attach disk.dmg"</span>]
+        ))
+    }
+}</pre>
+
+  <div class="code-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="code-lang">Swift</span>
+      <span class="code-file">FileSystemMonitor.swift</span>
+    </div>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+  <pre><span class="kw">class</span> <span class="ty">FileSystemMonitor</span> {
+    <span class="kw">let</span> store: <span class="ty">CommandStore</span>
+    <span class="kw">var</span> stream: <span class="ty">FSEventStreamRef</span>?
+
+    <span class="kw">let</span> watchedPaths = [<span class="st">"~/Desktop"</span>, <span class="st">"~/Documents"</span>, <span class="st">"~/Downloads"</span>]
+        .<span class="fn">map</span> { (<span class="st">$0</span> <span class="kw">as</span> <span class="ty">NSString</span>).<span class="fn">expandingTildeInPath</span> }
+
+    <span class="kw">func</span> <span class="fn">start</span>() {
+        <span class="kw">var</span> ctx = <span class="ty">FSEventStreamContext</span>(
+            version: <span class="nm">0</span>,
+            info: <span class="ty">Unmanaged</span>.<span class="fn">passUnretained</span>(<span class="kw">self</span>).<span class="fn">toOpaque</span>(),
+            retain: <span class="kw">nil</span>, release: <span class="kw">nil</span>, copyDescription: <span class="kw">nil</span>)
+
+        stream = <span class="fn">FSEventStreamCreate</span>(
+            <span class="kw">nil</span>,
+            { _, info, numEvents, eventPaths, eventFlags, _ <span class="kw">in</span>
+                <span class="kw">let</span> monitor = <span class="ty">Unmanaged</span>&lt;<span class="ty">FileSystemMonitor</span>&gt;
+                    .<span class="fn">fromOpaque</span>(info!).<span class="fn">takeUnretainedValue</span>()
+                <span class="kw">let</span> paths = <span class="fn">unsafeBitCast</span>(eventPaths, to: [<span class="ty">String</span>].<span class="kw">self</span>)
+                <span class="kw">for</span> i <span class="kw">in</span> <span class="nm">0</span>..&lt;numEvents {
+                    monitor.<span class="fn">handleEvent</span>(path: paths[i], flags: eventFlags[i])
+                }
+            },
+            &amp;ctx,
+            watchedPaths <span class="kw">as</span> <span class="ty">CFArray</span>,
+            <span class="ty">FSEventStreamEventId</span>(kFSEventStreamEventIdSinceNow),
+            <span class="nm">0.5</span>,
+            <span class="ty">FSEventStreamCreateFlags</span>(
+                kFSEventStreamCreateFlagFileEvents |
+                kFSEventStreamCreateFlagUseCFTypes))
+
+        <span class="kw">if let</span> s = stream {
+            <span class="fn">FSEventStreamScheduleWithRunLoop</span>(
+                s, <span class="fn">CFRunLoopGetMain</span>(), <span class="ty">CFRunLoopMode</span>.defaultMode.<span class="fn">rawValue</span>)
+            <span class="fn">FSEventStreamStart</span>(s)
+        }
+    }
+
+    <span class="kw">func</span> <span class="fn">handleEvent</span>(path: <span class="ty">String</span>, flags: <span class="ty">FSEventStreamEventFlags</span>) {
+        <span class="kw">let</span> name = (path <span class="kw">as</span> <span class="ty">NSString</span>).<span class="fn">lastPathComponent</span>
+        <span class="kw">guard</span> !name.<span class="fn">hasPrefix</span>(<span class="st">"."</span>) <span class="kw">else</span> { <span class="kw">return</span> }
+
+        <span class="kw">let</span> isDir = flags &amp; <span class="ty">FSEventStreamEventFlags</span>(
+            kFSEventStreamEventFlagItemIsDir) != <span class="nm">0</span>
+
+        <span class="kw">if</span> flags &amp; <span class="ty">FSEventStreamEventFlags</span>(
+            kFSEventStreamEventFlagItemCreated) != <span class="nm">0</span> {
+            store.<span class="fn">push</span>(<span class="ty">CLICommand</span>(
+                timestamp: .<span class="fn">now</span>(),
+                guiAction: <span class="st">"New \(isDir ? "folder" : "file"): \(name)"</span>,
+                command: isDir
+                    ? <span class="st">"mkdir \"\(path)\""</span>
+                    : <span class="st">"touch \"\(path)\""</span>,
+                category: <span class="st">"Finder"</span>, flags: [], related: []))
+        } <span class="kw">else if</span> flags &amp; <span class="ty">FSEventStreamEventFlags</span>(
+            kFSEventStreamEventFlagItemRemoved) != <span class="nm">0</span> {
+            store.<span class="fn">push</span>(<span class="ty">CLICommand</span>(
+                timestamp: .<span class="fn">now</span>(),
+                guiAction: <span class="st">"Deleted: \(name)"</span>,
+                command: <span class="st">"rm -r \"\(path)\""</span>,
+                category: <span class="st">"Finder"</span>, flags: [],
+                related: [<span class="st">"trash \"\(path)\""</span>]))
+        } <span class="kw">else if</span> flags &amp; <span class="ty">FSEventStreamEventFlags</span>(
+            kFSEventStreamEventFlagItemRenamed) != <span class="nm">0</span> {
+            store.<span class="fn">push</span>(<span class="ty">CLICommand</span>(
+                timestamp: .<span class="fn">now</span>(),
+                guiAction: <span class="st">"Renamed/moved: \(name)"</span>,
+                command: <span class="st">"mv \"old-path\" \"\(path)\""</span>,
+                category: <span class="st">"Finder"</span>, flags: [], related: []))
+        }
+    }
+}</pre>
+
+  <div class="code-header">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span class="code-lang">Swift</span>
+      <span class="code-file">AccessibilityMonitor.swift</span>
+    </div>
+    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+  </div>
+  <pre><span class="kw">import</span> <span class="ty">ApplicationServices</span>
+
+<span class="cm">// Maps button/menu titles → CLI commands</span>
+<span class="kw">let</span> axButtonMap: [<span class="ty">String</span>: <span class="ty">CLICommand</span>] = [
+    <span class="st">"Empty Trash"</span>: <span class="ty">CLICommand</span>(timestamp: .<span class="fn">now</span>(),
+        guiAction: <span class="st">"Empty Trash"</span>,
+        command: <span class="st">"rm -rf ~/.Trash/*"</span>,
+        category: <span class="st">"Finder"</span>, flags: [],
+        related: [<span class="st">"osascript -e 'tell application \"Finder\" to empty trash'"</span>]),
+    <span class="st">"New Folder"</span>: <span class="ty">CLICommand</span>(timestamp: .<span class="fn">now</span>(),
+        guiAction: <span class="st">"New Folder"</span>,
+        command: <span class="st">"mkdir new-folder"</span>,
+        category: <span class="st">"Finder"</span>, flags: [], related: [<span class="st">"mkdir -p a/b/c"</span>]),
+    <span class="cm">// … add more mappings here</span>
+]
+
+<span class="kw">class</span> <span class="ty">AccessibilityMonitor</span> {
+    <span class="kw">let</span> store: <span class="ty">CommandStore</span>
+    <span class="kw">var</span> observer: <span class="ty">AXObserver</span>?
+
+    <span class="kw">func</span> <span class="fn">start</span>() {
+        <span class="kw">guard</span> <span class="ty">AXIsProcessTrusted</span>() <span class="kw">else</span> { <span class="kw">return</span> }
+        <span class="kw">let</span> pid = <span class="ty">NSWorkspace</span>.shared.frontmostApplication!.processIdentifier
+        <span class="ty">AXObserverCreate</span>(pid, { _, element, _, _ <span class="kw">in</span>
+            <span class="cm">// Note: C callback — use a global/static store reference</span>
+            <span class="kw">var</span> title: <span class="ty">CFTypeRef</span>?
+            <span class="ty">AXUIElementCopyAttributeValue</span>(element,
+                kAXTitleAttribute <span class="kw">as</span> <span class="ty">CFString</span>, &amp;title)
+            <span class="kw">if let</span> t = title <span class="kw">as</span>? <span class="ty">String</span>, <span class="kw">let</span> cmd = axButtonMap[t] {
+                <span class="ty">CommandStore</span>.shared.<span class="fn">push</span>(cmd)
+            }
+        }, &amp;observer)
+    }
+}</pre>
+
+</section>
+
+<!-- ── 5. UI Spec ──────────────────────────────────────────────────────────── -->
+<section id="ui">
+  <h2><span class="num">05 /</span> UI Specification</h2>
+  <div class="grid grid-2" style="margin-bottom:20px">
+    <div class="card">
+      <h3>Popover (primary view)</h3>
+      <p style="font-size:13px;color:var(--muted)">420 × 560 pt. Three zones:</p>
+      <ul style="margin-top:10px;font-size:12px;color:var(--muted);padding-left:16px;line-height:2.1">
+        <li><strong style="color:var(--text)">Header</strong> — icon + app name + category badge + live indicator</li>
+        <li><strong style="color:var(--text)">Command card</strong> — syntax-coloured command, copy button, flag chips (tap to expand)</li>
+        <li><strong style="color:var(--text)">History list</strong> — last 20 events, tappable to expand</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Settings (native SwiftUI Settings scene)</h3>
+      <ul style="margin-top:6px;font-size:12px;color:var(--muted);padding-left:16px;line-height:2.1">
+        <li>Watched directories (add / remove)</li>
+        <li>Colour theme (Noir / Amber / Phosphor)</li>
+        <li>Permission status with one-click fix buttons</li>
+        <li>Enable / disable individual event sources</li>
+        <li>Launch at login</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Typography &amp; Colours</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:12px">
+      <div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">UI Text</div>
+        <div style="font-size:13px">.SF Pro / -apple-system</div>
+        <div style="font-size:11px;color:var(--muted)">Titles 15/600 · Body 13/400 · Labels 11/500</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">Monospace</div>
+        <div style="font-size:13px;font-family:var(--mono)">.SF Mono / Menlo</div>
+        <div style="font-size:11px;color:var(--muted)">Commands 13px · Related 11px</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">Syntax colours</div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-top:4px">
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;background:#79c0ff;border-radius:2px;flex-shrink:0"></div><span style="font-size:11px;color:var(--muted)">.cmd — #79c0ff</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;background:#ff7b72;border-radius:2px;flex-shrink:0"></div><span style="font-size:11px;color:var(--muted)">.flag — #ff7b72</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;background:#a5d6ff;border-radius:2px;flex-shrink:0"></div><span style="font-size:11px;color:var(--muted)">.path — #a5d6ff</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;background:#7ee787;border-radius:2px;flex-shrink:0"></div><span style="font-size:11px;color:var(--muted)">.arg — #7ee787</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 6. Roadmap ─────────────────────────────────────────────────────────── -->
+<section id="roadmap">
+  <h2><span class="num">06 /</span> Roadmap</h2>
+  <div class="phases">
+    <div class="phase">
+      <div class="phase-label">MVP <span class="phase-tag tag-mvp">v1.0</span></div>
+      <div>
+        <div class="phase-title">Proof of concept</div>
+        <ul class="phase-items">
+          <li>NSWorkspace: app activation → CLI mapping</li>
+          <li>FSEvents: Desktop + Documents + Downloads</li>
+          <li>Menu bar popover with SwiftUI</li>
+          <li>Copy button + history (20 entries)</li>
+          <li>Onboarding for Accessibility + Full Disk Access</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-label">Rich events <span class="phase-tag tag-v2">v1.5</span></div>
+      <div>
+        <div class="phase-title">AX + Finder context</div>
+        <ul class="phase-items">
+          <li>AXObserver: button presses, menu selections, focus changes</li>
+          <li>NSAppleScript: fetch selected files from Finder</li>
+          <li>Dynamic commands with actual file paths</li>
+          <li>CGEventTap: global keyboard shortcuts</li>
+          <li>Flag explanations in popover (tap-to-expand chips)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-label">Smart <span class="phase-tag tag-v3">v2.0</span></div>
+      <div>
+        <div class="phase-title">AI + plugins</div>
+        <ul class="phase-items">
+          <li>LLM backend (local Ollama) for unknown actions</li>
+          <li>Plugin API: third-party developers can add mappers</li>
+          <li>Export: save session as a shell script</li>
+          <li>Search in history</li>
+          <li>iCloud sync of command history</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 7. Changelog ───────────────────────────────────────────────────────── -->
+<section id="changelog">
+  <h2><span class="num">07 /</span> Changelog</h2>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:20px">Update this section whenever the spec changes. Keep entries in reverse-chronological order.</p>
+  <div class="changelog">
+    <div class="cl-entry">
+      <div class="cl-date">2026-05-02</div>
+      <div class="cl-msg"><span class="cl-tag cl-added">Added</span> Initial spec — architecture, all APIs, Swift code scaffolds, roadmap</div>
+    </div>
+    <!-- Add new entries above this line:
+    <div class="cl-entry">
+      <div class="cl-date">YYYY-MM-DD</div>
+      <div class="cl-msg"><span class="cl-tag cl-added">Added</span> description</div>
+    </div>
+    -->
+  </div>
+</section>
+
+</div><!-- /container -->
+
+<script>
+// Copy code button
+function copyCode(btn) {
+  const pre = btn.closest('.code-header').nextElementSibling;
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => btn.textContent = orig, 1800);
+  });
+}
+
+// Sticky TOC active state
+const sections = document.querySelectorAll('section[id]');
+const links    = document.querySelectorAll('.toc a[href^="#"]');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const a = document.querySelector(`.toc a[href="#${e.target.id}"]`);
+      if (a) a.classList.add('active');
+    }
+  });
+}, { threshold: 0.25 });
+sections.forEach(s => obs.observe(s));
+</script>
+<template id="__bundler_thumbnail" data-bg-color="#0d1117">
+  <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+    <rect x="20" y="15" width="80" height="50" rx="4" fill="none" stroke="#21262d" stroke-width="1.5"/>
+    <rect x="20" y="15" width="80" height="10" rx="4" fill="#161b22"/>
+    <rect x="20" y="22" width="80" height="3" fill="#161b22"/>
+    <circle cx="26" cy="20" r="2" fill="#ff5f57"/>
+    <circle cx="32" cy="20" r="2" fill="#febc2e"/>
+    <circle cx="38" cy="20" r="2" fill="#28c840"/>
+    <text x="27" y="35" font-family="monospace" font-size="5" fill="#58a6ff">❯</text>
+    <text x="33" y="35" font-family="monospace" font-size="5" fill="#79c0ff">mkdir</text>
+    <text x="53" y="35" font-family="monospace" font-size="5" fill="#a5d6ff">~/Desktop</text>
+    <rect x="27" y="40" width="30" height="2.5" rx="1" fill="#21262d"/>
+    <rect x="27" y="44" width="22" height="2.5" rx="1" fill="#21262d"/>
+    <rect x="27" y="48" width="26" height="2.5" rx="1" fill="#21262d"/>
+  </svg>
+</template>
+</body>
+</html>
