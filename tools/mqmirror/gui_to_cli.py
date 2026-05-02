@@ -197,19 +197,32 @@ def print_header():
 
 # ── App-name → CLI mappings ───────────────────────────────────────────────────
 APP_LAUNCH_CMDS = {
-    "Finder":              ("open -a Finder",               "Öppnar Finder-appen"),
-    "Safari":              ("open -a Safari",               "Öppnar Safari"),
-    "Terminal":            ("open -a Terminal",             "Öppnar Terminal"),
-    "Xcode":               ("open -a Xcode",                "Öppnar Xcode"),
-    "Visual Studio Code":  ("code .",                       "Öppnar VS Code i aktuell katalog"),
-    "TextEdit":            ("open -e fil.txt",              "Öppnar fil i TextEdit"),
-    "Activity Monitor":    ("top",                          "Visar processer i realtid"),
-    "Disk Utility":        ("diskutil list",                "Listar alla diskenheter"),
+    "Finder":              ("open -a Finder",                     "Öppnar Finder-appen"),
+    "Safari":              ("open -a Safari",                     "Öppnar Safari"),
+    "Google Chrome":       ("open -a 'Google Chrome'",            "Öppnar Chrome"),
+    "Firefox":             ("open -a Firefox",                    "Öppnar Firefox"),
+    "Arc":                 ("open -a Arc",                        "Öppnar Arc"),
+    "Brave Browser":       ("open -a 'Brave Browser'",            "Öppnar Brave"),
+    "Terminal":            ("open -a Terminal",                   "Öppnar Terminal"),
+    "iTerm2":              ("open -a iTerm",                      "Öppnar iTerm2"),
+    "Xcode":               ("open -a Xcode",                      "Öppnar Xcode"),
+    "Visual Studio Code":  ("code .",                             "Öppnar VS Code i aktuell katalog"),
+    "Cursor":              ("cursor .",                           "Öppnar Cursor i aktuell katalog"),
+    "TextEdit":            ("open -e fil.txt",                    "Öppnar fil i TextEdit"),
+    "Notes":               ("open -a Notes",                      "Öppnar Notes"),
+    "Activity Monitor":    ("top",                                "Visar processer i realtid"),
+    "Disk Utility":        ("diskutil list",                       "Listar alla diskenheter"),
     "System Preferences":  ("open /System/Applications/System\\ Preferences.app", ""),
     "System Settings":     ("open /System/Applications/System\\ Settings.app",    ""),
-    "App Store":           ("brew search <namn>",           "Sök paket via Homebrew istället"),
-    "Simulator":           ("xcrun simctl list",            "Listar tillgängliga simulatorer"),
-    "Instruments":         ("instruments -s devices",       "Listar enheter för profilering"),
+    "App Store":           ("brew search <namn>",                 "Sök paket via Homebrew istället"),
+    "Simulator":           ("xcrun simctl list",                  "Listar tillgängliga simulatorer"),
+    "Instruments":         ("instruments -s devices",             "Listar enheter för profilering"),
+    "Slack":               ("open -a Slack",                      "Öppnar Slack"),
+    "Figma":               ("open -a Figma",                      "Öppnar Figma"),
+    "Spotify":             ("open -a Spotify",                    "Öppnar Spotify"),
+    "Mail":                ("open -a Mail",                       "Öppnar Mail"),
+    "Calendar":            ("open -a Calendar",                   "Öppnar Kalender"),
+    "Photos":              ("open -a Photos",                     "Öppnar Bilder"),
 }
 
 APP_QUIT_CMDS = {
@@ -246,9 +259,8 @@ class WorkspaceObserver(NSObject):
         if name == self._last_app:
             return
         self._last_app = name
-        cmd, note = APP_LAUNCH_CMDS.get(name, (None, None))
-        if cmd:
-            print_command("App", f"Byter till {name}", cmd, note)
+        cmd, note = APP_LAUNCH_CMDS.get(name, (f'open -a "{name}"', ""))
+        print_command("App", f"Byter till {name}", cmd, note)
 
     def appLaunched_(self, notification):
         info = notification.userInfo()
@@ -256,9 +268,8 @@ class WorkspaceObserver(NSObject):
         if app is None:
             return
         name = app.localizedName()
-        cmd, note = APP_LAUNCH_CMDS.get(name, (None, None))
-        if cmd:
-            print_command("App", f"Öppnar {name}", cmd, note)
+        cmd, note = APP_LAUNCH_CMDS.get(name, (f'open -a "{name}"', ""))
+        print_command("App", f"Öppnar {name}", cmd, note)
 
     def appTerminated_(self, notification):
         info = notification.userInfo()
@@ -266,9 +277,11 @@ class WorkspaceObserver(NSObject):
         if app is None:
             return
         name = app.localizedName()
-        cmd, note = APP_QUIT_CMDS.get(name, (None, None))
-        if cmd:
-            print_command("App", f"Stänger {name}", cmd, note)
+        cmd, note = APP_QUIT_CMDS.get(
+            name,
+            (f'osascript -e \'tell application "{name}" to quit\'', ""),
+        )
+        print_command("App", f"Stänger {name}", cmd, note)
 
     def volumeMounted_(self, notification):
         info = notification.userInfo()
