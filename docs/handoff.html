@@ -1151,15 +1151,14 @@ function copyCode(btn) {
     var btn = this;
     btn.disabled = true;
     btn.textContent = 'Stoppar…';
-    fetch(BASE + '/stop').then(function() {
+    function stopped() {
       setConnected(false);
-      btn.textContent = '■ Stoppad';
       if (es) { es.close(); es = null; }
       stopPolling();
-    }).catch(function() {
-      btn.disabled = false;
-      btn.textContent = '■ Stoppa';
-    });
+      btn.textContent = '■ Stoppad';
+    }
+    // Både success och nätverksfel (server dog innan svar) räknas som stoppad
+    fetch(BASE + '/stop').then(stopped).catch(stopped);
   });
 
   searchEl.addEventListener('input', function() {

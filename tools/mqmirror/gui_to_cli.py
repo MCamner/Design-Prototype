@@ -366,8 +366,9 @@ class _LiveHandler(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(b'{"ok":true}')
+            self.wfile.flush()
             threading.Thread(
-                target=lambda: (time.sleep(0.2), os._exit(0)), daemon=True
+                target=lambda: (time.sleep(0.5), os._exit(0)), daemon=True
             ).start()
 
         else:
