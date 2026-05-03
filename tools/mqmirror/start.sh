@@ -11,6 +11,9 @@ echo "  → Handoff:     $HANDOFF"
 echo "  (Ctrl+C för att stoppa)"
 echo ""
 
+# Frigör port 7070 om en gammal process hänger kvar
+lsof -ti:7070 | xargs kill -9 2>/dev/null || true
+
 # Starta Python i bakgrunden, fånga PID
 python3 "$SCRIPT_DIR/gui_to_cli.py" watch --compact --ignore-terminal &
 PY_PID=$!

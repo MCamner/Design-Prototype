@@ -321,6 +321,13 @@ def _emit(category: str, gui_action: str, cmd: str, explanation: str = "") -> No
 
 class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
+    allow_reuse_address = True
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError)):
+            return
+        super().handle_error(request, client_address)
 
 
 class _LiveHandler(BaseHTTPRequestHandler):
