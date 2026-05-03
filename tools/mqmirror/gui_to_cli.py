@@ -632,6 +632,42 @@ def browser_diagnostics(url: str) -> List[Command]:
     ]
 
 
+def file_type_suggestions(path: str) -> List[Command]:
+    ext = os.path.splitext(path)[1].lower()
+    p   = quote(path)
+    if ext == ".py":
+        return [(f"python3 {p}",                    "Run Python script",          "safe"),
+                (f"python3 -m py_compile {p}",      "Check syntax",               "safe")]
+    if ext == ".sh":
+        return [(f"bash {p}",                       "Run shell script",           "safe"),
+                (f"chmod +x {p}",                   "Make executable",            "modifies")]
+    if ext == ".zip":
+        return [(f"unzip -l {p}",                   "List zip contents",          "safe"),
+                (f"unzip {p}",                      "Extract zip here",           "modifies")]
+    if ext in {".tar", ".gz", ".tgz"}:
+        return [(f"tar -tzf {p}",                   "List archive contents",      "safe"),
+                (f"tar -xzf {p}",                   "Extract archive",            "modifies")]
+    if ext == ".json":
+        return [(f"cat {p} | python3 -m json.tool", "Pretty-print JSON",          "safe"),
+                (f"jq '.' {p}",                     "Pretty-print JSON (jq)",     "safe")]
+    if ext == ".plist":
+        return [(f"plutil -p {p}",                  "Print plist as JSON",        "safe"),
+                (f"defaults read {p}",              "Read with defaults",         "safe")]
+    if ext in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".heic"}:
+        return [(f"sips -g all {p}",                "Show image metadata",        "safe"),
+                (f"sips -s format jpeg -o /tmp/converted.jpg {p}", "Convert to JPEG", "modifies")]
+    if ext == ".pdf":
+        return [(f"mdls {p} | grep kMDItem",        "Show PDF metadata",          "safe"),
+                (f"qlmanage -p {p}",                "Quick Look preview",         "safe")]
+    if ext in {".mp3", ".m4a", ".flac", ".wav", ".aac"}:
+        return [(f"mdls {p} | grep -E 'Duration|Artist|Album|Title'", "Show audio metadata", "safe"),
+                (f"afplay {p}",                     "Play audio file",            "safe")]
+    if ext in {".mp4", ".mov", ".mkv", ".avi"}:
+        return [(f"mdls {p} | grep -E 'Duration|PixelHeight|PixelWidth'", "Show video info", "safe"),
+                (f"qlmanage -p {p}",                "Quick Look preview",         "safe")]
+    return []
+
+
 def selected_file_diagnostics(path: str) -> List[Command]:
     p = quote(path)
     cmds: List[Command] = [
@@ -696,16 +732,26 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
         selected = finder.get("selected_paths") or []
         if path:
             suggestions += [
-                (f"cd {quote(path)}",      "Use Finder folder in shell", "safe"),
-                (f"ls -la {quote(path)}", "List Finder folder contents", "safe"),
+                (f"cd {quote(path)}",           "cd to current Finder folder",   "safe"),
+                (f"ls -la {quote(path)}",       "List folder contents",          "safe"),
+                (f"du -sh {quote(path)}/*",     "Show subfolder sizes",          "safe"),
+                (f"open {quote(path)}",         "Open folder in Finder",         "safe"),
             ]
         if selected:
             first = selected[0]
             suggestions += [
-                (f"file {quote(first)}",  "Identify selected item",      "safe"),
-                (f"mdls {quote(first)}",  "Show Spotlight metadata",     "safe"),
+                (f"file {quote(first)}",        "Identify file type",            "safe"),
+                (f"mdls {quote(first)}",        "Show Spotlight metadata",       "safe"),
+                (f"open {quote(first)}",        "Open selected file",            "safe"),
             ]
             suggestions.extend(selected_file_diagnostics(first))
+            suggestions.extend(file_type_suggestions(first))
+            if len(selected) > 1:
+                quoted_all = " ".join(quote(p) for p in selected[:5])
+                suggestions += [
+                    (f"ls -la {quoted_all}", f"List {len(selected)} selected items", "safe"),
+                    (f"du -sh {quoted_all}", f"Show sizes for {len(selected)} items", "safe"),
+                ]
 
     browser = context.get("browser", {})
     url = browser.get("url") or ""

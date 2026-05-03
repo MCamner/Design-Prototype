@@ -242,6 +242,53 @@ tr:last-child td { border-bottom: none; }
 }
 .live-cmd-text { font-family: var(--mono); font-size: 12px; color: var(--green); flex: 1; word-break: break-all; }
 .live-expl { font-size: 11px; color: var(--muted); margin-top: 5px; }
+
+/* extra kategori-färger */
+.cat-Browser   { background: rgba(56,189,248,.12);  color: #38bdf8; }
+.cat-Terminal  { background: rgba(163,113,247,.12); color: var(--purple); }
+.cat-Developer { background: rgba(87,240,210,.1);   color: #56e0c8; }
+
+/* Toolbar: sök + chip-filter */
+.live-toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.live-search {
+  flex: 1; min-width: 150px; max-width: 280px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 11px;
+  font-size: 12px; color: var(--text); font-family: var(--sans); outline: none;
+}
+.live-search:focus { border-color: var(--accent); }
+.live-search::placeholder { color: var(--muted); }
+.live-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.chip {
+  font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 20px;
+  background: var(--panel); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; font-family: var(--sans); transition: all .15s;
+}
+.chip:hover { color: var(--text); border-color: var(--muted); }
+.chip.active { background: rgba(88,166,255,.12); border-color: rgba(88,166,255,.35); color: var(--accent); }
+
+/* Pin-knapp */
+.pin-btn {
+  font-size: 12px; background: transparent; border: none; cursor: pointer;
+  color: var(--border); padding: 0 2px; margin-left: auto; flex-shrink: 0; transition: color .15s;
+}
+.pin-btn:hover { color: var(--amber); }
+.pin-btn.on { color: var(--amber); }
+.live-card.pinned { border-color: rgba(210,153,34,.3); }
+
+/* Export-knapp */
+.export-btn {
+  font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+  padding: 4px 12px; border-radius: 6px; margin-left: auto;
+  background: rgba(63,185,80,.08); border: 1px solid rgba(63,185,80,.25);
+  color: var(--green); cursor: pointer; font-family: var(--sans); transition: all .15s;
+}
+.export-btn:hover { background: rgba(63,185,80,.15); }
+
+/* Pinnad sektion */
+.pinned-header { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); margin-bottom: 8px; }
+.pinned-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
 </style>
 </head>
 <body>
@@ -284,10 +331,30 @@ tr:last-child td { border-bottom: none; }
 
 <!-- ── 0. Live Commands ──────────────────────────────────────────────────── -->
 <section id="live">
-  <h2><span class="num">00 /</span> Live Commands</h2>
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+  <h2 style="display:flex;align-items:center">
+    <span class="num">00 /</span> Live Commands
+    <button class="export-btn" id="export-btn">Export .sh</button>
+  </h2>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
     <div class="live-dot" id="live-dot"></div>
     <span class="live-status-text" id="live-status">Ansluter till gui_to_cli.py på port 7070…</span>
+  </div>
+  <div class="live-toolbar">
+    <input class="live-search" id="live-search" type="search" placeholder="Sök kommandon…">
+    <div class="live-chips" id="live-chips">
+      <button class="chip active" data-cat="all">Alla</button>
+      <button class="chip" data-cat="Finder">Finder</button>
+      <button class="chip" data-cat="Browser">Browser</button>
+      <button class="chip" data-cat="System">System</button>
+      <button class="chip" data-cat="Developer">Developer</button>
+      <button class="chip" data-cat="Terminal">Terminal</button>
+      <button class="chip" data-cat="App">App</button>
+    </div>
+  </div>
+  <div id="pinned-section" style="display:none">
+    <div class="pinned-header">★ Pinnade</div>
+    <div id="pinned-list" class="live-list"></div>
+    <hr class="pinned-divider">
   </div>
   <div id="live-list" class="live-list">
     <div class="live-empty" id="live-empty">
@@ -866,15 +933,23 @@ function copyCode(btn) {
 
 // ── Live Commands ─────────────────────────────────────────────────────────
 (function() {
-  const BASE = 'http://127.0.0.1:7070';
-  const dot  = document.getElementById('live-dot');
-  const statusEl = document.getElementById('live-status');
-  const list = document.getElementById('live-list');
-  const empty = document.getElementById('live-empty');
-  const seen = new Set();
-  let es = null;
-  let pollTimer = null;
+  const BASE       = 'http://127.0.0.1:7070';
+  const dot        = document.getElementById('live-dot');
+  const statusEl   = document.getElementById('live-status');
+  const list       = document.getElementById('live-list');
+  const empty      = document.getElementById('live-empty');
+  const pinnedSec  = document.getElementById('pinned-section');
+  const pinnedList = document.getElementById('pinned-list');
+  const searchEl   = document.getElementById('live-search');
+  const chipsEl    = document.getElementById('live-chips');
+  const exportBtn  = document.getElementById('export-btn');
 
+  const seen       = new Set();
+  const pinnedCmds = new Map(); // command string → cmd object
+  let es = null, pollTimer = null;
+  let activeCategory = 'all', searchQuery = '';
+
+  // ── Utils ────────────────────────────────────────────────────────────────
   function esc(s) {
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
@@ -884,49 +959,182 @@ function copyCode(btn) {
     statusEl.textContent = on ? 'Ansluten — lyssnar på GUI-händelser (port 7070)' : 'Ej ansluten — försöker igen…';
   }
 
-  function addCommand(cmd) {
-    if (seen.has(cmd.id)) return;
-    seen.add(cmd.id);
-    if (empty) empty.style.display = 'none';
-    const catCls = 'cat-' + (cmd.category || 'System');
+  // ── Kort ────────────────────────────────────────────────────────────────
+  function buildCard(cmd) {
+    const catCls  = 'cat-' + (cmd.category || 'System');
+    const isPinned = pinnedCmds.has(cmd.command);
     const card = document.createElement('div');
-    card.className = 'live-card';
+    card.className = 'live-card' + (isPinned ? ' pinned' : '');
+    card.dataset.category    = cmd.category    || '';
+    card.dataset.cmd         = cmd.command     || '';
+    card.dataset.guiAction   = cmd.gui_action  || '';
+    card.dataset.explanation = cmd.explanation || '';
+    card.dataset.id          = String(cmd.id   || '');
     card.innerHTML =
       '<div class="live-card-top">' +
-        '<span class="live-ts">' + esc(cmd.ts) + '</span>' +
-        '<span class="live-cat ' + catCls + '">' + esc(cmd.category) + '</span>' +
-        '<span class="live-gui">' + esc(cmd.gui_action) + '</span>' +
+        '<span class="live-ts">'  + esc(cmd.ts)          + '</span>' +
+        '<span class="live-cat '  + catCls + '">'         + esc(cmd.category)  + '</span>' +
+        '<span class="live-gui">' + esc(cmd.gui_action)   + '</span>' +
+        '<button class="pin-btn'  + (isPinned ? ' on' : '') + '" title="Pinna">★</button>' +
       '</div>' +
       '<div class="live-cmd-row">' +
         '<span class="live-cmd-text">❯ ' + esc(cmd.command) + '</span>' +
         '<button class="copy-btn" data-cmd="' + esc(cmd.command) + '">Copy</button>' +
       '</div>' +
       (cmd.explanation ? '<div class="live-expl">' + esc(cmd.explanation) + '</div>' : '');
+    return card;
+  }
+
+  // ── Filter ───────────────────────────────────────────────────────────────
+  function cardVisible(card) {
+    const catOk    = activeCategory === 'all' || card.dataset.category === activeCategory;
+    const haystack = (card.dataset.cmd + ' ' + card.dataset.guiAction + ' ' + card.dataset.explanation).toLowerCase();
+    const searchOk = !searchQuery || haystack.includes(searchQuery);
+    return catOk && searchOk;
+  }
+
+  function applyFilter(card) { card.style.display = cardVisible(card) ? '' : 'none'; }
+
+  function refilter() {
+    list.querySelectorAll('.live-card').forEach(applyFilter);
+    pinnedList.querySelectorAll('.live-card').forEach(applyFilter);
+  }
+
+  // ── Lägg till kommando ───────────────────────────────────────────────────
+  function addCommand(cmd) {
+    if (seen.has(cmd.id)) return;
+    seen.add(cmd.id);
+    if (empty) empty.style.display = 'none';
+    const card = buildCard(cmd);
     list.insertBefore(card, list.firstChild);
+    applyFilter(card);
     while (list.children.length > 21) list.removeChild(list.lastChild);
   }
 
-  list.addEventListener('click', function(e) {
-    if (!e.target.classList.contains('copy-btn')) return;
-    navigator.clipboard.writeText(e.target.dataset.cmd).then(function() {
-      e.target.textContent = '✓ Copied';
-      setTimeout(function() { e.target.textContent = 'Copy'; }, 1800);
+  // ── Pin ──────────────────────────────────────────────────────────────────
+  function pinCmd(cmd) {
+    pinnedCmds.set(cmd.command, cmd);
+    savePinned();
+    const card = buildCard(cmd);
+    applyFilter(card);
+    pinnedList.appendChild(card);
+    pinnedSec.style.display = '';
+    syncPinButtons(cmd.command, true);
+  }
+
+  function unpinCmd(cmdStr) {
+    pinnedCmds.delete(cmdStr);
+    savePinned();
+    pinnedList.querySelectorAll('.live-card').forEach(function(c) {
+      if (c.dataset.cmd === cmdStr) c.remove();
     });
+    if (!pinnedList.children.length) pinnedSec.style.display = 'none';
+    syncPinButtons(cmdStr, false);
+  }
+
+  function syncPinButtons(cmdStr, on) {
+    document.querySelectorAll('.live-card').forEach(function(c) {
+      if (c.dataset.cmd === cmdStr) {
+        var btn = c.querySelector('.pin-btn');
+        if (btn) { btn.classList.toggle('on', on); c.classList.toggle('pinned', on); }
+      }
+    });
+  }
+
+  // ── localStorage ─────────────────────────────────────────────────────────
+  function savePinned() {
+    localStorage.setItem('mq-pinned', JSON.stringify([...pinnedCmds.values()]));
+  }
+
+  function loadPinned() {
+    try {
+      JSON.parse(localStorage.getItem('mq-pinned') || '[]').forEach(function(cmd) {
+        if (pinnedCmds.has(cmd.command)) return;
+        pinnedCmds.set(cmd.command, cmd);
+        var card = buildCard(cmd);
+        applyFilter(card);
+        pinnedList.appendChild(card);
+      });
+      if (pinnedList.children.length) pinnedSec.style.display = '';
+    } catch (_) {}
+  }
+
+  // ── Export ───────────────────────────────────────────────────────────────
+  function exportSession() {
+    var seen_exp = new Set(), rows = [];
+    var allCards = [...pinnedList.querySelectorAll('.live-card'),
+                    ...list.querySelectorAll('.live-card')];
+    allCards.forEach(function(c) {
+      var cmd = c.dataset.cmd;
+      if (!cmd || seen_exp.has(cmd)) return;
+      seen_exp.add(cmd);
+      rows.push({ cmd: cmd, gui: c.dataset.guiAction || '', expl: c.dataset.explanation || '' });
+    });
+    if (!rows.length) { alert('Inga kommandon att exportera ännu.'); return; }
+    var lines = ['#!/bin/bash', '# MQ Mirror session — ' + new Date().toLocaleString(), ''];
+    rows.reverse().forEach(function(r) {
+      if (r.gui)  lines.push('# ' + r.gui);
+      if (r.expl) lines.push('# ' + r.expl);
+      lines.push(r.cmd, '');
+    });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([lines.join('\n')], { type: 'text/plain' }));
+    a.download = 'mq-session.sh';
+    a.click();
+  }
+
+  // ── Event delegation ─────────────────────────────────────────────────────
+  function handleClick(e) {
+    var card = e.target.closest('.live-card');
+    if (!card) return;
+    if (e.target.classList.contains('copy-btn')) {
+      navigator.clipboard.writeText(e.target.dataset.cmd).then(function() {
+        e.target.textContent = '✓';
+        setTimeout(function() { e.target.textContent = 'Copy'; }, 1800);
+      });
+      return;
+    }
+    if (e.target.classList.contains('pin-btn')) {
+      var cmdStr = card.dataset.cmd;
+      if (pinnedCmds.has(cmdStr)) {
+        unpinCmd(cmdStr);
+      } else {
+        pinCmd({
+          id: parseInt(card.dataset.id) || 0,
+          ts: (card.querySelector('.live-ts') || {}).textContent || '',
+          category:    card.dataset.category    || '',
+          gui_action:  card.dataset.guiAction   || '',
+          command:     cmdStr,
+          explanation: card.dataset.explanation || '',
+        });
+      }
+    }
+  }
+  list.addEventListener('click', handleClick);
+  pinnedList.addEventListener('click', handleClick);
+  exportBtn.addEventListener('click', exportSession);
+
+  searchEl.addEventListener('input', function() {
+    searchQuery = this.value.toLowerCase().trim();
+    refilter();
   });
 
+  chipsEl.addEventListener('click', function(e) {
+    if (!e.target.classList.contains('chip')) return;
+    activeCategory = e.target.dataset.cat;
+    chipsEl.querySelectorAll('.chip').forEach(function(c) { c.classList.remove('active'); });
+    e.target.classList.add('active');
+    refilter();
+  });
+
+  // ── SSE / polling ────────────────────────────────────────────────────────
   function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
   function startPolling() {
     if (pollTimer) return;
     pollTimer = setInterval(function() {
-      fetch(BASE + '/api/commands')
-        .then(function(r) { return r.json(); })
-        .then(function(cmds) {
-          setConnected(true);
-          cmds.forEach(addCommand);
-          stopPolling();
-          connectSSE();
-        })
+      fetch(BASE + '/api/commands').then(function(r) { return r.json(); })
+        .then(function(cmds) { setConnected(true); cmds.forEach(addCommand); stopPolling(); connectSSE(); })
         .catch(function() { setConnected(false); });
     }, 2000);
   }
@@ -934,29 +1142,16 @@ function copyCode(btn) {
   function connectSSE() {
     if (es) { es.close(); es = null; }
     es = new EventSource(BASE + '/events');
-    es.onopen = function() { setConnected(true); stopPolling(); };
-    es.onmessage = function(e) {
-      try { addCommand(JSON.parse(e.data)); } catch (_) {}
-    };
-    es.onerror = function() {
-      setConnected(false);
-      if (es) { es.close(); es = null; }
-      startPolling();
-    };
+    es.onopen   = function() { setConnected(true); stopPolling(); };
+    es.onmessage = function(e) { try { addCommand(JSON.parse(e.data)); } catch (_) {} };
+    es.onerror   = function() { setConnected(false); if (es) { es.close(); es = null; } startPolling(); };
   }
 
-  // Bootstrap: first try to fetch existing commands, then switch to SSE
-  fetch(BASE + '/api/commands')
-    .then(function(r) { return r.json(); })
-    .then(function(cmds) {
-      setConnected(true);
-      cmds.forEach(addCommand);
-      connectSSE();
-    })
-    .catch(function() {
-      setConnected(false);
-      startPolling();
-    });
+  // ── Boot ─────────────────────────────────────────────────────────────────
+  loadPinned();
+  fetch(BASE + '/api/commands').then(function(r) { return r.json(); })
+    .then(function(cmds) { setConnected(true); cmds.forEach(addCommand); connectSSE(); })
+    .catch(function() { setConnected(false); startPolling(); });
 })();
 
 // Sticky TOC active state
