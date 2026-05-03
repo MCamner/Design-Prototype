@@ -306,6 +306,22 @@ tr:last-child td { border-bottom: none; }
 .terminal-picker:focus { border-color: var(--accent); color: var(--text); }
 .terminal-picker option { background: #1c2128; }
 
+/* Hälsobar */
+.health-bar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 14px; margin-bottom: 14px;
+  font-size: 11px; font-family: var(--mono); color: var(--muted);
+}
+.health-bar.hidden { display: none; }
+.health-stat { display: flex; align-items: center; gap: 5px; }
+.health-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+}
+.health-dot.ok  { background: var(--green); }
+.health-dot.mid { background: var(--amber); }
+.health-dot.bad { background: var(--red); }
+
 /* Export-knapp */
 .export-btn {
   font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
@@ -364,7 +380,7 @@ tr:last-child td { border-bottom: none; }
     <span class="num">00 /</span> Live Commands
     <button class="export-btn" id="export-btn">Export .sh</button>
   </h2>
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
     <div class="live-dot" id="live-dot"></div>
     <span class="live-status-text" id="live-status">Ansluter till gui_to_cli.py på port 7070…</span>
     <button class="stop-btn" id="stop-btn">■ Stoppa</button>
@@ -374,6 +390,11 @@ tr:last-child td { border-bottom: none; }
       <option value="warp">Warp</option>
       <option value="ghostty">Ghostty</option>
     </select>
+  </div>
+  <div class="health-bar hidden" id="health-bar">
+    <div class="health-stat"><div class="health-dot" id="h-cpu-dot"></div><span id="h-cpu">CPU –</span></div>
+    <div class="health-stat"><div class="health-dot" id="h-disk-dot"></div><span id="h-disk">Disk –</span></div>
+    <div class="health-stat"><span id="h-top">–</span></div>
   </div>
   <div class="live-toolbar">
     <input class="live-search" id="live-search" type="search" placeholder="Sök kommandon…">
@@ -1233,6 +1254,40 @@ function copyCode(btn) {
     es.onmessage = function(e) { try { addCommand(JSON.parse(e.data)); } catch (_) {} };
     es.onerror   = function() { setConnected(false); if (es) { es.close(); es = null; } startPolling(); };
   }
+
+  // ── Hälsowidget ──────────────────────────────────────────────────────────
+  var healthBar  = document.getElementById('health-bar');
+  var hCpu       = document.getElementById('h-cpu');
+  var hCpuDot    = document.getElementById('h-cpu-dot');
+  var hDisk      = document.getElementById('h-disk');
+  var hDiskDot   = document.getElementById('h-disk-dot');
+  var hTop       = document.getElementById('h-top');
+
+  function dotClass(val, midThreshold, badThreshold) {
+    if (val >= badThreshold) return 'bad';
+    if (val >= midThreshold) return 'mid';
+    return 'ok';
+  }
+
+  function refreshHealth() {
+    fetch(BASE + '/api/health').then(function(r) { return r.json(); }).then(function(h) {
+      healthBar.classList.remove('hidden');
+      if (h.load_pct !== undefined) {
+        hCpu.textContent    = 'CPU ' + h.load_pct + '%';
+        hCpuDot.className   = 'health-dot ' + dotClass(h.load_pct, 60, 90);
+      }
+      if (h.disk_pct !== undefined) {
+        hDisk.textContent   = 'Disk ' + h.disk_pct + '%';
+        hDiskDot.className  = 'health-dot ' + dotClass(parseInt(h.disk_pct), 70, 90);
+      }
+      if (h.top_name) {
+        hTop.textContent = h.top_name + ' ' + (h.top_cpu || 0).toFixed(1) + '%';
+      }
+    }).catch(function() { healthBar.classList.add('hidden'); });
+  }
+
+  refreshHealth();
+  setInterval(refreshHealth, 15000);
 
   // ── Boot ─────────────────────────────────────────────────────────────────
   loadPinned();

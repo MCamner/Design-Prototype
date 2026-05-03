@@ -343,6 +343,44 @@ def _emit(category: str, gui_action: str, cmd: str, explanation: str = "") -> No
             _sse_queues.remove(q)
 
 
+def _system_health() -> dict:
+    result: dict = {}
+    try:
+        load1, load5, _ = os.getloadavg()
+        cores = os.cpu_count() or 1
+        result["load_1m"]  = round(load1, 2)
+        result["load_5m"]  = round(load5, 2)
+        result["load_pct"] = min(100, round(load1 / cores * 100))
+    except Exception:
+        pass
+    try:
+        df_out = subprocess.check_output(["df", "-h", "/"], text=True).splitlines()
+        if len(df_out) > 1:
+            parts = df_out[1].split()
+            result["disk_pct"]   = parts[4].rstrip("%")
+            result["disk_avail"] = parts[3]
+    except Exception:
+        pass
+    try:
+        ps_out = subprocess.check_output(["ps", "-Ao", "pcpu,comm"], text=True).splitlines()[1:]
+        procs = []
+        for line in ps_out:
+            parts = line.split(None, 1)
+            if len(parts) == 2:
+                try:
+                    procs.append((float(parts[0].replace(",", ".")), parts[1].strip()))
+                except ValueError:
+                    pass
+        if procs:
+            procs.sort(reverse=True)
+            cpu, name = procs[0]
+            result["top_name"] = pathlib.Path(name).name
+            result["top_cpu"]  = cpu
+    except Exception:
+        pass
+    return result
+
+
 def _run_in_terminal(cmd: str, terminal: str) -> None:
     if terminal == "iterm2":
         script = (
@@ -391,6 +429,15 @@ class _LiveHandler(BaseHTTPRequestHandler):
         if self.path == "/api/commands":
             with _cmd_lock:
                 body = json.dumps(list(_cmd_history)).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        elif self.path == "/api/health":
+            body = json.dumps(_system_health()).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -474,6 +521,64 @@ def _start_live_server() -> None:
     _load_history()
     server = _ThreadedHTTPServer(("127.0.0.1", LIVE_PORT), _LiveHandler)
     server.serve_forever()
+
+
+# ── History ──────────────────────────────────────────────────────────────────
+
+def cmd_history(
+    query: str = "",
+    category: str = "",
+    export: bool = False,
+    limit: int = 20,
+    compact: bool = False,
+) -> int:
+    if not HISTORY_FILE.exists():
+        print(f"{MUTED}Ingen historik ännu — kör watch-läge först.{RESET}")
+        return 0
+    try:
+        data: List[dict] = json.loads(HISTORY_FILE.read_text())
+    except Exception:
+        print(f"{RED}Kunde inte läsa historik.{RESET}")
+        return 1
+
+    q = query.lower()
+    results = [
+        e for e in data
+        if (not q or q in e.get("command", "").lower()
+                   or q in e.get("gui_action", "").lower()
+                   or q in e.get("explanation", "").lower())
+        and (not category or e.get("category", "").lower() == category.lower())
+    ]
+
+    if export:
+        lines = [
+            "#!/bin/bash",
+            f"# MQ Mirror historik — {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            "",
+        ]
+        for e in results:
+            if e.get("gui_action"):  lines.append(f"# {e['gui_action']}")
+            if e.get("explanation"): lines.append(f"# {e['explanation']}")
+            lines.append(e.get("command", ""))
+            lines.append("")
+        print("\n".join(lines))
+        return 0
+
+    if not results:
+        print(f"{MUTED}Inga matchande kommandon.{RESET}")
+        return 0
+
+    for e in results[-limit:]:
+        ts  = f"{MUTED}{e.get('ts',''):>8}{RESET}"
+        cat = f"{CYAN}{e.get('category',''):<10}{RESET}"
+        cmd = f"{GREEN}{e.get('command','')}{RESET}"
+        print(f"{ts}  {cat}  {cmd}")
+        if not compact and e.get("gui_action"):
+            print(f"           {MUTED}{e['gui_action']}{RESET}")
+            print()
+
+    print(f"\n{MUTED}{len(results)} kommandon totalt{RESET}")
+    return 0
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1309,6 +1414,13 @@ def main() -> int:
     wtch_p.add_argument("--no-serve",       action="store_true",
                         help=f"Don't start the live HTTP server on port {LIVE_PORT}")
 
+    hist_p = sub.add_parser("history", help="Visa och sök kommandohistorik")
+    hist_p.add_argument("query",      nargs="?", default="", help="Sökterm")
+    hist_p.add_argument("--category", "-c",      help="Filtrera per kategori (Finder, Browser, …)")
+    hist_p.add_argument("--export",   action="store_true", help="Exportera som shell-skript")
+    hist_p.add_argument("--limit",    type=int,  default=20)
+    hist_p.add_argument("--compact",  action="store_true")
+
     sub.add_parser("doctor",  help="Check runtime dependencies")
     sub.add_parser("version", help="Print version")
 
@@ -1332,6 +1444,8 @@ def main() -> int:
         return watch_apps(args.interval, as_json, args.compact,
                           args.ignore_terminal, args.limit,
                           serve=not args.no_serve)
+    if args.command == "history": return cmd_history(
+        args.query, args.category or "", args.export, args.limit, args.compact)
     if args.command == "doctor":  return doctor()
     if args.command == "version": print(f"mqmirror {VERSION}"); return 0
     return 1
