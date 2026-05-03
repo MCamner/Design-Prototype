@@ -295,6 +295,17 @@ tr:last-child td { border-bottom: none; }
 .stop-btn:hover { background: rgba(248,81,73,.18); }
 .stop-btn:disabled { opacity: .4; cursor: default; }
 
+/* Terminal-väljare */
+.terminal-picker {
+  background: var(--panel); color: var(--muted);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 8px; font-size: 11px; font-family: var(--mono);
+  cursor: pointer; outline: none; transition: all .15s;
+}
+.terminal-picker:hover { border-color: var(--muted); color: var(--text); }
+.terminal-picker:focus { border-color: var(--accent); color: var(--text); }
+.terminal-picker option { background: #1c2128; }
+
 /* Export-knapp */
 .export-btn {
   font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
@@ -357,6 +368,12 @@ tr:last-child td { border-bottom: none; }
     <div class="live-dot" id="live-dot"></div>
     <span class="live-status-text" id="live-status">Ansluter till gui_to_cli.py på port 7070…</span>
     <button class="stop-btn" id="stop-btn">■ Stoppa</button>
+    <select id="terminal-picker" class="terminal-picker" title="Välj terminal för ▶ Run">
+      <option value="terminal">Terminal.app</option>
+      <option value="iterm2">iTerm2</option>
+      <option value="warp">Warp</option>
+      <option value="ghostty">Ghostty</option>
+    </select>
   </div>
   <div class="live-toolbar">
     <input class="live-search" id="live-search" type="search" placeholder="Sök kommandon…">
@@ -963,10 +980,32 @@ function copyCode(btn) {
   const chipsEl    = document.getElementById('live-chips');
   const exportBtn  = document.getElementById('export-btn');
 
+  const terminalPicker = document.getElementById('terminal-picker');
   const seen       = new Set();
   const pinnedCmds = new Map(); // command string → cmd object
   let es = null, pollTimer = null;
   let activeCategory = 'all', searchQuery = '';
+
+  // ── Terminal preference ──────────────────────────────────────────────────
+  terminalPicker.value = localStorage.getItem('mq-terminal') || 'terminal';
+  terminalPicker.addEventListener('change', function() {
+    localStorage.setItem('mq-terminal', this.value);
+  });
+  function selectedTerminal() { return terminalPicker.value; }
+
+  // ── Tab-title notification ───────────────────────────────────────────────
+  var _origTitle = document.title, _titleNotified = false;
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible' && _titleNotified) {
+      document.title = _origTitle;
+      _titleNotified = false;
+    }
+  });
+  function notifyNewCommand() {
+    if (document.visibilityState === 'visible' || _titleNotified) return;
+    _titleNotified = true;
+    document.title = '(●) ' + _origTitle;
+  }
 
   // ── Utils ────────────────────────────────────────────────────────────────
   function esc(s) {
@@ -1024,6 +1063,7 @@ function copyCode(btn) {
   function addCommand(cmd) {
     if (seen.has(cmd.id)) return;
     seen.add(cmd.id);
+    notifyNewCommand();
     if (empty) empty.style.display = 'none';
     const card = buildCard(cmd);
     list.insertBefore(card, list.firstChild);
@@ -1113,7 +1153,7 @@ function copyCode(btn) {
       fetch(BASE + '/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cmd: cmd })
+        body: JSON.stringify({ cmd: cmd, terminal: selectedTerminal() })
       }).then(function() {
         btn.textContent = '✓';
         setTimeout(function() { btn.textContent = '▶'; btn.disabled = false; }, 2000);

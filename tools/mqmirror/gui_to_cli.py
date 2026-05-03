@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import pathlib
 import platform
 import shlex
 import shutil
@@ -33,8 +34,9 @@ from socketserver import ThreadingMixIn
 from typing import Any, Dict, List, Tuple
 from urllib.parse import urlparse
 
-VERSION  = "0.6"
-LIVE_PORT = 7070
+VERSION      = "0.6"
+LIVE_PORT    = 7070
+HISTORY_FILE = pathlib.Path(__file__).parent / "mq-history.json"
 
 RESET = "\033[0m"
 BOLD  = "\033[1m"
@@ -294,6 +296,27 @@ _sse_queues: list   = []
 _sse_lock  = threading.Lock()
 
 
+def _load_history() -> None:
+    global _cmd_id
+    if not HISTORY_FILE.exists():
+        return
+    try:
+        data = json.loads(HISTORY_FILE.read_text())
+        for entry in data:
+            _cmd_history.append(entry)
+        if _cmd_history:
+            _cmd_id = max(e["id"] for e in _cmd_history)
+    except Exception:
+        pass
+
+
+def _save_history() -> None:
+    try:
+        HISTORY_FILE.write_text(json.dumps(list(_cmd_history)))
+    except Exception:
+        pass
+
+
 def _emit(category: str, gui_action: str, cmd: str, explanation: str = "") -> None:
     global _cmd_id
     with _cmd_lock:
@@ -307,6 +330,7 @@ def _emit(category: str, gui_action: str, cmd: str, explanation: str = "") -> No
             "explanation": explanation,
         }
         _cmd_history.append(entry)
+        _save_history()
     payload = json.dumps(entry)
     with _sse_lock:
         dead = []
@@ -317,6 +341,38 @@ def _emit(category: str, gui_action: str, cmd: str, explanation: str = "") -> No
                 dead.append(q)
         for q in dead:
             _sse_queues.remove(q)
+
+
+def _run_in_terminal(cmd: str, terminal: str) -> None:
+    if terminal == "iterm2":
+        script = (
+            'tell application "iTerm2"\n'
+            '    if (count of windows) = 0 then\n'
+            f'        create window with default profile command {json.dumps(cmd)}\n'
+            '    else\n'
+            '        tell current window\n'
+            '            create tab with default profile\n'
+            '            tell current session of current window\n'
+            f'                write text {json.dumps(cmd)}\n'
+            '            end tell\n'
+            '        end tell\n'
+            '    end if\n'
+            '    activate\n'
+            'end tell'
+        )
+        subprocess.Popen(["osascript", "-e", script])
+    elif terminal in ("warp", "ghostty"):
+        app = "Warp" if terminal == "warp" else "Ghostty"
+        subprocess.run(["pbcopy"], input=cmd.encode())
+        subprocess.Popen(["open", "-a", app])
+    else:
+        script = (
+            'tell application "Terminal"\n'
+            f'    do script {json.dumps(cmd)}\n'
+            '    activate\n'
+            'end tell'
+        )
+        subprocess.Popen(["osascript", "-e", script])
 
 
 class _ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
@@ -387,15 +443,11 @@ class _LiveHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body   = self.rfile.read(length)
             try:
-                cmd = json.loads(body).get("cmd", "").strip()
+                data     = json.loads(body)
+                cmd      = data.get("cmd", "").strip()
+                terminal = data.get("terminal", "terminal")
                 if cmd:
-                    script = (
-                        'tell application "Terminal"\n'
-                        f'    do script {json.dumps(cmd)}\n'
-                        '    activate\n'
-                        'end tell'
-                    )
-                    subprocess.Popen(["osascript", "-e", script])
+                    _run_in_terminal(cmd, terminal)
             except Exception:
                 pass
             self.send_response(200)
@@ -419,6 +471,7 @@ class _LiveHandler(BaseHTTPRequestHandler):
 
 
 def _start_live_server() -> None:
+    _load_history()
     server = _ThreadedHTTPServer(("127.0.0.1", LIVE_PORT), _LiveHandler)
     server.serve_forever()
 
