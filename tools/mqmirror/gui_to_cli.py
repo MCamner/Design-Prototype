@@ -374,6 +374,38 @@ class _LiveHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+    def do_POST(self) -> None:
+        if self.path == "/run":
+            length = int(self.headers.get("Content-Length", 0))
+            body   = self.rfile.read(length)
+            try:
+                cmd = json.loads(body).get("cmd", "").strip()
+                if cmd:
+                    script = (
+                        'tell application "Terminal"\n'
+                        f'    do script {json.dumps(cmd)}\n'
+                        '    activate\n'
+                        'end tell'
+                    )
+                    subprocess.Popen(["osascript", "-e", script])
+            except Exception:
+                pass
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
     def log_message(self, *_: Any) -> None:
         pass
 
@@ -628,6 +660,41 @@ def host_from_url(url: str) -> str:
     return (urlparse(url).hostname or "").strip("[]")
 
 
+def git_repo_suggestions(url: str) -> List[Command]:
+    parsed = urlparse(url)
+    host   = parsed.hostname or ""
+    if host not in {"github.com", "gitlab.com", "bitbucket.org"}:
+        return []
+    parts = [p for p in parsed.path.strip("/").split("/") if p]
+    if len(parts) < 2:
+        return []
+    owner, repo = parts[0], parts[1].removesuffix(".git")
+    clone_https = f"https://{host}/{owner}/{repo}.git"
+    clone_ssh   = f"git@{host}:{owner}/{repo}.git"
+    suggestions: List[Command] = []
+
+    # PR checkout (GitHub/GitLab)
+    if len(parts) >= 4 and parts[2] in ("pull", "merge_requests") and parts[3].isdigit():
+        pr = parts[3]
+        suggestions.append((f"gh pr checkout {pr}", f"Checkout PR #{pr}", "safe"))
+
+    # Specific branch
+    if len(parts) >= 4 and parts[2] == "tree":
+        branch = parts[3]
+        suggestions.append((f"git clone -b {branch} {clone_https}",
+                            f"Clone branch {branch}", "safe"))
+
+    suggestions += [
+        (f"git clone {clone_https}",         f"Clone {owner}/{repo}",          "safe"),
+        (f"git clone {clone_ssh}",            f"Clone {owner}/{repo} via SSH",  "safe"),
+    ]
+    if host == "github.com":
+        suggestions.append((f"gh repo clone {owner}/{repo}",
+                            "Clone with GitHub CLI", "safe"))
+    suggestions.append((f"open {quote(url)}", "Open in browser", "safe"))
+    return suggestions
+
+
 def browser_diagnostics(url: str) -> List[Command]:
     host = host_from_url(url)
     if not host:
@@ -766,10 +833,14 @@ def suggest_for_context(context: Dict[str, Any]) -> List[Command]:
     browser = context.get("browser", {})
     url = browser.get("url") or ""
     if url:
-        suggestions += [
-            (f"open {quote(url)}",    "Open current browser URL",       "safe"),
-            (f"curl -I {quote(url)}", "Fetch HTTP headers for URL",     "safe"),
-        ]
+        git_suggestions = git_repo_suggestions(url)
+        if git_suggestions:
+            suggestions.extend(git_suggestions)
+        else:
+            suggestions += [
+                (f"open {quote(url)}",    "Open current browser URL",   "safe"),
+                (f"curl -I {quote(url)}", "Fetch HTTP headers for URL", "safe"),
+            ]
         suggestions.extend(browser_diagnostics(url))
 
     if app == "System Settings":
@@ -1077,11 +1148,12 @@ def watch_apps(
                 time.sleep(interval)
                 continue
 
-            app    = context.get("app", "")
-            window = context.get("window_title", "")
-            url    = (context.get("browser") or {}).get("url")
-            path   = (context.get("finder")  or {}).get("current_path")
-            key    = (app, window, url, path)
+            app      = context.get("app", "")
+            window   = context.get("window_title", "")
+            url      = (context.get("browser") or {}).get("url")
+            path     = (context.get("finder")  or {}).get("current_path")
+            selected = tuple(sorted((context.get("finder") or {}).get("selected_paths") or []))
+            key      = (app, window, url, path, selected)
 
             if key != last_key:
                 last_key = key
@@ -1102,7 +1174,8 @@ def watch_apps(
                     print(f"\n{DIM}{now()}{RESET}")
                     print_context(context, limit)
 
-            time.sleep(interval)
+            # Poll snabbare när Finder är aktiv (fånga selection-ändringar)
+            time.sleep(0.35 if app == "Finder" else interval)
     except KeyboardInterrupt:
         print(f"\n{GREEN}Stopped.{RESET}")
         return 0

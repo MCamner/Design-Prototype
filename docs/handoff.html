@@ -277,6 +277,15 @@ tr:last-child td { border-bottom: none; }
 .pin-btn.on { color: var(--amber); }
 .live-card.pinned { border-color: rgba(210,153,34,.3); }
 
+/* Run-knapp */
+.run-btn {
+  font-size: 10px; padding: 2px 8px; border-radius: 4px;
+  background: rgba(63,185,80,.08); border: 1px solid rgba(63,185,80,.25);
+  color: var(--green); cursor: pointer; font-family: var(--sans); transition: all .15s;
+}
+.run-btn:hover { background: rgba(63,185,80,.2); }
+.run-btn:disabled { opacity: .4; cursor: default; }
+
 /* Stop-knapp */
 .stop-btn {
   font-size: 11px; padding: 4px 12px; border-radius: 6px;
@@ -989,6 +998,7 @@ function copyCode(btn) {
       '</div>' +
       '<div class="live-cmd-row">' +
         '<span class="live-cmd-text">❯ ' + esc(cmd.command) + '</span>' +
+        '<button class="run-btn"  data-cmd="' + esc(cmd.command) + '" title="Kör i Terminal">▶</button>' +
         '<button class="copy-btn" data-cmd="' + esc(cmd.command) + '">Copy</button>' +
       '</div>' +
       (cmd.explanation ? '<div class="live-expl">' + esc(cmd.explanation) + '</div>' : '');
@@ -1097,6 +1107,19 @@ function copyCode(btn) {
   function handleClick(e) {
     var card = e.target.closest('.live-card');
     if (!card) return;
+    if (e.target.classList.contains('run-btn')) {
+      var btn = e.target, cmd = btn.dataset.cmd;
+      btn.disabled = true; btn.textContent = '…';
+      fetch(BASE + '/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd: cmd })
+      }).then(function() {
+        btn.textContent = '✓';
+        setTimeout(function() { btn.textContent = '▶'; btn.disabled = false; }, 2000);
+      }).catch(function() { btn.textContent = '▶'; btn.disabled = false; });
+      return;
+    }
     if (e.target.classList.contains('copy-btn')) {
       navigator.clipboard.writeText(e.target.dataset.cmd).then(function() {
         e.target.textContent = '✓';
