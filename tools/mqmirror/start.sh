@@ -12,7 +12,7 @@ echo "  (Ctrl+C för att stoppa)"
 echo ""
 
 # Starta Python i bakgrunden, fånga PID
-python3 "$SCRIPT_DIR/gui_to_cli.py" --compact --ignore-terminal &
+python3 "$SCRIPT_DIR/gui_to_cli.py" watch --compact --ignore-terminal &
 PY_PID=$!
 
 # Vänta tills servern svarar (max 5 sek)
