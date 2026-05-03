@@ -277,6 +277,15 @@ tr:last-child td { border-bottom: none; }
 .pin-btn.on { color: var(--amber); }
 .live-card.pinned { border-color: rgba(210,153,34,.3); }
 
+/* Stop-knapp */
+.stop-btn {
+  font-size: 11px; padding: 4px 12px; border-radius: 6px;
+  background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.25);
+  color: var(--red); cursor: pointer; font-family: var(--sans); transition: all .15s;
+}
+.stop-btn:hover { background: rgba(248,81,73,.18); }
+.stop-btn:disabled { opacity: .4; cursor: default; }
+
 /* Export-knapp */
 .export-btn {
   font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
@@ -338,6 +347,7 @@ tr:last-child td { border-bottom: none; }
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
     <div class="live-dot" id="live-dot"></div>
     <span class="live-status-text" id="live-status">Ansluter till gui_to_cli.py på port 7070…</span>
+    <button class="stop-btn" id="stop-btn">■ Stoppa</button>
   </div>
   <div class="live-toolbar">
     <input class="live-search" id="live-search" type="search" placeholder="Sök kommandon…">
@@ -1113,6 +1123,21 @@ function copyCode(btn) {
   list.addEventListener('click', handleClick);
   pinnedList.addEventListener('click', handleClick);
   exportBtn.addEventListener('click', exportSession);
+
+  document.getElementById('stop-btn').addEventListener('click', function() {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Stoppar…';
+    fetch(BASE + '/stop').then(function() {
+      setConnected(false);
+      btn.textContent = '■ Stoppad';
+      if (es) { es.close(); es = null; }
+      stopPolling();
+    }).catch(function() {
+      btn.disabled = false;
+      btn.textContent = '■ Stoppa';
+    });
+  });
 
   searchEl.addEventListener('input', function() {
     searchQuery = this.value.toLowerCase().trim();

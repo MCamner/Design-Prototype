@@ -360,6 +360,16 @@ class _LiveHandler(BaseHTTPRequestHandler):
                 with _sse_lock:
                     if q in _sse_queues:
                         _sse_queues.remove(q)
+        elif self.path == "/stop":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+            threading.Thread(
+                target=lambda: (time.sleep(0.2), os._exit(0)), daemon=True
+            ).start()
+
         else:
             self.send_response(404)
             self.end_headers()
