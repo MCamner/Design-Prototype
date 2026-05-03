@@ -1,14 +1,14 @@
 # Design Prototype
 
-Interactive web prototypes for enterprise client platforms.
+Interactive web prototypes and macOS developer tools.
 
 Author: Mattias Camner
 
 ## Overview
 
-This repository contains browser-based prototypes for exploring endpoint
-readiness, macOS compliance, fleet visibility, certificate expiry risk, and
-lightweight asset recovery workflows.
+Browser-based prototypes for endpoint readiness, macOS compliance, fleet
+visibility, certificate expiry risk, and asset workflows — plus local macOS
+developer tooling.
 
 The prototypes are intentionally lightweight:
 
@@ -16,7 +16,8 @@ The prototypes are intentionally lightweight:
 - No build step
 - Demo/sample data when no local helper is available
 - Optional Python helper agents for live local or fleet data
-- Browser-only utility flows where possible
+
+---
 
 ## Prototypes
 
@@ -57,6 +58,12 @@ Visualizes certificate expiry risk across local macOS data or fleet data.
 Live data: reads from the Fleet Collector (`38766`) and/or macOS Agent (`38764`)
 when available.
 
+### MQ Fleet Report
+
+File: `docs/MQ Fleet Report.html`
+
+Fleet-wide report view. Standalone browser page, no helper required.
+
 ### MQ Asset Downloader
 
 File: `docs/MQ Asset Downloader.html`
@@ -66,136 +73,155 @@ Photoshop-inspired workspace, and downloads selected images as a zip archive
 with a manifest.
 
 Supports a broad "all websites / other builders" mode plus a narrower
-Squarespace asset filter. It can discover common image sources such as `img`,
-`srcset`, lazy-load data attributes, metadata images, links, and CSS background
-images when present in the fetched or pasted HTML.
+Squarespace asset filter.
 
-### MQ Site Fix Advisor v1.1.0
+### MQ Site Fix Advisor
 
 File: `docs/MQ Site Fix Advisor.html`
 
 Audits a public page URL or pasted HTML for common SEO, image, link, and CSS
-issues. Results are shown in an older vSphere-inspired console layout with
-severity, location, practical fix guidance, platform notes, and exportable JSON.
+issues. Results shown in a console layout with severity, location, fix guidance,
+platform notes, and exportable JSON.
 
-Checks include missing titles/descriptions, H1 problems, Open Graph gaps,
-missing image alt text, insecure HTTP resources, placeholder links, fixed-width
-CSS, removed focus outlines, extreme z-index values, and small font sizes.
+**Generate fix** — after a scan, generates a corrected `<head>` block with all
+automatically fixable issues applied.
 
-**Generate fix** — after a scan, generates a corrected `<head>` block (or full
-HTML) with all automatically fixable issues applied, ready to copy and paste.
-
-**Guide** — in-tool step-by-step guide accessible via the `?` button in the
-top bar.
-
-Open the landing page:
-
-```text
-docs/index.html
-```
-
-Or open any prototype HTML file directly in a browser.
+---
 
 ## Quick Start
 
-Demo Mode
+### Demo mode
 
-All dashboards can be opened directly from docs/ and will fall back to
-embedded demo/sample data when live data is unavailable.
+All dashboards open directly from `docs/` and fall back to embedded demo data
+when no live helper is running.
 
+```text
 docs/Client Readiness Dashboard.html
 docs/Fleet Command Center.html
 docs/macOS Enterprise Dashboard.html
 docs/Certificate Expiry Timeline.html
 docs/MQ Asset Downloader.html
 docs/MQ Site Fix Advisor.html
+```
 
-Client Readiness Live Data
+### Client Readiness live data
 
-Use this agent for:
-
-docs/Client Readiness Dashboard.html
-
-Start the Client Readiness Agent from the project root:
-
+```bash
 python3 helper/client_readiness_agent.py
-
-It exposes live readiness data on:
-
-http://127.0.0.1:38765/status
-
-Test it:
-
+# → http://127.0.0.1:38765/status
 curl -s http://127.0.0.1:38765/status | python3 -m json.tool
+```
 
-If the dashboard shows IGEL-CLIENT-01, it is using demo/sample data.
-That usually means the Client Readiness Agent is not running, the browser cannot
-reach it, or the dashboard has fallen back to embedded sample data.
+If the dashboard shows `IGEL-CLIENT-01`, it is using demo data.
 
-macOS Live Data
+### macOS live data
 
-Use this agent for:
-
-docs/macOS Enterprise Dashboard.html
-docs/Certificate Expiry Timeline.html
-
-Start the macOS Enterprise Agent from the project root:
-
-python3 helper/macos_agent.py
-
-It exposes live macOS data on:
-
-http://127.0.0.1:38764/status
-
-For fuller MDM/profile/user data:
-
-sudo python3 helper/macos_agent.py
-
-Test it:
-
+```bash
+python3 helper/macos_agent.py          # basic
+sudo python3 helper/macos_agent.py     # MDM / profile / user data
+# → http://127.0.0.1:38764/status
 curl -s http://127.0.0.1:38764/status | python3 -m json.tool
+```
 
-Fleet Live Data
+### Fleet live data
 
-Use this collector for:
+Edit `helper/fleet_clients.json`, then:
 
-docs/Fleet Command Center.html
-
-Edit:
-
-helper/fleet_clients.json
-
-Start the collector:
-
+```bash
 python3 helper/fleet_collector.py
+# → http://localhost:38766
+```
 
-Open:
+Each configured client must expose a Client Readiness Agent on port `38765`.
 
-http://localhost:38766
+### Safe sharing
 
-Live fleet data requires each configured client to expose a Client Readiness
-Agent on port 38765. The included helper/client_readiness_agent.py provides
-that endpoint for local testing and supported macOS/Linux clients.
+Agent output may include hostname, serial, IP addresses, usernames, and
+certificate subjects. Redact before sharing:
 
-Safe Sharing
-
-Agent output may include hostname, serial number, local IP addresses, user names,
-certificate subjects, or other local machine details.
-
-Before sharing status output publicly, redact it:
-
+```bash
 curl -s http://127.0.0.1:38764/status | python3 tools/redact-macos-agent-status.py
+```
 
-Do not paste raw agent output into public GitHub issues, README files,
-screenshots, or discussions.
+### Ports
 
-Ports
+| Port    | Component                  |
+|---------|----------------------------|
+| `7070`  | MQ Mirror live server      |
+| `38764` | macOS Enterprise Agent     |
+| `38765` | Client Readiness Agent     |
+| `38766` | Fleet Collector            |
 
-| Port | Component |
-| --- | --- |
-| `38764` | macOS Enterprise Agent |
-| `38765` | Client Readiness Agent expected by readiness/fleet prototypes |
-| `38766` | Fleet Collector |
+---
+
+## Tools
+
+### MQ Mirror — GUI→CLI Companion
+
+`tools/mqmirror/` watches your macOS GUI context and streams the equivalent
+terminal commands in real-time to a local web page.
+
+**Start (recommended):**
+
+```bash
+./tools/mqmirror/start.sh
+```
+
+Opens `docs/handoff.html` automatically and starts the live server on
+`http://127.0.0.1:7070`.
+
+**Manual:**
+
+```bash
+python3 tools/mqmirror/gui_to_cli.py watch --compact --ignore-terminal
+```
+
+**Handoff UI** (`docs/handoff.html`):
+
+- Live command cards streamed via SSE from the Python server
+- Search, category filter chips, pin commands, export session as `.sh`
+- ▶ Run — executes command in the selected terminal (Terminal.app, iTerm2, Warp, Ghostty)
+- ■ Stop — gracefully shuts down the server
+- Command history persists across restarts (`tools/mqmirror/mq-history.json`)
+- Tab title flashes `(●)` when new commands arrive while the tab is in the background
+
+**CLI commands:**
+
+```bash
+python3 tools/mqmirror/gui_to_cli.py list
+python3 tools/mqmirror/gui_to_cli.py inspect
+python3 tools/mqmirror/gui_to_cli.py search network
+python3 tools/mqmirror/gui_to_cli.py show settings network
+python3 tools/mqmirror/gui_to_cli.py watch --compact --no-serve
+```
+
+### MQ Client Optimizer
+
+`tools/mq-client-optimizer/` evaluates bundled baselines for IGEL OS 12 +
+Citrix, macOS + Citrix, and macOS enterprise CIS-style compliance. Outputs
+console, JSON, or HTML reports. Browser app: `docs/MQ Client Optimizer.html`.
+
+```bash
+python3 tools/mq-client-optimizer/mq_client_optimizer.py list-baselines
+python3 tools/mq-client-optimizer/mq_client_optimizer.py analyze \
+    --baseline macos-enterprise-cis-lite --sample
+python3 tools/mq-client-optimizer/mq_client_optimizer.py serve
+```
+
+### Draw.io Generator
+
+`tools/drawio-generator/` is a local Flask server that generates Draw.io
+diagrams from natural language descriptions via an LLM backend.
+
+```bash
+cd tools/drawio-generator
+./start.sh
+# → http://127.0.0.1:5001
+```
+
+Requires a `.env` file — copy `.env.example` and fill in your API key.
+
+---
 
 ## Repository Structure
 
@@ -203,12 +229,16 @@ Ports
 design-prototyp/
 ├── docs/
 │   ├── index.html
+│   ├── handoff.html                      ← MQ Mirror live UI
+│   ├── handoff-standalone.html
 │   ├── Client Readiness Dashboard.html
 │   ├── Fleet Command Center.html
 │   ├── macOS Enterprise Dashboard.html
 │   ├── Certificate Expiry Timeline.html
+│   ├── MQ Fleet Report.html
 │   ├── MQ Asset Downloader.html
 │   ├── MQ Site Fix Advisor.html
+│   ├── MQ Client Optimizer.html
 │   ├── README-Client-Readiness-Dashboard.md
 │   ├── README-Fleet-Command-Center.md
 │   ├── README-macOS-Enterprise-Dashboard.md
@@ -219,62 +249,23 @@ design-prototyp/
 │   ├── fleet_clients.json
 │   └── macos_agent.py
 └── tools/
+    ├── redact-macos-agent-status.py
+    ├── drawio-generator/
+    │   ├── server.py
+    │   ├── start.sh
+    │   ├── requirements.txt
+    │   ├── .env.example
+    │   └── templates/index.html
+    ├── mq-client-optimizer/
+    │   ├── mq_client_optimizer.py
+    │   ├── README.md
+    │   └── baselines/
     └── mqmirror/
-        ├── README.md
         ├── gui_to_cli.py
-        └── mqmirror
-```
-
-## Documentation
-
-- `docs/README-Client-Readiness-Dashboard.md`
-- `docs/README-Fleet-Command-Center.md`
-- `docs/README-macOS-Enterprise-Dashboard.md`
-- `docs/README-Certificate-Expiry-Timeline.md`
-- `tools/mqmirror/README.md`
-
-The MQ Asset Downloader and MQ Site Fix Advisor are documented inline in their
-tool UIs and run as standalone browser pages.
-
-## Tools
-
-### MQ Mirror
-
-`tools/mqmirror/` contains a small macOS CLI prototype that maps common GUI
-actions to equivalent terminal commands.
-
-Run from the repo:
-
-```bash
-python3 tools/mqmirror/gui_to_cli.py list
-```
-
-If the launcher has been added to your `PATH`, run:
-
-```bash
-mqmirror list
-mqmirror inspect
-mqmirror watch --compact --ignore-terminal --limit 4
-```
-
-More details:
-
-- `tools/mqmirror/README.md`
-- `tools/mqmirror/gui_to_cli.py`
-- `tools/mqmirror/mqmirror`
-
-### MQ Client Optimizer v1
-
-`tools/mq-client-optimizer/` contains a safe, template-based optimizer analyzer
-for IGEL and macOS clients. It evaluates bundled baselines for IGEL OS 12 +
-Citrix, macOS + Citrix, and macOS enterprise CIS-style compliance, then writes
-console, JSON, or HTML reports. A browser app is available at
-`docs/MQ Client Optimizer.html`.
-
-```bash
-python3 tools/mq-client-optimizer/mq_client_optimizer.py list-baselines
-python3 tools/mq-client-optimizer/mq_client_optimizer.py analyze --baseline macos-enterprise-cis-lite --sample
-python3 tools/mq-client-optimizer/mq_client_optimizer.py serve
+        ├── gui_to_cli_orginal.py
+        ├── start.sh
+        ├── mqmirror
+        └── README.md
 ```
 
 ## Notes
