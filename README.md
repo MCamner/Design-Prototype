@@ -100,8 +100,10 @@ docs/Client Readiness Dashboard.html
 docs/Fleet Command Center.html
 docs/macOS Enterprise Dashboard.html
 docs/Certificate Expiry Timeline.html
+docs/MQ Fleet Report.html
 docs/MQ Asset Downloader.html
 docs/MQ Site Fix Advisor.html
+docs/MQ Client Optimizer.html
 ```
 
 ### Client Readiness live data
@@ -263,7 +265,11 @@ design-prototyp/
     └── mqmirror/
         ├── gui_to_cli.py
         ├── gui_to_cli_orginal.py
+        ├── menubar.py
         ├── start.sh
+        ├── install-service.sh
+        ├── uninstall-service.sh
+        ├── requirements.txt
         ├── mqmirror
         └── README.md
 ```
