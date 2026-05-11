@@ -1,5 +1,9 @@
 # Design Prototype
 
+![Version](https://img.shields.io/badge/version-0.1.2-blue)
+![Status](https://img.shields.io/badge/status-active%20prototype-success)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
+![GitHub Pages](https://img.shields.io/badge/demo-GitHub%20Pages-blueviolet)
 
 
 ## Project navigation
@@ -278,7 +282,7 @@ Requires a `.env` file — copy `.env.example` and fill in your API key.
 ## Repository Structure
 
 ```text
-design-prototyp/
+Design-Prototype/
 ├── docs/
 │   ├── index.html
 │   ├── handoff.html                      ← MQ Mirror live UI
