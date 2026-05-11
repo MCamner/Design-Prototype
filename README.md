@@ -38,8 +38,6 @@ It is not one single app. It is a collection of practical prototypes and tools f
 Rough enterprise ideas should become visible, testable, documented, and safe to share.
 
 
-Interactive web prototypes and macOS developer tools.
-
 Author: Mattias Camner
 
 ## Overview
