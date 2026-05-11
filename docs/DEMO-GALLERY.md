@@ -6,12 +6,12 @@ Design-Prototype contains browser-based prototypes and local helper tools for en
 
 | Prototype | What it shows | Screenshot | Status |
 |---|---|---|---|
-| Client Readiness Dashboard | Endpoint readiness and enterprise workflow checks | `docs/screenshots/client-readiness-dashboard.png` | Needs screenshot |
-| Fleet Command Center | Fleet-level endpoint visibility | `docs/screenshots/fleet-command-center.png` | Needs screenshot |
-| macOS Enterprise Dashboard | macOS compliance, MDM, users, updates, and certificates | `docs/screenshots/macos-enterprise-dashboard.png` | Needs screenshot |
-| Certificate Expiry Timeline | Certificate expiry risk over time | `docs/screenshots/certificate-expiry-timeline.png` | Needs screenshot |
-| MQ Mirror | macOS GUI action to CLI command translation | `docs/screenshots/mq-mirror.png` | Needs screenshot |
-| MQ Client Optimizer | Baseline evaluation and client readiness scoring | `docs/screenshots/mq-client-optimizer.png` | Needs screenshot |
+| Client Readiness Dashboard | Endpoint readiness and enterprise workflow checks | `docs/screenshots/client-readiness-dashboard.png` | Screenshot available |
+| Fleet Command Center | Fleet-level endpoint visibility | `docs/screenshots/fleet-command-center.png` | Screenshot available |
+| macOS Enterprise Dashboard | macOS compliance, MDM, users, updates, and certificates | `docs/screenshots/macos-enterprise-dashboard.png` | Screenshot available |
+| Certificate Expiry Timeline | Certificate expiry risk over time | `docs/screenshots/certificate-expiry-timeline.png` | Screenshot available |
+| MQ Mirror | macOS GUI action to CLI command translation | `docs/screenshots/mq-mirror.png` | Screenshot available |
+| MQ Client Optimizer | Baseline evaluation and client readiness scoring | `docs/screenshots/mq-client-optimizer.png` | Screenshot available |
 
 ## Screenshot checklist
 
