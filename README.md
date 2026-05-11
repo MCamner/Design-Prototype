@@ -5,15 +5,13 @@
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 ![GitHub Pages](https://img.shields.io/badge/demo-GitHub%20Pages-blueviolet)
 
-
 ## Project navigation
 
 | Page | Purpose |
-|---|---|
+| --- | --- |
 | [Demo Gallery](docs/DEMO-GALLERY.md) | Visual overview of the main prototypes |
 | [Project Map](docs/PROJECT-MAP.md) | Explains how the repo is structured |
 | [Project Status](docs/PROJECT-STATUS.md) | Shows active, rough, and next-step areas |
-
 
 ## Start here
 
@@ -25,22 +23,23 @@ Design-Prototype is a browser-based enterprise validation lab for:
 - certificate expiry risk
 - operator workflow handoff
 
-It is not one single app. It is a collection of practical prototypes and tools for testing enterprise client workflows before they become production systems.
+It is not one single app. It is a collection of practical prototypes and tools
+for testing enterprise client workflows before they become production systems.
 
 ### Best entry points
 
 | Start here | Use when |
-|---|---|
+| --- | --- |
 | `docs/PROJECT-MAP.md` | You want to understand the repo structure |
 | `docs/PROJECT-STATUS.md` | You want to see what is active, rough, or next |
 | `tools/mqmirror/` | You want GUI-to-CLI workflow translation |
-| `tools/mq-client-optimizer/` | You want client readiness and baseline evaluation |
+| `tools/mq-client-optimizer/` | You want readiness and baseline evaluation |
 | `docs/` | You want browser-based dashboards and prototypes |
 
 ### Project promise
 
-Rough enterprise ideas should become visible, testable, documented, and safe to share.
-
+Rough enterprise ideas should become visible, testable, documented, and safe to
+share.
 
 Author: Mattias Camner
 
@@ -59,19 +58,28 @@ The prototypes are intentionally lightweight:
 
 ---
 
-
 ## Demo Catalog
 
-| Prototype | Purpose | Live / File | Status |
-|---|---|---|---|
-| Client Readiness Dashboard | Validate endpoint readiness for Citrix/thin-client scenarios | `docs/Client Readiness Dashboard.html` | Active prototype |
-| Fleet Command Center | Fleet-level readiness and endpoint visibility | `docs/Fleet Command Center.html` | Active prototype |
-| macOS Enterprise Dashboard | macOS compliance, users, MDM, updates, certificates | `docs/macOS Enterprise Dashboard.html` | Active prototype |
-| Certificate Expiry Timeline | Certificate expiry risk visualization | `docs/Certificate Expiry Timeline.html` | Active prototype |
-| MQ Mirror | Translate macOS GUI actions into CLI equivalents | `tools/mqmirror/` | Active tool |
-| MQ Client Optimizer | Baseline evaluation for IGEL/macOS/Citrix readiness | `tools/mq-client-optimizer/` | Active tool |
-| MQ Site Fix Advisor | SEO/link/CSS audit for public pages or pasted HTML | `docs/MQ Site Fix Advisor.html` | Prototype |
-| MQ Asset Downloader | Discover and download image assets from public pages | `docs/MQ Asset Downloader.html` | Prototype |
+- **Client Readiness Dashboard**: validates endpoint readiness for
+  Citrix/thin-client scenarios.
+  File: `docs/Client Readiness Dashboard.html`. Status: active prototype.
+- **Fleet Command Center**: fleet-level readiness and endpoint visibility.
+  File: `docs/Fleet Command Center.html`. Status: active prototype.
+- **macOS Enterprise Dashboard**: macOS compliance, users, MDM, updates, and
+  certificates.
+  File: `docs/macOS Enterprise Dashboard.html`. Status: active prototype.
+- **Certificate Expiry Timeline**: certificate expiry risk visualization.
+  File: `docs/Certificate Expiry Timeline.html`. Status: active prototype.
+- **MQ Mirror**: translates macOS GUI actions into CLI equivalents.
+  Path: `tools/mqmirror/`. Status: active tool.
+- **MQ Client Optimizer**: evaluates IGEL/macOS/Citrix readiness baselines.
+  Path: `tools/mq-client-optimizer/`. Status: active tool.
+- **MQ Site Fix Advisor**: audits SEO, links, images, and CSS for public pages
+  or pasted HTML.
+  File: `docs/MQ Site Fix Advisor.html`. Status: prototype.
+- **MQ Asset Downloader**: discovers and downloads image assets from public
+  pages.
+  File: `docs/MQ Asset Downloader.html`. Status: prototype.
 
 ## Prototypes
 
@@ -236,7 +244,7 @@ python3 tools/mqmirror/gui_to_cli.py watch --compact --ignore-terminal
 
 - Live command cards streamed via SSE from the Python server
 - Search, category filter chips, pin commands, export session as `.sh`
-- ▶ Run — executes command in the selected terminal (Terminal.app, iTerm2, Warp, Ghostty)
+- ▶ Run — executes command in the selected terminal.
 - ■ Stop — gracefully shuts down the server
 - Command history persists across restarts (`tools/mqmirror/mq-history.json`)
 - Tab title flashes `(●)` when new commands arrive while the tab is in the background
