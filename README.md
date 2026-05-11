@@ -19,6 +19,20 @@ The prototypes are intentionally lightweight:
 
 ---
 
+
+## Demo Catalog
+
+| Prototype | Purpose | Live / File | Status |
+|---|---|---|---|
+| Client Readiness Dashboard | Validate endpoint readiness for Citrix/thin-client scenarios | `docs/Client Readiness Dashboard.html` | Active prototype |
+| Fleet Command Center | Fleet-level readiness and endpoint visibility | `docs/Fleet Command Center.html` | Active prototype |
+| macOS Enterprise Dashboard | macOS compliance, users, MDM, updates, certificates | `docs/macOS Enterprise Dashboard.html` | Active prototype |
+| Certificate Expiry Timeline | Certificate expiry risk visualization | `docs/Certificate Expiry Timeline.html` | Active prototype |
+| MQ Mirror | Translate macOS GUI actions into CLI equivalents | `tools/mqmirror/` | Active tool |
+| MQ Client Optimizer | Baseline evaluation for IGEL/macOS/Citrix readiness | `tools/mq-client-optimizer/` | Active tool |
+| MQ Site Fix Advisor | SEO/link/CSS audit for public pages or pasted HTML | `docs/MQ Site Fix Advisor.html` | Prototype |
+| MQ Asset Downloader | Discover and download image assets from public pages | `docs/MQ Asset Downloader.html` | Prototype |
+
 ## Prototypes
 
 ### Client Readiness Dashboard
