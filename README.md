@@ -1,5 +1,33 @@
 # Design Prototype
 
+
+## Start here
+
+Design-Prototype is a browser-based enterprise validation lab for:
+
+- endpoint readiness
+- macOS compliance
+- fleet visibility
+- certificate expiry risk
+- operator workflow handoff
+
+It is not one single app. It is a collection of practical prototypes and tools for testing enterprise client workflows before they become production systems.
+
+### Best entry points
+
+| Start here | Use when |
+|---|---|
+| `docs/PROJECT-MAP.md` | You want to understand the repo structure |
+| `docs/PROJECT-STATUS.md` | You want to see what is active, rough, or next |
+| `tools/mqmirror/` | You want GUI-to-CLI workflow translation |
+| `tools/mq-client-optimizer/` | You want client readiness and baseline evaluation |
+| `docs/` | You want browser-based dashboards and prototypes |
+
+### Project promise
+
+Rough enterprise ideas should become visible, testable, documented, and safe to share.
+
+
 Interactive web prototypes and macOS developer tools.
 
 Author: Mattias Camner
