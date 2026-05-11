@@ -13,6 +13,33 @@ Design-Prototype contains browser-based prototypes and local helper tools for en
 | MQ Mirror | macOS GUI action to CLI command translation | `docs/screenshots/mq-mirror.png` | Screenshot available |
 | MQ Client Optimizer | Baseline evaluation and client readiness scoring | `docs/screenshots/mq-client-optimizer.png` | Screenshot available |
 
+
+## Screenshots
+
+### Client Readiness Dashboard
+
+![Client Readiness Dashboard](screenshots/client-readiness-dashboard.png)
+
+### Fleet Command Center
+
+![Fleet Command Center](screenshots/fleet-command-center.png)
+
+### macOS Enterprise Dashboard
+
+![macOS Enterprise Dashboard](screenshots/macos-enterprise-dashboard.png)
+
+### Certificate Expiry Timeline
+
+![Certificate Expiry Timeline](screenshots/certificate-expiry-timeline.png)
+
+### MQ Mirror
+
+![MQ Mirror](screenshots/mq-mirror.png)
+
+### MQ Client Optimizer
+
+![MQ Client Optimizer](screenshots/mq-client-optimizer.png)
+
 ## Screenshot checklist
 
 Each screenshot should show:
