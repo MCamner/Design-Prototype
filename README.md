@@ -1,6 +1,16 @@
 # Design Prototype
 
 
+
+## Project navigation
+
+| Page | Purpose |
+|---|---|
+| [Demo Gallery](docs/DEMO-GALLERY.md) | Visual overview of the main prototypes |
+| [Project Map](docs/PROJECT-MAP.md) | Explains how the repo is structured |
+| [Project Status](docs/PROJECT-STATUS.md) | Shows active, rough, and next-step areas |
+
+
 ## Start here
 
 Design-Prototype is a browser-based enterprise validation lab for:
