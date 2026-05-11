@@ -6,22 +6,48 @@ All notable changes to this project will be documented in this file.
 
 ## [0.1.3] - 2026-05-11
 
-### Changed
+### Public presentation polish
 
-* docs: fix README markdown lint
-* docs: polish public README positioning
-* tools: add public docs check
-* docs: show screenshots in demo gallery
-* docs: add prototype screenshots
-* docs: add demo gallery and screenshot checklist
-* docs: add demo gallery and screenshot checklist
-* docs: add demo gallery and screenshot checklist
-* docs: clarify Design-Prototype project structure
-* docs: clarify Design-Prototype project structure
-* docs: clarify Design-Prototype project structure
-* docs: add demo catalog to README
-* docs: add Design-Prototype project map
-* docs: fix README structure and demo mode file list
+This release improves the public presentation of Design-Prototype as a GitHub
+portfolio project and enterprise validation lab.
+
+### Highlights
+
+* Added a visual demo gallery with prototype screenshots.
+* Added public project navigation from the README.
+* Added project map and project status documentation.
+* Added a public documentation check script.
+* Improved README positioning, badges, and markdown formatting.
+* Updated the repository presentation around client readiness, endpoint
+  visibility, macOS compliance, certificate risk, and operator handoff
+  workflows.
+
+### Why this release matters
+
+Design-Prototype is now easier to understand from the outside.
+
+A visitor can land on the repository and quickly find:
+
+* what the project is
+* which prototypes exist
+* where the demos are
+* which tools are active
+* how the repo is structured
+* what is safe to share publicly
+
+### Verified
+
+* GitHub Pages is active.
+* Demo gallery exists.
+* Screenshots are present.
+* README navigation is present.
+* Public documentation check exists.
+* Release assets are available as source archives.
+
+### Scope
+
+This is a documentation and presentation polish release. No major runtime
+behavior changes are intended.
 
 ---
 
