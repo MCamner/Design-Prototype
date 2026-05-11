@@ -12,6 +12,7 @@
 | [Demo Gallery](docs/DEMO-GALLERY.md) | Visual overview of the main prototypes |
 | [Project Map](docs/PROJECT-MAP.md) | Explains how the repo is structured |
 | [Project Status](docs/PROJECT-STATUS.md) | Shows active, rough, and next-step areas |
+| [Roadmap](docs/ROADMAP.md) | Shows planned hardening and next milestones |
 
 ## Start here
 
