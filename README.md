@@ -1,6 +1,6 @@
 # Design Prototype
 
-![Version](https://img.shields.io/badge/version-0.1.2-blue)
+![Version](https://img.shields.io/badge/version-0.1.3-blue)
 ![Status](https://img.shields.io/badge/status-active%20prototype-success)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 ![GitHub Pages](https://img.shields.io/badge/demo-GitHub%20Pages-blueviolet)
