@@ -191,6 +191,13 @@
       font-size: 0.92rem;
     }
 
+    .status-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
     .hero-card {
       background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.025));
       border: 1px solid var(--line);
@@ -287,6 +294,24 @@
       color: var(--muted);
     }
 
+    .shot {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      display: block;
+      margin: 0 0 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+    }
+
+    .card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 18px;
+    }
+
     .list {
       margin: 0;
       padding-left: 18px;
@@ -364,6 +389,11 @@
       margin: 0 0 12px;
     }
 
+    .warning {
+      border-color: rgba(255, 209, 102, 0.34);
+      background: rgba(255, 209, 102, 0.08);
+    }
+
     .muted {
       color: var(--muted);
     }
@@ -431,6 +461,8 @@
         <a href="./MQ%20Fleet%20Report.html">Fleet Report</a>
         <a href="./handoff.html">MQ Mirror</a>
         <a href="#approach">Approach</a>
+        <a href="./ARCHITECTURE.md">Architecture</a>
+        <a href="./SAFE-SHARING.md">Safe sharing</a>
         <a href="#positioning">Positioning</a>
         <a href="https://github.com/MCamner/Design-Prototype">GitHub Repo</a>
       </nav>
@@ -440,19 +472,26 @@
   <main>
     <section class="hero">
       <div class="container">
-        <div class="eyebrow">Enterprise client platforms · browser-based prototypes · design exploration</div>
+        <div class="status-strip">
+          <span class="eyebrow">Enterprise validation lab</span>
+          <span class="eyebrow">v0.1.4</span>
+          <span class="eyebrow">GitHub Pages ready</span>
+        </div>
 
         <div class="hero-grid">
           <div>
             <h1>Client-side validation for enterprise environments.</h1>
             <p class="lead">
-              Design Prototype is a collection of web app concepts focused on endpoint readiness,
-              baseline visibility, and operational feedback for managed client platforms.
-              The goal is simple: make client state visible before it becomes an incident.
+              Design-Prototype is a browser-based enterprise validation lab for turning rough
+              endpoint, compliance, readiness, and fleet-management ideas into visible,
+              testable, and shareable prototypes.
             </p>
 
             <div class="hero-actions">
               <a class="button button-primary" href="./Client%20Readiness%20Dashboard.html">Open Client Readiness</a>
+              <a class="button button-secondary" href="./DEMO-GALLERY.md">View Gallery</a>
+              <a class="button button-secondary" href="./ARCHITECTURE.md">Read Architecture</a>
+              <a class="button button-secondary" href="./SAFE-SHARING.md">Safe Sharing</a>
               <a class="button button-secondary" href="./MQ%20Client%20Optimizer.html">Open mq-client-opt</a>
               <a class="button button-secondary" href="./MQ%20Asset%20Downloader.html">Open Asset Downloader</a>
               <a class="button button-secondary" href="./MQ%20Site%20Fix%20Advisor.html">Open Fix Advisor</a>
@@ -512,6 +551,7 @@ better client-side validation.</div>
           <article class="card">
             <span class="card-kicker">Primary</span>
             <h3>Client Readiness Dashboard</h3>
+            <img class="shot" src="./screenshots/client-readiness-dashboard.png" alt="Client Readiness Dashboard screenshot">
             <p>
               A readiness-focused interface for checking whether a client environment appears
               prepared for expected enterprise usage patterns.
@@ -521,12 +561,16 @@ better client-side validation.</div>
               <li>Client-side visibility before access</li>
               <li>Useful for managed endpoint scenarios</li>
             </ul>
-            <a class="mini-link" href="./Client%20Readiness%20Dashboard.html">Open dashboard →</a>
+            <div class="card-actions">
+              <a class="mini-link" href="./Client%20Readiness%20Dashboard.html">Open demo →</a>
+              <a class="mini-link" href="./README-Client-Readiness-Dashboard.md">Read docs →</a>
+            </div>
           </article>
 
           <article class="card">
             <span class="card-kicker">Optimizer</span>
             <h3>MQ Client Optimizer <small style="font-size:0.7rem;font-weight:400;opacity:0.6">v1</small></h3>
+            <img class="shot" src="./screenshots/mq-client-optimizer.png" alt="MQ Client Optimizer screenshot">
             <p>
               A browser-based analyzer for IGEL and macOS baselines, designed to share the
               same baseline thinking as the command-line optimizer.
@@ -536,12 +580,16 @@ better client-side validation.</div>
               <li>Sample data, pasted JSON, or agent URL</li>
               <li>JSON and HTML report export</li>
             </ul>
-            <a class="mini-link" href="./MQ%20Client%20Optimizer.html">Open optimizer →</a>
+            <div class="card-actions">
+              <a class="mini-link" href="./MQ%20Client%20Optimizer.html">Open demo →</a>
+              <a class="mini-link" href="https://github.com/MCamner/Design-Prototype/tree/main/tools/mq-client-optimizer">Read docs →</a>
+            </div>
           </article>
 
           <article class="card">
             <span class="card-kicker">Operations</span>
             <h3>Fleet Command Center</h3>
+            <img class="shot" src="./screenshots/fleet-command-center.png" alt="Fleet Command Center screenshot">
             <p>
               A concept for broader fleet-level visibility where multiple clients can be viewed
               through a more operational, centralized lens.
@@ -551,12 +599,16 @@ better client-side validation.</div>
               <li>Status-oriented design direction</li>
               <li>Supports scale thinking, not just single-client checks</li>
             </ul>
-            <a class="mini-link" href="./Fleet%20Command%20Center.html">Open dashboard →</a>
+            <div class="card-actions">
+              <a class="mini-link" href="./Fleet%20Command%20Center.html">Open demo →</a>
+              <a class="mini-link" href="./README-Fleet-Command-Center.md">Read docs →</a>
+            </div>
           </article>
 
           <article class="card">
             <span class="card-kicker">Platform</span>
             <h3>macOS Enterprise Dashboard</h3>
+            <img class="shot" src="./screenshots/macos-enterprise-dashboard.png" alt="macOS Enterprise Dashboard screenshot">
             <p>
               A prototype direction for enterprise macOS visibility, linking configuration,
               posture, and operational control into one browser-based interface.
@@ -566,12 +618,16 @@ better client-side validation.</div>
               <li>Security and configuration visibility</li>
               <li>Supports cross-platform design thinking</li>
             </ul>
-            <a class="mini-link" href="./macOS%20Enterprise%20Dashboard.html">Open dashboard →</a>
+            <div class="card-actions">
+              <a class="mini-link" href="./macOS%20Enterprise%20Dashboard.html">Open demo →</a>
+              <a class="mini-link" href="./README-macOS-Enterprise-Dashboard.md">Read docs →</a>
+            </div>
           </article>
 
           <article class="card">
             <span class="card-kicker">Risk</span>
             <h3>Certificate Expiry Timeline</h3>
+            <img class="shot" src="./screenshots/certificate-expiry-timeline.png" alt="Certificate Expiry Timeline screenshot">
             <p>
               A timeline view for spotting certificate expiry risk across local macOS data
               or fleet-level signals before renewals become urgent.
@@ -581,12 +637,16 @@ better client-side validation.</div>
               <li>Local and fleet data paths</li>
               <li>Useful for renewal planning and risk triage</li>
             </ul>
-            <a class="mini-link" href="./Certificate%20Expiry%20Timeline.html">Open timeline →</a>
+            <div class="card-actions">
+              <a class="mini-link" href="./Certificate%20Expiry%20Timeline.html">Open demo →</a>
+              <a class="mini-link" href="./README-Certificate-Expiry-Timeline.md">Read docs →</a>
+            </div>
           </article>
 
           <article class="card">
             <span class="card-kicker">Utility</span>
             <h3>MQ Asset Downloader</h3>
+            <img class="shot" src="./screenshots/mq-asset-downloader.png" alt="MQ Asset Downloader screenshot">
             <p>
               A Photoshop-inspired browser workspace for scanning a public page URL,
               finding image assets, previewing them, and exporting selected files as a zip archive.
@@ -597,12 +657,13 @@ better client-side validation.</div>
               <li>Selectable asset grid with previews</li>
               <li>Zip export with a download manifest</li>
             </ul>
-            <a class="mini-link" href="./MQ%20Asset%20Downloader.html">Open tool →</a>
+            <a class="mini-link" href="./MQ%20Asset%20Downloader.html">Open demo →</a>
           </article>
 
           <article class="card">
             <span class="card-kicker">Advisor</span>
             <h3>MQ Site Fix Advisor <small style="font-size:0.7rem;font-weight:400;opacity:0.6">v1.1.0</small></h3>
+            <img class="shot" src="./screenshots/mq-site-fix-advisor.png" alt="MQ Site Fix Advisor screenshot">
             <p>
               An older vSphere-inspired audit console for finding SEO, image,
               link, and CSS issues, then showing practical fixes for each item.
@@ -613,12 +674,13 @@ better client-side validation.</div>
               <li>Concrete fix guidance and code snippets</li>
               <li>Auto-fix generator and exportable JSON report</li>
             </ul>
-            <a class="mini-link" href="./MQ%20Site%20Fix%20Advisor.html">Open advisor →</a>
+            <a class="mini-link" href="./MQ%20Site%20Fix%20Advisor.html">Open demo →</a>
           </article>
 
           <article class="card">
             <span class="card-kicker">Developer Tool</span>
             <h3>MQ Mirror — GUI→CLI Companion</h3>
+            <img class="shot" src="./screenshots/mq-mirror.png" alt="MQ Mirror screenshot">
             <p>
               Watches your macOS GUI context in real-time and streams the
               equivalent terminal commands to a local web page via SSE.
@@ -631,7 +693,10 @@ better client-side validation.</div>
               <li>Command history persists across restarts</li>
               <li>Start with <code>./tools/mqmirror/start.sh</code></li>
             </ul>
-            <a class="mini-link" href="./handoff.html">Open MQ Mirror →</a>
+            <div class="card-actions">
+              <a class="mini-link" href="./handoff.html">Open demo →</a>
+              <a class="mini-link" href="https://github.com/MCamner/Design-Prototype/tree/main/tools/mqmirror">Read docs →</a>
+            </div>
           </article>
 
           <article class="card">
@@ -718,6 +783,20 @@ better client-side validation.</div>
       </div>
     </section>
 
+    <section id="safe-sharing">
+      <div class="container">
+        <div class="panel warning">
+          <h2>Safe sharing</h2>
+          <p class="muted">
+            Demo screenshots are safe to share. Live helper output can include hostnames,
+            serial numbers, IP addresses, usernames, and certificate subjects. Redact local
+            agent output before opening issues or posting examples.
+          </p>
+          <a class="mini-link" href="./SAFE-SHARING.md">Read safe-sharing guide →</a>
+        </div>
+      </div>
+    </section>
+
     <section id="positioning">
       <div class="container">
         <div class="section-head">
@@ -733,8 +812,9 @@ better client-side validation.</div>
         <div class="split">
           <div class="panel">
             <p class="quote">
-              “This repository explores client-side validation, endpoint readiness, and operational
-              visibility through lightweight enterprise-focused web prototypes.”
+              “Design-Prototype is a browser-based enterprise validation lab for turning rough
+              endpoint, compliance, readiness, and fleet-management ideas into visible,
+              testable, and shareable prototypes.”
             </p>
             <p class="muted">
               In other words: the repo is about making managed client environments easier to understand,

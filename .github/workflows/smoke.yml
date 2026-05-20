@@ -1,0 +1,29 @@
+name: Smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Public docs check
+        run: python3 tools/check-public-docs.py
+
+      - name: Python compile
+        run: python3 -m compileall helper tools
+
+      - name: Shell syntax
+        run: find . -name "*.sh" -type f -print0 | xargs -0 -I{} bash -n {}
+
+      - name: Run-demo smoke
+        run: |
+          BROWSER_OPEN=0 ./tools/run-demo.sh client
+          BROWSER_OPEN=0 ./tools/run-demo.sh macos
+          BROWSER_OPEN=0 ./tools/run-demo.sh fleet
+          BROWSER_OPEN=0 ./tools/run-demo.sh optimizer

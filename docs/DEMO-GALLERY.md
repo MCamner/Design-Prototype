@@ -10,6 +10,8 @@ Design-Prototype contains browser-based prototypes and local helper tools for en
 | Fleet Command Center | Fleet-level endpoint visibility | `docs/screenshots/fleet-command-center.png` | Screenshot available |
 | macOS Enterprise Dashboard | macOS compliance, MDM, users, updates, and certificates | `docs/screenshots/macos-enterprise-dashboard.png` | Screenshot available |
 | Certificate Expiry Timeline | Certificate expiry risk over time | `docs/screenshots/certificate-expiry-timeline.png` | Screenshot available |
+| MQ Site Fix Advisor | SEO, links, images, and CSS issue triage | `docs/screenshots/mq-site-fix-advisor.png` | Screenshot available |
+| MQ Asset Downloader | Public page asset discovery and zip export | `docs/screenshots/mq-asset-downloader.png` | Screenshot available |
 | MQ Mirror | macOS GUI action to CLI command translation | `docs/screenshots/mq-mirror.png` | Screenshot available |
 | MQ Client Optimizer | Baseline evaluation and client readiness scoring | `docs/screenshots/mq-client-optimizer.png` | Screenshot available |
 
@@ -31,6 +33,14 @@ Design-Prototype contains browser-based prototypes and local helper tools for en
 ### Certificate Expiry Timeline
 
 ![Certificate Expiry Timeline](screenshots/certificate-expiry-timeline.png)
+
+### MQ Site Fix Advisor
+
+![MQ Site Fix Advisor](screenshots/mq-site-fix-advisor.png)
+
+### MQ Asset Downloader
+
+![MQ Asset Downloader](screenshots/mq-asset-downloader.png)
 
 ### MQ Mirror
 
@@ -60,6 +70,8 @@ docs/screenshots/client-readiness-dashboard.png
 docs/screenshots/fleet-command-center.png
 docs/screenshots/macos-enterprise-dashboard.png
 docs/screenshots/certificate-expiry-timeline.png
+docs/screenshots/mq-site-fix-advisor.png
+docs/screenshots/mq-asset-downloader.png
 docs/screenshots/mq-mirror.png
 docs/screenshots/mq-client-optimizer.png
 ```

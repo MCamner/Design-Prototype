@@ -4,6 +4,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] - 2026-05-20
+
+### Added
+
+* Added architecture documentation.
+* Added safe-sharing documentation.
+* Added GitHub Actions smoke checks for docs, shell scripts, and Python files.
+* Added `tools/run-demo.sh` for opening common demos from one command.
+* Added issue templates for dashboard, helper-agent, demo feedback, and redaction reports.
+* Added screenshot coverage for MQ Site Fix Advisor and MQ Asset Downloader.
+
+### Changed
+
+* Improved README navigation for first-time users.
+* Expanded demo gallery and public documentation checks for the enterprise validation lab surface.
+
 ## [0.1.3] - 2026-05-11
 
 ### Added

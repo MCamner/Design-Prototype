@@ -1,20 +1,27 @@
 # Design Prototype
 
-![Version](https://img.shields.io/badge/version-0.1.3-blue)
+![Version](https://img.shields.io/badge/version-0.1.4-blue)
 ![Status](https://img.shields.io/badge/status-active%20prototype-success)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 ![GitHub Pages](https://img.shields.io/badge/demo-GitHub%20Pages-blueviolet)
+
+Design-Prototype is a browser-based enterprise validation lab for turning rough endpoint, compliance, readiness, and fleet-management ideas into visible, testable, and shareable prototypes.
 
 ## Project navigation
 
 | Page | Purpose |
 | --- | --- |
+| [GitHub Pages demo](https://mcamner.github.io/Design-Prototype/) | Product-style front door for the prototype lab |
 | [Demo Gallery](docs/DEMO-GALLERY.md) | Visual overview of the main prototypes |
+| [Architecture](docs/ARCHITECTURE.md) | Explains browser demos, helper agents, ports, and data flow |
+| [Safe Sharing](docs/SAFE-SHARING.md) | Shows what live data must be redacted before sharing |
 | [Project Map](docs/PROJECT-MAP.md) | Explains how the repo is structured |
 | [Project Status](docs/PROJECT-STATUS.md) | Shows active, rough, and next-step areas |
 | [Roadmap](docs/ROADMAP.md) | Shows planned hardening and next milestones |
 
 ## Start here
+
+Start -> Demo -> Architecture -> Safe sharing -> Run locally
 
 Design-Prototype is a browser-based enterprise validation lab for:
 
@@ -31,11 +38,28 @@ for testing enterprise client workflows before they become production systems.
 
 | Start here | Use when |
 | --- | --- |
+| `docs/index.html` | You want the GitHub Pages front door |
+| `docs/DEMO-GALLERY.md` | You want screenshots and demo links |
+| `docs/ARCHITECTURE.md` | You want to understand helper agents, ports, and data flow |
+| `docs/SAFE-SHARING.md` | You need to redact local/fleet output before sharing |
 | `docs/PROJECT-MAP.md` | You want to understand the repo structure |
 | `docs/PROJECT-STATUS.md` | You want to see what is active, rough, or next |
 | `tools/mqmirror/` | You want GUI-to-CLI workflow translation |
 | `tools/mq-client-optimizer/` | You want readiness and baseline evaluation |
 | `docs/` | You want browser-based dashboards and prototypes |
+
+### Component status
+
+| Component | Status | Live helper | Demo fallback |
+| --- | ---: | ---: | ---: |
+| Client Readiness Dashboard | Active | Yes | Yes |
+| Fleet Command Center | Active | Yes | Yes |
+| macOS Enterprise Dashboard | Active | Yes | Yes |
+| Certificate Expiry Timeline | Active | Partial | Yes |
+| MQ Mirror | Active tool | Yes | No |
+| MQ Client Optimizer | Active tool | Yes | Yes |
+| MQ Site Fix Advisor | Prototype | No | Yes |
+| MQ Asset Downloader | Prototype | No | Yes |
 
 ### Project promise
 
@@ -169,6 +193,16 @@ docs/MQ Site Fix Advisor.html
 docs/MQ Client Optimizer.html
 ```
 
+Use the demo launcher:
+
+```bash
+./tools/run-demo.sh client
+./tools/run-demo.sh macos
+./tools/run-demo.sh fleet
+./tools/run-demo.sh optimizer
+./tools/run-demo.sh mqmirror
+```
+
 ### Client Readiness live data
 
 ```bash
@@ -207,6 +241,8 @@ certificate subjects. Redact before sharing:
 ```bash
 curl -s http://127.0.0.1:38764/status | python3 tools/redact-macos-agent-status.py
 ```
+
+See [docs/SAFE-SHARING.md](docs/SAFE-SHARING.md) before pasting live helper output into issues or public docs.
 
 ### Ports
 
@@ -294,6 +330,8 @@ Requires a `.env` file — copy `.env.example` and fill in your API key.
 Design-Prototype/
 ├── docs/
 │   ├── index.html
+│   ├── ARCHITECTURE.md
+│   ├── SAFE-SHARING.md
 │   ├── handoff.html                      ← MQ Mirror live UI
 │   ├── handoff-standalone.html
 │   ├── Client Readiness Dashboard.html

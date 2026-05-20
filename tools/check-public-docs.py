@@ -27,6 +27,8 @@ required_screenshots = [
     "docs/screenshots/fleet-command-center.png",
     "docs/screenshots/macos-enterprise-dashboard.png",
     "docs/screenshots/certificate-expiry-timeline.png",
+    "docs/screenshots/mq-site-fix-advisor.png",
+    "docs/screenshots/mq-asset-downloader.png",
     "docs/screenshots/mq-client-optimizer.png",
     "docs/screenshots/mq-mirror.png",
 ]
@@ -62,6 +64,7 @@ if README.exists():
         "Start here",
         "Demo Catalog",
         "Safe sharing",
+        "Architecture",
         "Quick Start",
         "Project navigation",
     ]
