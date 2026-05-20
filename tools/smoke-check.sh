@@ -70,6 +70,10 @@ echo "== Public docs check =="
 python3 tools/check-public-docs.py
 
 echo
+echo "== Front door check =="
+bash tools/check-frontdoor.sh
+
+echo
 echo "== Python compile check =="
 export PYTHONPYCACHEPREFIX="${PYTHONPYCACHEPREFIX:-${TMPDIR:-/tmp}/design-prototype-pycache}"
 python3 -m compileall -q helper tools

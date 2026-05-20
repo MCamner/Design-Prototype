@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+* Added polished GitHub Pages front-door checks, demo gallery refresh, screenshots guide, and front-door link validation.
 * Added architecture documentation.
 * Added safe-sharing documentation.
 * Added GitHub Actions smoke checks for docs, shell scripts, and Python files.

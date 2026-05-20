@@ -68,6 +68,36 @@ share.
 
 Author: Mattias Camner
 
+## Public demo front door
+
+Open the GitHub Pages demo front door:
+
+```text
+https://mcamner.github.io/Design-Prototype/
+```
+
+Useful local commands:
+
+```bash
+./tools/run-demo.sh list
+./tools/run-demo.sh client
+./tools/run-demo.sh macos
+./tools/run-demo.sh fleet
+./tools/check-frontdoor.sh
+```
+
+Demo gallery:
+
+```text
+docs/DEMO-GALLERY.md
+```
+
+Screenshots:
+
+```text
+docs/screenshots/
+```
+
 ## Overview
 
 Browser-based prototypes for endpoint readiness, macOS compliance, fleet
