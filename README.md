@@ -5,53 +5,46 @@
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 ![GitHub Pages](https://img.shields.io/badge/demo-GitHub%20Pages-blueviolet)
 
-Design-Prototype is a browser-based enterprise validation lab for turning rough endpoint, compliance, readiness, and fleet-management ideas into visible, testable, and shareable prototypes.
+Browser-based enterprise validation lab for turning rough endpoint, compliance,
+readiness, and fleet-management ideas into visible, testable, and shareable
+prototypes.
 
-## Project navigation
+Not one single app — a collection of practical tools for testing enterprise
+client workflows before they become production systems.
 
-| Page | Purpose |
-| --- | --- |
-| [GitHub Pages demo](https://mcamner.github.io/Design-Prototype/) | Product-style front door for the prototype lab |
-| [Demo Gallery](docs/DEMO-GALLERY.md) | Visual overview of the main prototypes |
-| [Architecture](docs/ARCHITECTURE.md) | Explains browser demos, helper agents, ports, and data flow |
-| [Safe Sharing](docs/SAFE-SHARING.md) | Shows what live data must be redacted before sharing |
-| [Project Map](docs/PROJECT-MAP.md) | Explains how the repo is structured |
-| [Project Status](docs/PROJECT-STATUS.md) | Shows active, rough, and next-step areas |
-| [Roadmap](docs/ROADMAP.md) | Shows planned hardening and next milestones |
+---
 
-## Start here
+## Quick Start
 
-Start -> Demo -> Architecture -> Safe sharing -> Run locally
+All dashboards open in the browser with no setup. They fall back to embedded
+demo data when no live helper is running.
 
-Design-Prototype is a browser-based enterprise validation lab for:
+```bash
+./tools/run-demo.sh client     # Client Readiness Dashboard
+./tools/run-demo.sh macos      # macOS Enterprise Dashboard
+./tools/run-demo.sh fleet      # Fleet Command Center
+./tools/run-demo.sh optimizer  # MQ Client Optimizer
+./tools/run-demo.sh mqmirror   # MQ Mirror
+```
 
-- endpoint readiness
-- macOS compliance
-- fleet visibility
-- certificate expiry risk
-- operator workflow handoff
+Or open directly:
 
-It is not one single app. It is a collection of practical prototypes and tools
-for testing enterprise client workflows before they become production systems.
+```bash
+open "docs/Client Readiness Dashboard.html"
+open "docs/macOS Enterprise Dashboard.html"
+open "docs/Fleet Command Center.html"
+```
 
-### Best entry points
+If you see `IGEL-CLIENT-01` in a dashboard, it is using demo data — that is expected.
 
-| Start here | Use when |
-| --- | --- |
-| `docs/index.html` | You want the GitHub Pages front door |
-| `docs/DEMO-GALLERY.md` | You want screenshots and demo links |
-| `docs/ARCHITECTURE.md` | You want to understand helper agents, ports, and data flow |
-| `docs/SAFE-SHARING.md` | You need to redact local/fleet output before sharing |
-| `docs/PROJECT-MAP.md` | You want to understand the repo structure |
-| `docs/PROJECT-STATUS.md` | You want to see what is active, rough, or next |
-| `tools/mqmirror/` | You want GUI-to-CLI workflow translation |
-| `tools/mq-client-optimizer/` | You want readiness and baseline evaluation |
-| `docs/` | You want browser-based dashboards and prototypes |
+Live demo: [mcamner.github.io/Design-Prototype](https://mcamner.github.io/Design-Prototype/)
 
-### Component status
+---
+
+## What's in here
 
 | Component | Status | Live helper | Demo fallback |
-| --- | ---: | ---: | ---: |
+| --- | --- | --- | --- |
 | Client Readiness Dashboard | Active | Yes | Yes |
 | Fleet Command Center | Active | Yes | Yes |
 | macOS Enterprise Dashboard | Active | Yes | Yes |
@@ -61,198 +54,26 @@ for testing enterprise client workflows before they become production systems.
 | MQ Site Fix Advisor | Prototype | No | Yes |
 | MQ Asset Downloader | Prototype | No | Yes |
 
-### Project promise
-
-Rough enterprise ideas should become visible, testable, documented, and safe to
-share.
-
-Author: Mattias Camner
-
-## Public demo front door
-
-Open the GitHub Pages demo front door:
-
-```text
-https://mcamner.github.io/Design-Prototype/
-```
-
-Useful local commands:
-
-```bash
-./tools/run-demo.sh list
-./tools/run-demo.sh client
-./tools/run-demo.sh macos
-./tools/run-demo.sh fleet
-./tools/check-frontdoor.sh
-```
-
-Demo gallery:
-
-```text
-docs/DEMO-GALLERY.md
-```
-
-Screenshots:
-
-```text
-docs/screenshots/
-```
-
-## Overview
-
-Browser-based prototypes for endpoint readiness, macOS compliance, fleet
-visibility, certificate expiry risk, and asset workflows — plus local macOS
-developer tooling.
-
-The prototypes are intentionally lightweight:
-
-- Single-file HTML apps in `docs/`
-- No build step
-- Demo/sample data when no local helper is available
-- Optional Python helper agents for live local or fleet data
-
 ---
 
-## Demo Catalog
-
-- **Client Readiness Dashboard**: validates endpoint readiness for
-  Citrix/thin-client scenarios.
-  File: `docs/Client Readiness Dashboard.html`. Status: active prototype.
-- **Fleet Command Center**: fleet-level readiness and endpoint visibility.
-  File: `docs/Fleet Command Center.html`. Status: active prototype.
-- **macOS Enterprise Dashboard**: macOS compliance, users, MDM, updates, and
-  certificates.
-  File: `docs/macOS Enterprise Dashboard.html`. Status: active prototype.
-- **Certificate Expiry Timeline**: certificate expiry risk visualization.
-  File: `docs/Certificate Expiry Timeline.html`. Status: active prototype.
-- **MQ Mirror**: translates macOS GUI actions into CLI equivalents.
-  Path: `tools/mqmirror/`. Status: active tool.
-- **MQ Client Optimizer**: evaluates IGEL/macOS/Citrix readiness baselines.
-  Path: `tools/mq-client-optimizer/`. Status: active tool.
-- **MQ Site Fix Advisor**: audits SEO, links, images, and CSS for public pages
-  or pasted HTML.
-  File: `docs/MQ Site Fix Advisor.html`. Status: prototype.
-- **MQ Asset Downloader**: discovers and downloads image assets from public
-  pages.
-  File: `docs/MQ Asset Downloader.html`. Status: prototype.
-
-## Prototypes
-
-### Client Readiness Dashboard
-
-File: `docs/Client Readiness Dashboard.html`
-
-Validates a single client against readiness profiles for Citrix and thin-client
-scenarios.
-
-Live data: uses `helper/client_readiness_agent.py` on port `38765`.
-
-### Fleet Command Center
-
-File: `docs/Fleet Command Center.html`
-
-Aggregates many client readiness states into a fleet view with filters, site
-breakdown, detail panel, and activity feed.
-
-Live data: uses `helper/fleet_collector.py` on port `38766`, which polls client
-agents on port `38765`.
+## Live data setup
 
 ### macOS Enterprise Dashboard
-
-File: `docs/macOS Enterprise Dashboard.html`
-
-Shows macOS security and compliance posture with CIS-style checks, local users,
-MDM, network, software updates, and certificates.
-
-Live data: uses `helper/macos_agent.py` on port `38764`.
-
-### Certificate Expiry Timeline
-
-File: `docs/Certificate Expiry Timeline.html`
-
-Visualizes certificate expiry risk across local macOS data or fleet data.
-
-Live data: reads from the Fleet Collector (`38766`) and/or macOS Agent (`38764`)
-when available.
-
-### MQ Fleet Report
-
-File: `docs/MQ Fleet Report.html`
-
-Fleet-wide report view. Standalone browser page, no helper required.
-
-### MQ Asset Downloader
-
-File: `docs/MQ Asset Downloader.html`
-
-Scans a public page URL for image assets, shows selectable previews in a
-Photoshop-inspired workspace, and downloads selected images as a zip archive
-with a manifest.
-
-Supports a broad "all websites / other builders" mode plus a narrower
-Squarespace asset filter.
-
-### MQ Site Fix Advisor
-
-File: `docs/MQ Site Fix Advisor.html`
-
-Audits a public page URL or pasted HTML for common SEO, image, link, and CSS
-issues. Results shown in a console layout with severity, location, fix guidance,
-platform notes, and exportable JSON.
-
-**Generate fix** — after a scan, generates a corrected `<head>` block with all
-automatically fixable issues applied.
-
----
-
-## Quick Start
-
-### Demo mode
-
-All dashboards open directly from `docs/` and fall back to embedded demo data
-when no live helper is running.
-
-```text
-docs/Client Readiness Dashboard.html
-docs/Fleet Command Center.html
-docs/macOS Enterprise Dashboard.html
-docs/Certificate Expiry Timeline.html
-docs/MQ Fleet Report.html
-docs/MQ Asset Downloader.html
-docs/MQ Site Fix Advisor.html
-docs/MQ Client Optimizer.html
-```
-
-Use the demo launcher:
-
-```bash
-./tools/run-demo.sh client
-./tools/run-demo.sh macos
-./tools/run-demo.sh fleet
-./tools/run-demo.sh optimizer
-./tools/run-demo.sh mqmirror
-```
-
-### Client Readiness live data
-
-```bash
-python3 helper/client_readiness_agent.py
-# → http://127.0.0.1:38765/status
-curl -s http://127.0.0.1:38765/status | python3 -m json.tool
-```
-
-If the dashboard shows `IGEL-CLIENT-01`, it is using demo data.
-
-### macOS live data
 
 ```bash
 python3 helper/macos_agent.py          # basic
 sudo python3 helper/macos_agent.py     # MDM / profile / user data
 # → http://127.0.0.1:38764/status
-curl -s http://127.0.0.1:38764/status | python3 -m json.tool
 ```
 
-### Fleet live data
+### Client Readiness Dashboard
+
+```bash
+python3 helper/client_readiness_agent.py
+# → http://127.0.0.1:38765/status
+```
+
+### Fleet Command Center
 
 Edit `helper/fleet_clients.json`, then:
 
@@ -263,25 +84,14 @@ python3 helper/fleet_collector.py
 
 Each configured client must expose a Client Readiness Agent on port `38765`.
 
-### Safe sharing
-
-Agent output may include hostname, serial, IP addresses, usernames, and
-certificate subjects. Redact before sharing:
-
-```bash
-curl -s http://127.0.0.1:38764/status | python3 tools/redact-macos-agent-status.py
-```
-
-See [docs/SAFE-SHARING.md](docs/SAFE-SHARING.md) before pasting live helper output into issues or public docs.
-
 ### Ports
 
-| Port    | Component                  |
-|---------|----------------------------|
-| `7070`  | MQ Mirror live server      |
-| `38764` | macOS Enterprise Agent     |
-| `38765` | Client Readiness Agent     |
-| `38766` | Fleet Collector            |
+| Port    | Component              |
+| ------- | ---------------------- |
+| `7070`  | MQ Mirror live server  |
+| `38764` | macOS Enterprise Agent |
+| `38765` | Client Readiness Agent |
+| `38766` | Fleet Collector        |
 
 ---
 
@@ -289,60 +99,36 @@ See [docs/SAFE-SHARING.md](docs/SAFE-SHARING.md) before pasting live helper outp
 
 ### MQ Mirror — GUI→CLI Companion
 
-`tools/mqmirror/` watches your macOS GUI context and streams the equivalent
-terminal commands in real-time to a local web page.
-
-**Start (recommended):**
+Watches your macOS GUI context and streams equivalent terminal commands in
+real-time to a local web page.
 
 ```bash
 ./tools/mqmirror/start.sh
+# → opens docs/handoff.html at http://127.0.0.1:7070
 ```
 
-Opens `docs/handoff.html` automatically and starts the live server on
-`http://127.0.0.1:7070`.
-
-**Manual:**
-
-```bash
-python3 tools/mqmirror/gui_to_cli.py watch --compact --ignore-terminal
-```
-
-**Handoff UI** (`docs/handoff.html`):
-
-- Live command cards streamed via SSE from the Python server
-- Search, category filter chips, pin commands, export session as `.sh`
-- ▶ Run — executes command in the selected terminal.
-- ■ Stop — gracefully shuts down the server
-- Command history persists across restarts (`tools/mqmirror/mq-history.json`)
-- Tab title flashes `(●)` when new commands arrive while the tab is in the background
-
-**CLI commands:**
+CLI commands:
 
 ```bash
 python3 tools/mqmirror/gui_to_cli.py list
-python3 tools/mqmirror/gui_to_cli.py inspect
-python3 tools/mqmirror/gui_to_cli.py search network
-python3 tools/mqmirror/gui_to_cli.py show settings network
-python3 tools/mqmirror/gui_to_cli.py watch --compact --no-serve
+python3 tools/mqmirror/gui_to_cli.py watch --compact --ignore-terminal
 ```
 
 ### MQ Client Optimizer
 
-`tools/mq-client-optimizer/` evaluates bundled baselines for IGEL OS 12 +
-Citrix, macOS + Citrix, and macOS enterprise CIS-style compliance. Outputs
-console, JSON, or HTML reports. Browser app: `docs/MQ Client Optimizer.html`.
+Evaluates bundled baselines for IGEL OS 12 + Citrix, macOS + Citrix, and
+macOS enterprise CIS-style compliance.
 
 ```bash
 python3 tools/mq-client-optimizer/mq_client_optimizer.py list-baselines
 python3 tools/mq-client-optimizer/mq_client_optimizer.py analyze \
     --baseline macos-enterprise-cis-lite --sample
-python3 tools/mq-client-optimizer/mq_client_optimizer.py serve
 ```
 
 ### Draw.io Generator
 
-`tools/drawio-generator/` is a local Flask server that generates Draw.io
-diagrams from natural language descriptions via an LLM backend.
+Local Flask server that generates Draw.io diagrams from natural language
+descriptions via an LLM backend.
 
 ```bash
 cd tools/drawio-generator
@@ -354,7 +140,7 @@ Requires a `.env` file — copy `.env.example` and fill in your API key.
 
 ---
 
-## Repository Structure
+## Repository structure
 
 ```text
 Design-Prototype/
@@ -363,7 +149,6 @@ Design-Prototype/
 │   ├── ARCHITECTURE.md
 │   ├── SAFE-SHARING.md
 │   ├── handoff.html                      ← MQ Mirror live UI
-│   ├── handoff-standalone.html
 │   ├── Client Readiness Dashboard.html
 │   ├── Fleet Command Center.html
 │   ├── macOS Enterprise Dashboard.html
@@ -371,11 +156,7 @@ Design-Prototype/
 │   ├── MQ Fleet Report.html
 │   ├── MQ Asset Downloader.html
 │   ├── MQ Site Fix Advisor.html
-│   ├── MQ Client Optimizer.html
-│   ├── README-Client-Readiness-Dashboard.md
-│   ├── README-Fleet-Command-Center.md
-│   ├── README-macOS-Enterprise-Dashboard.md
-│   └── README-Certificate-Expiry-Timeline.md
+│   └── MQ Client Optimizer.html
 ├── helper/
 │   ├── client_readiness_agent.py
 │   ├── fleet_collector.py
@@ -384,26 +165,38 @@ Design-Prototype/
 └── tools/
     ├── redact-macos-agent-status.py
     ├── drawio-generator/
-    │   ├── server.py
-    │   ├── start.sh
-    │   ├── requirements.txt
-    │   ├── .env.example
-    │   └── templates/index.html
     ├── mq-client-optimizer/
-    │   ├── mq_client_optimizer.py
-    │   ├── README.md
-    │   └── baselines/
     └── mqmirror/
-        ├── gui_to_cli.py
-        ├── gui_to_cli_orginal.py
-        ├── menubar.py
-        ├── start.sh
-        ├── install-service.sh
-        ├── uninstall-service.sh
-        ├── requirements.txt
-        ├── mqmirror
-        └── README.md
 ```
+
+---
+
+## Safe sharing
+
+Agent output may include hostname, serial, IP addresses, usernames, and
+certificate subjects. Redact before sharing:
+
+```bash
+curl -s http://127.0.0.1:38764/status | python3 tools/redact-macos-agent-status.py
+```
+
+See [docs/SAFE-SHARING.md](docs/SAFE-SHARING.md) for the full redaction guide.
+
+---
+
+## Project docs
+
+| Doc | Purpose |
+| --- | --- |
+| [GitHub Pages](https://mcamner.github.io/Design-Prototype/) | Product-style front door |
+| [Demo Gallery](docs/DEMO-GALLERY.md) | Visual overview of the prototypes |
+| [Architecture](docs/ARCHITECTURE.md) | Helper agents, ports, and data flow |
+| [Safe Sharing](docs/SAFE-SHARING.md) | What to redact before sharing output |
+| [Project Map](docs/PROJECT-MAP.md) | How the repo is structured |
+| [Project Status](docs/PROJECT-STATUS.md) | Active, rough, and next-step areas |
+| [Roadmap](docs/ROADMAP.md) | Planned hardening and next milestones |
+
+---
 
 ## Notes
 
@@ -411,9 +204,14 @@ This is a design and architecture exploration, not a finished product. Some
 live modes depend on helper agents that may be local-only, external, or future
 work.
 
-The Client Readiness Agent is intentionally lightweight; IGEL UMS integration
-and managed remediation flows are future work.
+---
+
+## Author
+
+Mattias Camner — Infrastructure / Platform Architect
+
+---
 
 ## License
 
-MIT License
+MIT
