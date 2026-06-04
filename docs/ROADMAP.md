@@ -6,9 +6,9 @@ operator handoff workflows.
 
 ## Current release
 
-Latest release: `0.1.3` - Public presentation polish
+Latest release: `0.1.4` - Prototype hardening metadata and public presentation polish
 
-## v0.1.4 - Prototype hardening
+## v0.1.5 - Prototype hardening
 
 Goal: make the main prototypes easier to validate, explain, and safely reuse.
 
