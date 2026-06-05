@@ -25,7 +25,11 @@ check_file docs/index.html
 check_file docs/DEMO-GALLERY.md
 check_file docs/screenshots/README.md
 check_file docs/ARCHITECTURE.md
+check_file docs/ARCHITECTURE-DIAGRAM.md
 check_file docs/SAFE-SHARING.md
+check_file docs/SAMPLE-DATA.md
+check_file docs/HELPER-TROUBLESHOOTING.md
+check_file docs/MQ-CLIENT-OPTIMIZER-SAMPLE-REPORT.md
 
 echo
 echo "== Key landing-page content =="
@@ -36,6 +40,7 @@ for term in \
   "macOS Enterprise Dashboard" \
   "Certificate Expiry Timeline" \
   "MQ Mirror" \
+  "prototype-hardening.js" \
   "Safe sharing"
 do
   if grep -qi "$term" docs/index.html; then
@@ -108,6 +113,7 @@ for term in \
   "https://mcamner.github.io/Design-Prototype/" \
   "docs/screenshots/" \
   "tools/run-demo.sh" \
+  "docs/SAMPLE-DATA.md" \
   "docs/SAFE-SHARING.md"
 do
   if grep -q "$term" docs/DEMO-GALLERY.md; then

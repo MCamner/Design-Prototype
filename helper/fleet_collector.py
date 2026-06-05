@@ -48,8 +48,8 @@ _poll_count  = 0
 def load_config():
     if not os.path.exists(CONFIG_FILE):
         example = [
-            {"ip": "10.10.4.87", "hostname": "IGEL-001", "site": "Stockholm HQ"},
-            {"ip": "10.10.4.88", "hostname": "IGEL-002", "site": "Stockholm HQ"},
+            {"ip": "192.0.2.87", "hostname": "IGEL-001", "site": "Stockholm HQ"},
+            {"ip": "192.0.2.88", "hostname": "IGEL-002", "site": "Stockholm HQ"},
         ]
         with open(CONFIG_FILE, 'w') as f:
             json.dump(example, f, indent=2)

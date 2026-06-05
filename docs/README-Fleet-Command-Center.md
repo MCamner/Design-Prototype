@@ -41,10 +41,10 @@ Edit `helper/fleet_clients.json`:
 
 ```json
 [
-  { "ip": "10.10.4.87", "hostname": "IGEL-001", "site": "Stockholm HQ" },
-  { "ip": "10.10.4.88", "hostname": "IGEL-002", "site": "Stockholm HQ" },
-  { "ip": "10.10.4.89", "hostname": "ELUX-001", "site": "Goteborg Office" },
-  { "ip": "10.10.4.90", "hostname": "MAC-001", "site": "Remote" }
+  { "ip": "192.0.2.87", "hostname": "IGEL-001", "site": "Stockholm HQ" },
+  { "ip": "192.0.2.88", "hostname": "IGEL-002", "site": "Stockholm HQ" },
+  { "ip": "192.0.2.89", "hostname": "ELUX-001", "site": "Goteborg Office" },
+  { "ip": "192.0.2.90", "hostname": "MAC-001", "site": "Remote" }
 ]
 ```
 
@@ -120,7 +120,7 @@ Client Agent (:38765/status)
   "poll_count": 42,
   "clients": [
     {
-      "ip": "10.10.4.87",
+      "ip": "192.0.2.87",
       "hostname": "IGEL-001",
       "site": "Stockholm HQ",
       "profile": "igel-os12-citrix",

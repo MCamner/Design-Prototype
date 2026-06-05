@@ -2,12 +2,12 @@
 
 | Area | Prototype | Status | Next action |
 |---|---|---:|---|
-| Endpoint readiness | Client Readiness Dashboard | Active prototype | Add screenshot and quick start |
-| Endpoint readiness | MQ Client Optimizer | Active tool | Add sample report |
-| Fleet visibility | Fleet Command Center | Active prototype | Add demo image |
-| macOS enterprise | macOS Enterprise Dashboard | Active prototype | Add safe data notes |
-| macOS enterprise | Certificate Expiry Timeline | Active prototype | Add example scenario |
-| Operator workflow | MQ Mirror | Active tool | Add CLI examples |
+| Endpoint readiness | Client Readiness Dashboard | Active prototype | Keep helper fallback notes current |
+| Endpoint readiness | MQ Client Optimizer | Active tool | Expand report examples as baselines grow |
+| Fleet visibility | Fleet Command Center | Active prototype | Verify GitHub Pages links before release |
+| macOS enterprise | macOS Enterprise Dashboard | Active prototype | Keep safe data notes current |
+| macOS enterprise | Certificate Expiry Timeline | Active prototype | Add comparison screenshots |
+| Operator workflow | MQ Mirror | Active tool | Keep CLI examples current |
 | Operator workflow | MQ Site Fix Advisor | Prototype | Add before/after example |
 | Operator workflow | MQ Asset Downloader | Prototype | Add limitations |
 | Diagramming | Draw.io Generator | Prototype | Add sample output |

@@ -16,6 +16,8 @@ client workflows before they become production systems.
 
 ## Quick Start
 
+### Start here
+
 All dashboards open in the browser with no setup. They fall back to embedded
 demo data when no live helper is running.
 
@@ -41,7 +43,7 @@ Live demo: [mcamner.github.io/Design-Prototype](https://mcamner.github.io/Design
 
 ---
 
-## What's in here
+## Demo Catalog
 
 | Component | Status | Live helper | Demo fallback |
 | --- | --- | --- | --- |
@@ -184,13 +186,29 @@ See [docs/SAFE-SHARING.md](docs/SAFE-SHARING.md) for the full redaction guide.
 
 ---
 
-## Project docs
+## Validation
+
+Run the public docs checks before publishing or tagging a release:
+
+```bash
+python3 tools/check-public-docs.py
+bash tools/check-frontdoor.sh
+bash tools/smoke-check.sh
+```
+
+---
+
+## Project navigation
 
 | Doc | Purpose |
 | --- | --- |
 | [GitHub Pages](https://mcamner.github.io/Design-Prototype/) | Product-style front door |
 | [Demo Gallery](docs/DEMO-GALLERY.md) | Visual overview of the prototypes |
 | [Architecture](docs/ARCHITECTURE.md) | Helper agents, ports, and data flow |
+| [Architecture Diagram](docs/ARCHITECTURE-DIAGRAM.md) | Visual repo data-flow diagram |
+| [Sample Data](docs/SAMPLE-DATA.md) | Where demo data lives and how to generate sample output |
+| [Helper Troubleshooting](docs/HELPER-TROUBLESHOOTING.md) | Local helper ports, symptoms, and validation commands |
+| [MQ Client Optimizer Sample Report](docs/MQ-CLIENT-OPTIMIZER-SAMPLE-REPORT.md) | Example output from bundled optimizer sample data |
 | [Safe Sharing](docs/SAFE-SHARING.md) | What to redact before sharing output |
 | [Project Map](docs/PROJECT-MAP.md) | How the repo is structured |
 | [Project Status](docs/PROJECT-STATUS.md) | Active, rough, and next-step areas |

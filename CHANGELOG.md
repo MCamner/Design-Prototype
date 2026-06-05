@@ -4,6 +4,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.5] - Unreleased
+
+### Added
+
+* Added visual architecture diagram documentation.
+* Added sample data documentation and helper-agent troubleshooting notes.
+* Added MQ Client Optimizer sample report output.
+* Added shared public prototype hardening marker for demo fallback, helper-offline, and version visibility.
+
+### Changed
+
+* Updated README project navigation and validation commands for public docs readiness.
+* Expanded public docs validation to include hardening documentation.
+
 ## [0.1.4] - 2026-05-20
 
 ### Added

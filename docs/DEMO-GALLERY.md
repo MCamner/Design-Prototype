@@ -157,6 +157,12 @@ curl -s http://127.0.0.1:38764/status \
   | python3 -m json.tool
 ```
 
+Sample data details:
+
+```text
+docs/SAMPLE-DATA.md
+```
+
 ## Gallery completion checklist
 
 ```text

@@ -41,3 +41,10 @@ Each prototype should have:
 - known limitations
 - safe sharing notes
 - roadmap
+
+## Hardening docs
+
+- `docs/ARCHITECTURE-DIAGRAM.md`
+- `docs/SAMPLE-DATA.md`
+- `docs/HELPER-TROUBLESHOOTING.md`
+- `docs/MQ-CLIENT-OPTIMIZER-SAMPLE-REPORT.md`

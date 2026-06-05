@@ -168,7 +168,7 @@ const SAMPLE_DATA = {
     hostname:'IGEL-CLIENT-01',
     capabilities:['certificates.details','certificates.installed','citrix.installed','citrix.version','meta.baseline_version','meta.profile','network.hostname','network.local_ips','network.online'],
   },
-  network: { online:true, hostname:'IGEL-CLIENT-01', local_ips:['10.10.4.87','fe80::a4b2:c3d4:e5f6:1234'] },
+  network: { online:true, hostname:'IGEL-CLIENT-01', local_ips:['192.0.2.87','2001:db8::1234'] },
   certificates: {
     installed:['Company Root CA','Company Issuing CA','DigiCert Global Root CA','GlobalSign Root CA','ISRG Root X1','Microsoft RSA Root Certificate Authority 2017'],
     details:[
@@ -953,5 +953,6 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
+  <script src="./prototype-hardening.js"></script>
 </body>
 </html>

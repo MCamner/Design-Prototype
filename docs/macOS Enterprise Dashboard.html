@@ -97,7 +97,7 @@ function complianceScore(results) {
 const SAMPLE = {
   meta: {
     agent_version:'1.0.0', collected_at: new Date().toISOString(),
-    hostname:'MacBook-Pro-Enterprise', serial:'C02XK1JJJG5J',
+    hostname:'MacBook-Pro-Enterprise', serial:'DEMO-SERIAL-MAC-001',
     model:'MacBook Pro (16-inch, M3 Pro, 2023)', chip:'Apple M3 Pro',
     memory_gb:36, macos_version:'14.4.1', macos_build:'23E224', macos_name:'macOS Sonoma',
   },
@@ -116,7 +116,7 @@ const SAMPLE = {
   },
   identity: {
     users: [
-      { name:'mattias',  fullname:'Mattias Camner', admin:true,  uid:501 },
+      { name:'demo-admin',  fullname:'Demo Admin', admin:true,  uid:501 },
       { name:'mdmadmin', fullname:'MDM Admin',       admin:true,  uid:502 },
       { name:'helpdesk', fullname:'Help Desk',       admin:false, uid:503 },
     ],
@@ -144,12 +144,12 @@ const SAMPLE = {
   },
   network: {
     interfaces:[
-      { name:'Wi-Fi',                device:'en0', status:'active',    ip:'10.10.4.120', ssid:'Corp-WiFi-5G' },
+      { name:'Wi-Fi',                device:'en0', status:'active',    ip:'192.0.2.120', ssid:'Corp-WiFi-5G' },
       { name:'Ethernet',             device:'en1', status:'inactive' },
-      { name:'GlobalProtect VPN',    device:'vpn', status:'connected', ip:'172.16.0.45' },
+      { name:'GlobalProtect VPN',    device:'vpn', status:'connected', ip:'198.51.100.45' },
       { name:'Thunderbolt Bridge',   device:'en2', status:'inactive' },
     ],
-    dns:['10.10.1.10','10.10.1.11'],
+    dns:['192.0.2.10','192.0.2.11'],
     proxy:{ enabled:false },
   },
   certificates:{
@@ -649,5 +649,6 @@ function App() {
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 </script>
+  <script src="./prototype-hardening.js"></script>
 </body>
 </html>

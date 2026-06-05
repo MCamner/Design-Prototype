@@ -20,6 +20,13 @@ required_files = [
     "docs/DEMO-GALLERY.md",
     "docs/PROJECT-MAP.md",
     "docs/PROJECT-STATUS.md",
+    "docs/ARCHITECTURE.md",
+    "docs/ARCHITECTURE-DIAGRAM.md",
+    "docs/SAFE-SHARING.md",
+    "docs/SAMPLE-DATA.md",
+    "docs/HELPER-TROUBLESHOOTING.md",
+    "docs/MQ-CLIENT-OPTIMIZER-SAMPLE-REPORT.md",
+    "docs/prototype-hardening.js",
 ]
 
 required_screenshots = [
@@ -65,6 +72,10 @@ if README.exists():
         "Demo Catalog",
         "Safe sharing",
         "Architecture",
+        "Architecture Diagram",
+        "Sample Data",
+        "Helper Troubleshooting",
+        "Validation",
         "Quick Start",
         "Project navigation",
     ]
@@ -102,6 +113,12 @@ check_files = [
     DOCS / "DEMO-GALLERY.md",
     DOCS / "PROJECT-MAP.md",
     DOCS / "PROJECT-STATUS.md",
+    DOCS / "ARCHITECTURE.md",
+    DOCS / "ARCHITECTURE-DIAGRAM.md",
+    DOCS / "SAFE-SHARING.md",
+    DOCS / "SAMPLE-DATA.md",
+    DOCS / "HELPER-TROUBLESHOOTING.md",
+    DOCS / "MQ-CLIENT-OPTIMIZER-SAMPLE-REPORT.md",
 ]
 
 for file in check_files:

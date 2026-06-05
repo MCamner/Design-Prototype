@@ -12,35 +12,46 @@ Latest release: `0.1.4` - Prototype hardening metadata and public presentation p
 
 Goal: make the main prototypes easier to validate, explain, and safely reuse.
 
+Status checked: 2026-06-05. Local hardening work is complete for `v0.1.5`.
+
 ### Documentation
 
-- [ ] Add one short use-case page per main prototype.
-- [ ] Add one architecture diagram for the overall repo.
-- [ ] Add sample data documentation.
-- [ ] Add safe sharing examples.
-- [ ] Add helper-agent troubleshooting notes.
+- [x] Add one short use-case page per main prototype.
+- [x] Add architecture documentation for the overall repo.
+- [x] Add a visual architecture diagram for the overall repo.
+- [x] Add sample data documentation.
+- [x] Add safe sharing examples.
+- [x] Add helper-agent troubleshooting notes.
 
 ### Prototype quality
 
-- [ ] Verify all dashboard links from GitHub Pages.
-- [ ] Add fallback/demo-data notes inside each dashboard.
-- [ ] Improve empty states and helper-offline states.
-- [ ] Add visible version/footer marker to public pages.
+- [x] Verify all dashboard links from GitHub Pages.
+- [x] Add fallback/demo-data notes inside each dashboard.
+- [x] Improve empty states and helper-offline states.
+- [x] Add consistent visible version/footer marker to public pages.
 
 ### Tools
 
-- [ ] Add smoke test for helper scripts.
-- [ ] Add quick command reference for MQ Mirror.
-- [ ] Add sample report output for MQ Client Optimizer.
-- [ ] Add validation command for public docs.
+- [x] Add smoke test for helper scripts.
+- [x] Add quick command reference for MQ Mirror.
+- [x] Add sample report output for MQ Client Optimizer.
+- [x] Add validation command for public docs.
 
 ### Release readiness
 
-- [ ] `tools/check-public-docs.py` passes.
-- [ ] README links are valid.
-- [ ] GitHub Pages deploy is successful.
-- [ ] CHANGELOG has a clear release entry.
-- [ ] No private/local data is committed.
+- [x] `tools/check-public-docs.py` passes.
+- [x] README links are valid.
+- [x] GitHub Pages deploy is successful.
+- [x] CHANGELOG has a clear release entry.
+- [x] No private/local data is committed.
+
+Verification:
+
+- `python3 tools/check-public-docs.py` passes.
+- `bash tools/check-frontdoor.sh` passes.
+- `bash tools/smoke-check.sh` passes.
+- GitHub Pages front door and main dashboard URLs returned `HTTP/2 200`.
+- Demo sample data was sanitized to use documentation IP ranges and demo serials.
 
 ## Later ideas
 
