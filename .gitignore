@@ -7,6 +7,10 @@ __pycache__/
 .venv/
 .mypy_cache/
 
+# Local editor and MCP configuration
+.cursor/
+.mcp.json
+
 # Backups
 *.bak
 *.bak-*
