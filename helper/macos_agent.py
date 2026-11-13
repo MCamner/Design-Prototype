@@ -13,6 +13,7 @@ Obs: Vissa kontroller (MDM-profiler, FileVault) kräver sudo.
 """
 
 import json
+from typing import Any
 import os
 import re
 import subprocess
@@ -28,7 +29,7 @@ PORT    = 38764
 REFRESH = 300   # sekunder mellan automatisk datainsamling
 
 _lock  = threading.Lock()
-_cache = {}
+_cache: dict[str, Any] = {}
 
 # ── Hjälpfunktioner ──────────────────────────────────────────────────────────
 

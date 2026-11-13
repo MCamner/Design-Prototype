@@ -70,6 +70,7 @@ def main() -> int:
     except KeyboardInterrupt:
         print("\nStopping.")
         return 0
+    return 0
 
 
 def refresh_loop(profile_override: str | None, interval: int) -> None:
@@ -373,11 +374,11 @@ def network_online() -> bool:
 
 
 def local_ips() -> list[str]:
-    ips = set()
+    ips: set[str] = set()
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None):
             ip = info[4][0]
-            if not ip.startswith("127.") and ip != "::1":
+            if isinstance(ip, str) and not ip.startswith("127.") and ip != "::1":
                 ips.add(ip)
     except OSError:
         pass

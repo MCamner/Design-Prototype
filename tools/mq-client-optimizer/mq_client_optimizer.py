@@ -20,7 +20,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 
 APP_NAME = "MQ Client Optimizer"
@@ -320,7 +320,7 @@ def evaluate_check(check: dict[str, Any], data: dict[str, Any]) -> dict[str, Any
 
     if op == "lte":
         threshold = check.get("threshold")
-        ok = isinstance(actual, (int, float)) and actual <= threshold
+        ok = isinstance(actual, (int, float)) and isinstance(threshold, (int, float)) and actual <= threshold
         return result(check, "PASS" if ok else "FAIL", actual, f"Expected <= {threshold}, got {actual}")
 
     if op == "cert_name_exists":
@@ -489,6 +489,8 @@ def serve_app(host: str, port: int) -> int:
         print(f"error: failed to start server: {exc}", file=sys.stderr)
         return 1
 
+    return 0
+
 
 def print_text_report(report: dict[str, Any]) -> None:
     baseline = report["baseline"]
@@ -645,7 +647,7 @@ def esc(value: Any) -> str:
     return html.escape(str(value), quote=True)
 
 
-def die(message: str) -> None:
+def die(message: str) -> NoReturn:
     print(f"error: {message}", file=sys.stderr)
     sys.exit(1)
 

@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 
 try:
-    import rumps
+    import rumps  # type: ignore[import-not-found, import-untyped]
 except ImportError:
     sys.exit("rumps saknas — kör: pip install rumps")
 

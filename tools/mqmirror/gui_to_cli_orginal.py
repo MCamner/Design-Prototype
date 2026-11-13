@@ -395,7 +395,7 @@ def frontmost_app_context_appkit(error: str = "") -> Dict[str, Any]:
     }
 
     try:
-        from AppKit import NSWorkspace
+        from AppKit import NSWorkspace  # type: ignore[import-not-found, import-untyped]
 
         app = NSWorkspace.sharedWorkspace().frontmostApplication()
         if app:

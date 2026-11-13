@@ -8,8 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 README = ROOT / "README.md"
 
-errors = []
-warnings = []
+errors: list[str] = []
+warnings: list[str] = []
 
 required_files = [
     "README.md",
@@ -56,13 +56,13 @@ def exists(path):
 print("Design-Prototype public docs check")
 print("==================================")
 
-for file in required_files:
-    if not exists(file):
-        fail(f"Missing required file: {file}")
+for filename in required_files:
+    if not exists(filename):
+        fail(f"Missing required file: {filename}")
 
-for file in required_screenshots:
-    if not exists(file):
-        fail(f"Missing screenshot: {file}")
+for filename in required_screenshots:
+    if not exists(filename):
+        fail(f"Missing screenshot: {filename}")
 
 if README.exists():
     readme = README.read_text(errors="ignore")

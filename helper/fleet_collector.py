@@ -16,6 +16,7 @@ Konfigurera klienter i:
 """
 
 import json
+from typing import Any
 import os
 import sys
 import time
@@ -40,7 +41,7 @@ DASHBOARD_FILE = os.path.join(BASE_DIR, '..', 'docs', 'Fleet Command Center.html
 
 # ── Delat tillstånd ──────────────────────────────────────────────────────────
 _lock        = threading.Lock()
-_fleet       = {}       # ip → client dict
+_fleet: dict[str, dict[str, Any]] = {}       # ip → client dict
 _last_polled = None
 _poll_count  = 0
 

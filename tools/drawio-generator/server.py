@@ -6,9 +6,8 @@ from flask import Flask, request, jsonify, render_template
 try:
     from dotenv import load_dotenv
 except ImportError:
-    load_dotenv = None
-
-if load_dotenv:
+    pass
+else:
     load_dotenv()
 
 app = Flask(__name__)

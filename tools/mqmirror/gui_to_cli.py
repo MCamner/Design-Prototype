@@ -477,9 +477,11 @@ class _LiveHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(b'{"ok":true}')
             self.wfile.flush()
-            threading.Thread(
-                target=lambda: (time.sleep(0.5), os._exit(0)), daemon=True
-            ).start()
+            def stop_process() -> None:
+                time.sleep(0.5)
+                os._exit(0)
+
+            threading.Thread(target=stop_process, daemon=True).start()
 
         else:
             self.send_response(404)
@@ -708,7 +710,7 @@ def osascript_result(script: str, timeout: float = 3.0) -> Dict[str, Any]:
 def frontmost_app_context_appkit(error: str = "") -> Dict[str, Any]:
     context: Dict[str, Any] = {"app": "", "bundle_id": "", "window_title": ""}
     try:
-        from AppKit import NSWorkspace  # type: ignore[import-untyped]
+        from AppKit import NSWorkspace  # type: ignore[import-not-found, import-untyped]
         app = NSWorkspace.sharedWorkspace().frontmostApplication()
         if app:
             context["app"]       = app.localizedName() or ""
@@ -1261,7 +1263,7 @@ def doctor() -> int:
         ("pbcopy",    shutil.which("pbcopy") or "-",    "ok" if shutil.which("pbcopy")    else "missing"),
     ]
     try:
-        import AppKit  # type: ignore[import-untyped]  # noqa: F401
+        import AppKit  # type: ignore[import-not-found, import-untyped]  # noqa: F401
         checks.append(("pyobjc", "ok", "optional AppKit fallback"))
     except ImportError:
         checks.append(("pyobjc", "missing", "optional — install: pip install pyobjc-framework-Cocoa"))
