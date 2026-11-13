@@ -4,6 +4,8 @@
 # Python
 __pycache__/
 *.pyc
+.venv/
+.mypy_cache/
 
 # Backups
 *.bak
